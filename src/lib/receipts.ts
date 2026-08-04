@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { detectPriceSpikes, type ProductPriceHistory } from "@/lib/priceSpikeAlerts";
 
 export interface UploadReceiptResult {
   receiptId: string;
@@ -60,6 +61,7 @@ export interface DraftItem {
 
 export interface ConfirmReceiptItemUpdate {
   id: string;
+  productId: string | null;
   rawNameEn: string;
   rawNameZh: string;
   quantity: number;
@@ -178,11 +180,85 @@ export async function confirmReceipt(
     }
   }
 
-  const { error: statusError } = await supabase
+  const { data: receiptRow, error: statusError } = await supabase
     .from("receipts")
     .update({ status: "confirmed" })
-    .eq("id", receiptId);
-  if (statusError) {
-    throw statusError;
+    .eq("id", receiptId)
+    .select("circle_id")
+    .single();
+  if (statusError || !receiptRow) {
+    throw statusError ?? new Error("Failed to confirm receipt");
+  }
+
+  await recordPriceSpikeAlerts(receiptRow.circle_id, receiptId, items);
+}
+
+// Section 13: after confirming, check each item's product for a >15% price
+// spike against its recent normal-price history (now including this
+// receipt, since it just flipped to confirmed) and log an alert.
+async function recordPriceSpikeAlerts(
+  circleId: string,
+  receiptId: string,
+  items: ConfirmReceiptItemUpdate[]
+): Promise<void> {
+  const productIds = [
+    ...new Set(
+      items
+        .filter((item) => item.productId && item.unitSpecValue != null && item.unitSpecUnit)
+        .map((item) => item.productId as string)
+    ),
+  ];
+  if (productIds.length === 0) {
+    return;
+  }
+
+  const histories: ProductPriceHistory[] = [];
+  for (const productId of productIds) {
+    const { data: rows, error } = await supabase
+      .from("receipt_items")
+      .select(
+        "unit_price, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, status)"
+      )
+      .eq("product_id", productId)
+      .eq("receipts.status", "confirmed")
+      .order("purchase_date", { foreignTable: "receipts", ascending: true });
+    if (error) {
+      throw error;
+    }
+
+    const purchases = ((rows ?? []) as unknown as Array<{
+      unit_price: number;
+      unit_spec_value: number | null;
+      unit_spec_unit: string | null;
+      is_promotion: boolean;
+    }>)
+      .filter((row) => row.unit_spec_value != null && row.unit_spec_unit)
+      .map((row) => ({
+        unitPrice: row.unit_price,
+        specValue: row.unit_spec_value as number,
+        specUnit: row.unit_spec_unit as string,
+        isPromotion: row.is_promotion,
+      }));
+
+    histories.push({ productId, purchases });
+  }
+
+  const spikes = detectPriceSpikes(histories);
+  if (spikes.length === 0) {
+    return;
+  }
+
+  const { error: alertsError } = await supabase.from("alerts").insert(
+    spikes.map((spike) => ({
+      circle_id: circleId,
+      type: "price_spike",
+      product_id: spike.productId,
+      receipt_id: receiptId,
+      new_price: spike.newPrice,
+      change_percent: spike.changePercent,
+    }))
+  );
+  if (alertsError) {
+    throw alertsError;
   }
 }

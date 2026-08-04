@@ -185,7 +185,24 @@ const SAMPLE_ITEM_UPDATE = {
   originalPrice: null,
   isPromotion: false,
   subtotal: 4.2,
+  productId: null,
 };
+
+function updateEqSelectSingleChain(result: { data: unknown; error: unknown }) {
+  const single = vi.fn().mockResolvedValue(result);
+  const select = vi.fn(() => ({ single }));
+  const eq = vi.fn(() => ({ select }));
+  const update = vi.fn(() => ({ eq }));
+  return { update, eq, select, single };
+}
+
+function receiptItemsHistoryChain(result: { data: unknown; error: unknown }) {
+  const order = vi.fn().mockResolvedValue(result);
+  const eqStatus = vi.fn(() => ({ order }));
+  const eqProductId = vi.fn(() => ({ eq: eqStatus }));
+  const select = vi.fn(() => ({ eq: eqProductId }));
+  return { select, eqProductId, eqStatus, order };
+}
 
 describe("confirmReceipt", () => {
   beforeEach(() => {
@@ -194,7 +211,10 @@ describe("confirmReceipt", () => {
 
   it("writes each item's edited fields, then marks the receipt confirmed", async () => {
     const itemsChain = updateEqChain({ error: null });
-    const receiptsChain = updateEqChain({ error: null });
+    const receiptsChain = updateEqSelectSingleChain({
+      data: { circle_id: "circle-1" },
+      error: null,
+    });
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       if (table === "receipt_items") return itemsChain as never;
@@ -232,5 +252,82 @@ describe("confirmReceipt", () => {
 
     await expect(confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE])).rejects.toThrow("RLS denied");
     expect(receiptsUpdate).not.toHaveBeenCalled();
+  });
+
+  it("records a price_spike alert when a confirmed item's price exceeds the 15% threshold", async () => {
+    const itemUpdateEq = vi.fn().mockResolvedValue({ error: null });
+    const historyChain = receiptItemsHistoryChain({
+      data: [
+        { unit_price: 4.0, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false },
+        { unit_price: 5.0, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false },
+      ],
+      error: null,
+    });
+    const receiptItemsMock = {
+      update: vi.fn(() => ({ eq: itemUpdateEq })),
+      select: historyChain.select,
+    };
+    const receiptsChain = updateEqSelectSingleChain({
+      data: { circle_id: "circle-9" },
+      error: null,
+    });
+    const alertsInsert = vi.fn().mockResolvedValue({ error: null });
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "receipt_items") return receiptItemsMock as never;
+      if (table === "receipts") return receiptsChain as never;
+      if (table === "alerts") return { insert: alertsInsert } as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    await confirmReceipt("receipt-1", [
+      { ...SAMPLE_ITEM_UPDATE, productId: "product-1", unitPrice: 5.0 },
+    ]);
+
+    expect(historyChain.eqProductId).toHaveBeenCalledWith("product_id", "product-1");
+    expect(historyChain.eqStatus).toHaveBeenCalledWith("receipts.status", "confirmed");
+    expect(alertsInsert).toHaveBeenCalledWith([
+      {
+        circle_id: "circle-9",
+        type: "price_spike",
+        product_id: "product-1",
+        receipt_id: "receipt-1",
+        new_price: 5.0,
+        change_percent: 25,
+      },
+    ]);
+  });
+
+  it("does not record an alert when the price change is within the threshold", async () => {
+    const itemUpdateEq = vi.fn().mockResolvedValue({ error: null });
+    const historyChain = receiptItemsHistoryChain({
+      data: [
+        { unit_price: 4.0, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false },
+        { unit_price: 4.1, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false },
+      ],
+      error: null,
+    });
+    const receiptItemsMock = {
+      update: vi.fn(() => ({ eq: itemUpdateEq })),
+      select: historyChain.select,
+    };
+    const receiptsChain = updateEqSelectSingleChain({
+      data: { circle_id: "circle-9" },
+      error: null,
+    });
+    const alertsInsert = vi.fn();
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "receipt_items") return receiptItemsMock as never;
+      if (table === "receipts") return receiptsChain as never;
+      if (table === "alerts") return { insert: alertsInsert } as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    await confirmReceipt("receipt-1", [
+      { ...SAMPLE_ITEM_UPDATE, productId: "product-1", unitPrice: 4.1 },
+    ]);
+
+    expect(alertsInsert).not.toHaveBeenCalled();
   });
 });

@@ -38,6 +38,7 @@ export default function ReceiptReview() {
         receiptId,
         items.map((item) => ({
           id: item.id,
+          productId: item.productId,
           rawNameEn: item.rawNameEn,
           rawNameZh: item.rawNameZh,
           quantity: item.quantity,
