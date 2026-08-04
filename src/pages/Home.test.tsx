@@ -41,7 +41,7 @@ describe("Home", () => {
 
     expect(await screen.findByText("$33.50")).toBeInTheDocument();
     expect(screen.getByText(/Food - Fresh Produce/)).toBeInTheDocument();
-    expect(screen.getByText(/3 条待处理提醒/)).toBeInTheDocument();
+    expect(screen.getByText(/3 pending alerts/)).toBeInTheDocument();
     expect(screen.getByText(/Countdown/)).toBeInTheDocument();
   });
 
@@ -59,8 +59,8 @@ describe("Home", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/no data yet|暂无数据/i)).toBeInTheDocument();
-    expect(screen.getByText(/no receipts yet|暂无小票/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no data yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/no receipts yet/i)).toBeInTheDocument();
   });
 
   it("shows an error message when loading fails", async () => {

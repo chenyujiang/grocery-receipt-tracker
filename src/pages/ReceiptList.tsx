@@ -2,8 +2,8 @@
 export default function ReceiptList() {
   return (
     <div className="page">
-      <h1>小票列表 Receipts</h1>
-      <p>按店铺/日期/上传人筛选历史小票。</p>
+      <h1>Receipts</h1>
+      <p>Filter historical receipts by store, date, or uploader.</p>
     </div>
   );
 }

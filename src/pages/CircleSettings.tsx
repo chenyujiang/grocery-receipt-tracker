@@ -22,11 +22,11 @@ export default function CircleSettings() {
 
   return (
     <div className="page">
-      <h1>圈子设置 Circle Settings</h1>
-      <p>成员管理、邀请链接、语言切换开关（第 7 节）。</p>
+      <h1>Circle Settings</h1>
+      <p>Member management, invite links, language toggle (Section 7).</p>
       {error && <p role="alert">{error}</p>}
       <button type="button" onClick={handleSignOut} disabled={signingOut}>
-        {signingOut ? "退出中… Signing out…" : "退出登录 Sign out"}
+        {signingOut ? "Signing out…" : "Sign out"}
       </button>
     </div>
   );

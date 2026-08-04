@@ -6,13 +6,13 @@ export default function ProductDetail() {
   const { productId } = useParams();
   return (
     <div className="page">
-      <h1>商品详情 Product Detail</h1>
+      <h1>Product Detail</h1>
       <p>product_id: {productId}</p>
       <ul>
-        <li>价格趋势图 Price trend chart（第 10 节）</li>
-        <li>多店铺比价 Multi-store comparison（第 11 节）</li>
-        <li>消耗速度 / 预计剩余天数 Consumption rate（第 12 节）</li>
-        <li>购买历史 Purchase history</li>
+        <li>Price trend chart (Section 10)</li>
+        <li>Multi-store comparison (Section 11)</li>
+        <li>Consumption rate / estimated days remaining (Section 12)</li>
+        <li>Purchase history</li>
       </ul>
     </div>
   );

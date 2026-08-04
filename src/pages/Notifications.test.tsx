@@ -41,7 +41,7 @@ describe("Notifications", () => {
 
     render(<MemoryRouter><Notifications /></MemoryRouter>);
 
-    expect(await screen.findByText(/no alerts|暂无提醒/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no alerts/i)).toBeInTheDocument();
   });
 
   it("shows an error message when loading fails", async () => {

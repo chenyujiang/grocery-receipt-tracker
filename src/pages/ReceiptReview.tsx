@@ -69,14 +69,14 @@ export default function ReceiptReview() {
   if (!draft) {
     return (
       <div className="page">
-        <p>加载中… Loading…</p>
+        <p>Loading…</p>
       </div>
     );
   }
 
   return (
     <div className="page">
-      <h1>确认小票 Confirm Receipt</h1>
+      <h1>Confirm Receipt</h1>
       <p>
         {draft.storeNameZh} {draft.storeNameEn} · {draft.purchaseDate}
       </p>
@@ -84,21 +84,21 @@ export default function ReceiptReview() {
       {items.map((item, index) => (
         <fieldset key={item.id}>
           <label>
-            商品名 Name (EN)
+            Name (EN)
             <input
               value={item.rawNameEn}
               onChange={(event) => updateItem(index, "rawNameEn", event.target.value)}
             />
           </label>
           <label>
-            商品名 Name (ZH)
+            Name (ZH)
             <input
               value={item.rawNameZh}
               onChange={(event) => updateItem(index, "rawNameZh", event.target.value)}
             />
           </label>
           <label>
-            数量 Quantity
+            Quantity
             <input
               type="number"
               value={item.quantity}
@@ -106,7 +106,7 @@ export default function ReceiptReview() {
             />
           </label>
           <label>
-            单价 Unit price
+            Unit price
             <input
               type="number"
               value={item.unitPrice}
@@ -119,14 +119,14 @@ export default function ReceiptReview() {
               checked={item.isPromotion}
               onChange={(event) => updateItem(index, "isPromotion", event.target.checked)}
             />
-            促销价 Promotion
+            Promotion
           </label>
-          <p>分类 Category: {item.category ?? "—"}</p>
+          <p>Category: {item.category ?? "—"}</p>
         </fieldset>
       ))}
 
       <button type="button" onClick={handleConfirm} disabled={confirming}>
-        {confirming ? "确认中… Confirming…" : "确认 Confirm"}
+        {confirming ? "Confirming…" : "Confirm"}
       </button>
     </div>
   );

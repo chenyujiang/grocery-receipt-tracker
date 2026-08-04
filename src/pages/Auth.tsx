@@ -11,14 +11,14 @@ export default function Auth() {
 
   return (
     <div className="page">
-      <h1>{mode === "signin" ? "登录 Sign In" : "注册 Sign Up"}</h1>
+      <h1>{mode === "signin" ? "Sign In" : "Sign Up"}</h1>
       {mode === "signin" ? (
         <SignInForm onSuccess={() => navigate("/")} />
       ) : (
         <SignUpForm onSuccess={() => navigate("/")} />
       )}
       <button type="button" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
-        {mode === "signin" ? "还没有账号？注册 Sign up instead" : "已有账号？登录 Sign in instead"}
+        {mode === "signin" ? "Sign up instead" : "Sign in instead"}
       </button>
     </div>
   );

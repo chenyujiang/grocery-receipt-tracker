@@ -73,7 +73,7 @@ describe("ReceiptReview", () => {
     const quantityInput = await screen.findByLabelText(/quantity|数量/i);
     await userEvent.clear(quantityInput);
     await userEvent.type(quantityInput, "2");
-    await userEvent.click(screen.getByRole("button", { name: /confirm|确认/i }));
+    await userEvent.click(screen.getByRole("button", { name: /confirm/i }));
 
     expect(await screen.findByText("Home stub")).toBeInTheDocument();
     expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", [

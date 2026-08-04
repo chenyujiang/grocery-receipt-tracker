@@ -20,7 +20,7 @@ describe("CircleSettings", () => {
     vi.mocked(signOut).mockResolvedValue(undefined);
 
     render(<CircleSettings />);
-    await userEvent.click(screen.getByRole("button", { name: /sign out|退出登录/i }));
+    await userEvent.click(screen.getByRole("button", { name: /sign out/i }));
 
     expect(signOut).toHaveBeenCalled();
   });
@@ -29,7 +29,7 @@ describe("CircleSettings", () => {
     vi.mocked(signOut).mockRejectedValue(new Error("network error"));
 
     render(<CircleSettings />);
-    await userEvent.click(screen.getByRole("button", { name: /sign out|退出登录/i }));
+    await userEvent.click(screen.getByRole("button", { name: /sign out/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("network error");
   });

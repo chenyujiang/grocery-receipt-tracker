@@ -28,7 +28,7 @@ export default function ReceiptUpload() {
 
   return (
     <div className="page">
-      <h1>拍照上传 Upload Receipt</h1>
+      <h1>Upload Receipt</h1>
       <label className="upload-control">
         <input
           type="file"
@@ -37,7 +37,7 @@ export default function ReceiptUpload() {
           onChange={handleFileChange}
           disabled={uploading}
         />
-        {uploading ? "识别中… Recognizing…" : "拍照 / 选择图片 · Take photo / choose image"}
+        {uploading ? "Recognizing…" : "Take photo / choose image"}
       </label>
       {error && <p role="alert">{error}</p>}
     </div>
