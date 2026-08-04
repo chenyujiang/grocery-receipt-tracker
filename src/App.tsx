@@ -4,6 +4,7 @@ import RequireAuth from "@/components/RequireAuth";
 import Auth from "@/pages/Auth";
 import Home from "@/pages/Home";
 import ReceiptUpload from "@/pages/ReceiptUpload";
+import ReceiptReview from "@/pages/ReceiptReview";
 import ReceiptList from "@/pages/ReceiptList";
 import ProductDetail from "@/pages/ProductDetail";
 import MonthlyReport from "@/pages/MonthlyReport";
@@ -20,6 +21,7 @@ function AppShell() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/upload" element={<ReceiptUpload />} />
+            <Route path="/receipts/:receiptId/review" element={<ReceiptReview />} />
             <Route path="/receipts" element={<ReceiptList />} />
             <Route path="/products/:productId" element={<ProductDetail />} />
             <Route path="/report" element={<MonthlyReport />} />

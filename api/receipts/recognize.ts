@@ -112,7 +112,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { receiptId } = await saveDraftReceipt({
     circleId,
-    uploadedBy: user.email ?? "",
+    // receipts.uploaded_by is `uuid references auth.users(id)`, not email —
+    // RLS policies compare it against auth.uid() (see migration 000003).
+    uploadedBy: user.id,
     originalImageUrl: storagePath,
     receipt,
   });
