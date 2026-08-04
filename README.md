@@ -1,8 +1,6 @@
 # Grocery Receipt Tracker
 
-家庭超市小票记账与价格追踪 App。完整需求文档见 `.scratch/grocery-receipt-tracker/spec.md`（或排版好的 `spec.html`）。
-
-Full requirements are in `.scratch/grocery-receipt-tracker/spec.md` (or the formatted `spec.html`).
+A family-shared web app for photographing grocery receipts and tracking spending/unit-price trends. Full requirements are in `.scratch/grocery-receipt-tracker/spec.md` (or the formatted `spec.html`); the Chinese translation is `spec_zh.md`.
 
 ## Stack
 
@@ -26,6 +24,8 @@ Project: **Eason's Project** (`xflabzrcowhqjvvwjrbt`, `ap-southeast-2`) in the `
 - `CLAUDE_API_KEY` — from the Anthropic console, also server-side only.
 
 Schema (`supabase/migrations/`) mirrors spec.md Section 5: `circles`, `profiles`, `categories` (seeded with the 9 fixed categories), `products`, `receipts`, `receipt_items`, `edit_logs`. RLS is enabled on every table — members can see everything in their circle, but can only edit/delete rows they uploaded themselves (Sections 2, 4). The `receipts` storage bucket is private, path-scoped by `circle_id`.
+
+There's also `ai_spend_limit` — a singleton row tracking cumulative Claude API spend against a **global hard cap (default $1)**. It's not per-user or per-call-count: once `spent_usd` reaches `cap_usd`, the backend is meant to refuse further OCR calls (see the `TODO`s in `api/receipts/recognize.ts`) until a circle owner manually raises `cap_usd` — nothing resets it automatically. Model choice is **Claude Haiku 4.5** (`claude-haiku-4-5`), picked for cost — structured extraction doesn't need Opus/Sonnet-tier pricing.
 
 Not yet handled: the invite-link "join an existing circle" flow (ticket 02 deferred its exact mechanism to development) — right now the schema only supports the self-service "sign up → become owner of a new circle" path via RLS. Joining via invite will need a service-role server function once the token mechanism is designed.
 
