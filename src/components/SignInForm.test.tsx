@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 vi.mock("@/lib/supabaseClient", () => ({
   supabase: {
     auth: { signInWithPassword: vi.fn() },
+    from: vi.fn(),
   },
 }));
 
@@ -20,6 +21,16 @@ describe("SignInForm", () => {
     vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
       data: { user: { id: "user-1" }, session: { access_token: "tok-1" } },
       error: null,
+    } as never);
+    // ensureProfile's existence check — this user already has a profile, so
+    // sign-in should short-circuit without touching circles/profiles inserts.
+    vi.mocked(supabase.from).mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            Promise.resolve({ data: { user_id: "user-1" }, error: null }),
+        }),
+      }),
     } as never);
 
     const onSuccess = vi.fn();

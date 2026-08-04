@@ -43,11 +43,49 @@ interface SignInResult {
   accessToken: string;
 }
 
+// Signing up creates the circle/profile in the same call (see signUpWithEmail
+// above), but that only works if Supabase already issued a session at that
+// point. With email confirmation turned on, signUp returns no session until
+// the user clicks the confirmation link — so the circle/profile insert never
+// happens, and the user ends up with a confirmed login but no profile. This
+// repairs that gap on sign-in instead of requiring email confirmation to be
+// disabled.
+async function ensureProfile(userId: string): Promise<void> {
+  const { data: existing, error: lookupError } = await supabase
+    .from("profiles")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (lookupError) {
+    throw lookupError;
+  }
+  if (existing) {
+    return;
+  }
+
+  const { data: circle, error: circleError } = await supabase
+    .from("circles")
+    .insert({})
+    .select()
+    .single();
+  if (circleError || !circle) {
+    throw circleError ?? new Error("Failed to create circle");
+  }
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .insert({ user_id: userId, circle_id: circle.id, role: "owner" });
+  if (profileError) {
+    throw profileError;
+  }
+}
+
 export async function signInWithEmail(email: string, password: string): Promise<SignInResult> {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user || !data.session) {
     throw error ?? new Error("Sign-in did not return a session");
   }
+  await ensureProfile(data.user.id);
   return { userId: data.user.id, accessToken: data.session.access_token };
 }
 

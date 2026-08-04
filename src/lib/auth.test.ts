@@ -20,6 +20,14 @@ function insertChain(result: { data: unknown; error: unknown }) {
   return { insert };
 }
 
+function profilesLookupChain(existing: { data: unknown; error: unknown }) {
+  const maybeSingle = vi.fn().mockResolvedValue(existing);
+  const eq = vi.fn(() => ({ maybeSingle }));
+  const select = vi.fn(() => ({ eq }));
+  const insert = vi.fn().mockResolvedValue({ data: null, error: null });
+  return { select, insert };
+}
+
 describe("signUpWithEmail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -70,6 +78,9 @@ describe("signInWithEmail", () => {
       data: { user: { id: "user-1" }, session: { access_token: "tok-1" } },
       error: null,
     } as never);
+    vi.mocked(supabase.from).mockImplementation(
+      () => profilesLookupChain({ data: { user_id: "user-1" }, error: null }) as never
+    );
 
     const result = await signInWithEmail("returning@example.com", "hunter2pass");
 
@@ -85,6 +96,57 @@ describe("signInWithEmail", () => {
     await expect(signInWithEmail("returning@example.com", "wrongpass")).rejects.toThrow(
       "Invalid login credentials"
     );
+  });
+
+  it("creates a circle and an owner profile if the signed-in user doesn't have one yet", async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: { id: "user-2" }, session: { access_token: "tok-2" } },
+      error: null,
+    } as never);
+
+    const profilesChain = profilesLookupChain({ data: null, error: null });
+    const circlesChain = insertChain({ data: { id: "circle-9" }, error: null });
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "profiles") return profilesChain as never;
+      if (table === "circles") return circlesChain as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    const result = await signInWithEmail("confirmed-late@example.com", "hunter2pass");
+
+    expect(result).toEqual({ userId: "user-2", accessToken: "tok-2" });
+    expect(circlesChain.insert).toHaveBeenCalled();
+    expect(profilesChain.insert).toHaveBeenCalledWith({
+      user_id: "user-2",
+      circle_id: "circle-9",
+      role: "owner",
+    });
+  });
+
+  it("does not create a new circle if the signed-in user already has a profile", async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: { id: "user-3" }, session: { access_token: "tok-3" } },
+      error: null,
+    } as never);
+
+    const profilesChain = profilesLookupChain({
+      data: { user_id: "user-3" },
+      error: null,
+    });
+    const circlesInsert = vi.fn();
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "profiles") return profilesChain as never;
+      if (table === "circles") return { insert: circlesInsert } as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    const result = await signInWithEmail("already-set-up@example.com", "hunter2pass");
+
+    expect(result).toEqual({ userId: "user-3", accessToken: "tok-3" });
+    expect(circlesInsert).not.toHaveBeenCalled();
+    expect(profilesChain.insert).not.toHaveBeenCalled();
   });
 });
 
