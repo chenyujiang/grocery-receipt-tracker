@@ -1,0 +1,494 @@
+<title>需求规划地图 · wayfinder map</title>
+<style>
+  :root{
+    --bg:#faf7f1;
+    --surface:#ffffff;
+    --surface-2:#f2ede1;
+    --ink:#2b2820;
+    --ink-muted:#8a8372;
+    --accent:#3f6e5c;
+    --accent-ink:#2e5346;
+    --border:#e6dfcf;
+    --chip-bg:rgba(63,110,92,.08);
+    --code-ink:#4a4638;
+    --muted-border:#d8d0bd;
+    --shadow: 0 1px 2px rgba(43,40,32,.04);
+  }
+  :root[data-theme="dark"]{
+    --bg:#1b1a16;
+    --surface:#221f19;
+    --surface-2:#282419;
+    --ink:#ede8db;
+    --ink-muted:#9c9583;
+    --accent:#7fb4a0;
+    --accent-ink:#9bcab8;
+    --border:#34312a;
+    --chip-bg:rgba(127,180,160,.14);
+    --code-ink:#d8d2bf;
+    --muted-border:#3d392f;
+    --shadow: 0 1px 2px rgba(0,0,0,.3);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1b1a16;
+      --surface:#221f19;
+      --surface-2:#282419;
+      --ink:#ede8db;
+      --ink-muted:#9c9583;
+      --accent:#7fb4a0;
+      --accent-ink:#9bcab8;
+      --border:#34312a;
+      --chip-bg:rgba(127,180,160,.14);
+      --code-ink:#d8d2bf;
+      --muted-border:#3d392f;
+      --shadow: 0 1px 2px rgba(0,0,0,.3);
+    }
+  }
+
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei","Segoe UI",sans-serif;
+    line-height:1.65;
+    font-size:16px;
+  }
+  ::selection{ background:var(--chip-bg); color:var(--accent-ink); }
+
+  h1,h2{
+    font-family:"Iowan Old Style","Songti SC","Noto Serif SC",Georgia,serif;
+    font-weight:600;
+    text-wrap:balance;
+    color:var(--ink);
+    margin:0;
+  }
+
+  code{
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:.9em;
+    color:var(--code-ink);
+    background:var(--chip-bg);
+    padding:.1em .38em;
+    border-radius:4px;
+    white-space:nowrap;
+  }
+
+  .wrap{ max-width:800px; margin:0 auto; padding:64px 28px 100px; }
+
+  .eyebrow{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:12.5px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--ink-muted);
+    margin-bottom:18px;
+  }
+  .eyebrow .dot{ width:6px;height:6px;border-radius:50%;background:var(--accent); }
+
+  h1{
+    font-size:clamp(26px,4vw,36px);
+    line-height:1.28;
+    margin-bottom:6px;
+  }
+  h1 .en{
+    display:block;
+    font-style:italic;
+    font-weight:400;
+    color:var(--ink-muted);
+    font-size:.56em;
+    margin-top:6px;
+  }
+
+  .destination{
+    margin-top:26px;
+    padding:22px 24px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-left:3px solid var(--accent);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+  }
+  .destination .label{
+    display:block;
+    font-size:11.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+    font-weight:700;
+    margin-bottom:10px;
+  }
+  .destination p.zh{ margin:0 0 4px; max-width:64ch; }
+  .destination p.en{ margin:0 0 12px; max-width:64ch; color:var(--ink-muted); font-size:14.5px; }
+  .destination p:last-child{ margin-bottom:0; }
+
+  .meta-strip{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 22px;
+    margin-top:26px;
+    padding-top:20px;
+    border-top:1px dashed var(--border);
+    font-size:13px;
+    color:var(--ink-muted);
+  }
+  .meta-strip b{ color:var(--ink); font-weight:600; }
+  .tag{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:var(--chip-bg);
+    color:var(--accent-ink);
+    padding:3px 10px;
+    border-radius:100px;
+    font-size:12px;
+    font-weight:600;
+  }
+
+  nav.pillnav{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin:36px 0 8px;
+    position:sticky;
+    top:0;
+    background:var(--bg);
+    padding:14px 0;
+    z-index:5;
+  }
+  nav.pillnav a{
+    font-size:13px;
+    color:var(--ink-muted);
+    text-decoration:none;
+    padding:6px 13px;
+    border-radius:100px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    transition:color .15s, border-color .15s;
+  }
+  nav.pillnav a:hover{ color:var(--accent-ink); border-color:var(--accent); }
+
+  section{ padding:40px 0; border-bottom:1px solid var(--border); }
+  section:last-child{ border-bottom:none; }
+
+  .sec-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:22px; }
+  .sec-head h2{ font-size:20px; }
+  .sec-head .en{ font-family:"Iowan Old Style","Songti SC","Noto Serif SC",Georgia,serif; font-style:italic; font-weight:400; color:var(--ink-muted); font-size:15px; }
+  .sec-head .count{
+    margin-left:auto;
+    font-size:12.5px;
+    color:var(--ink-muted);
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* Notes: quiet checklist of standing facts */
+  ul.notes{ list-style:none; margin:0; padding:0; }
+  ul.notes > li{ position:relative; padding-left:20px; margin-bottom:16px; }
+  ul.notes > li:last-child{ margin-bottom:0; }
+  ul.notes > li::before{ content:"–"; position:absolute; left:0; color:var(--accent); }
+  ul.notes p.zh{ margin:0 0 2px; max-width:66ch; }
+  ul.notes p.en{ margin:0; max-width:66ch; color:var(--ink-muted); font-size:14px; }
+
+  /* Decisions so far: resolved ticket list */
+  ol.decisions{ list-style:none; margin:0; padding:0; counter-reset:none; }
+  .decision{
+    display:grid;
+    grid-template-columns:auto 1fr;
+    gap:14px;
+    padding:18px 0;
+    border-top:1px solid var(--border);
+  }
+  .decision:first-child{ border-top:none; padding-top:0; }
+  .decision-badge{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    width:40px;
+    padding-top:2px;
+  }
+  .decision-num{
+    font-family:ui-monospace,"SF Mono",Consolas,monospace;
+    font-size:12px;
+    color:var(--ink-muted);
+    font-variant-numeric:tabular-nums;
+  }
+  .decision-check{
+    width:20px;height:20px;border-radius:50%;
+    background:var(--accent);
+    color:var(--bg);
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;
+    flex-shrink:0;
+  }
+  .decision-title{
+    font-weight:600;
+    font-size:15.5px;
+    margin-bottom:2px;
+  }
+  .decision-title a{ color:var(--ink); text-decoration:none; border-bottom:1px solid var(--muted-border); }
+  .decision-title a:hover{ color:var(--accent-ink); border-color:var(--accent); }
+  .decision-title .en-title{
+    display:block;
+    font-style:italic;
+    font-weight:400;
+    color:var(--ink-muted);
+    font-size:.78em;
+    margin-top:2px;
+  }
+  .decision p.zh{ margin:8px 0 2px; max-width:64ch; }
+  .decision p.en{ margin:0; max-width:64ch; color:var(--ink-muted); font-size:14px; }
+
+  /* empty state */
+  .empty-state{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:20px 22px;
+    background:var(--surface);
+    border:1px dashed var(--border);
+    border-radius:10px;
+    color:var(--ink-muted);
+  }
+  .empty-state .check{
+    width:26px;height:26px;border-radius:50%;
+    background:var(--chip-bg);
+    color:var(--accent-ink);
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;
+    flex-shrink:0;
+  }
+  .empty-state strong{ color:var(--ink); }
+
+  /* out of scope: quiet, deliberately excluded */
+  .oos-item{
+    padding:16px 18px;
+    border:1px dashed var(--muted-border);
+    border-radius:10px;
+    background:var(--surface);
+    opacity:.85;
+  }
+  .oos-item p.zh{ margin:0 0 4px; max-width:64ch; text-decoration:line-through; text-decoration-color:var(--muted-border); text-decoration-thickness:1.5px; }
+  .oos-item p.en{ margin:0; max-width:64ch; color:var(--ink-muted); font-size:14px; }
+
+  footer{
+    max-width:800px;
+    margin:0 auto;
+    padding:0 28px 80px;
+    color:var(--ink-muted);
+    font-size:13px;
+    display:flex;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+
+  @media (max-width:520px){
+    .wrap{ padding:44px 20px 80px; }
+    section{ padding:30px 0; }
+  }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow"><span class="dot"></span> Wayfinder Map · grocery-receipt-tracker</div>
+  <h1>需求规划地图<span class="en">Requirements Planning Map</span></h1>
+
+  <div class="destination">
+    <span class="label">目的地 · Destination</span>
+    <p class="zh">产出一份完整的产品需求文档（spec）：面向家庭共享使用的"超市小票拍照记账 + 单价追踪"应用，支持中英双语数据内容。</p>
+    <p class="en">Produce a complete product requirements document (spec): a family-shared "photograph grocery receipts to track spending and unit prices" web app that supports bilingual (Chinese/English) data content.</p>
+    <p class="zh">文档需定义清楚功能范围、核心数据结构、AI 识别（多模态大模型 OCR）方案、商品匹配与分类逻辑、月度涨幅对比、消耗速度分析、中英双语翻译机制，以及价格异常提醒、库存快用完提醒、隐性涨价识别、多店铺比价、数据导出/月度报告这几项附加功能。</p>
+    <p class="en">The document must clearly define the feature scope, core data structures, the AI recognition (multimodal LLM OCR) approach, product matching and categorization logic, monthly price-change comparison, consumption-rate analysis, the bilingual translation mechanism, and the additional features: price-spike alerts, low-stock alerts, hidden price-hike detection, multi-store price comparison, and data export/monthly reports.</p>
+    <p class="zh">文档完成后交给开发阶段实现（不在本次规划范围内）。</p>
+    <p class="en">Once the document is complete, it will be handed off to the development phase for implementation (implementation itself is out of scope for this planning effort).</p>
+  </div>
+
+  <div class="meta-strip">
+    <span class="tag">✓ 14 / 14 resolved</span>
+    <span class="tag">雾已清空 · Fog cleared</span>
+    <span>地区 Region: <b>新西兰 New Zealand</b></span>
+    <span>产出物 Output: <b><a href="spec.html" style="color:inherit">spec.html</a></b></span>
+  </div>
+
+  <nav class="pillnav">
+    <a href="#notes">Notes</a>
+    <a href="#decisions">Decisions so far</a>
+    <a href="#fog">Not yet specified</a>
+    <a href="#oos">Out of scope</a>
+  </nav>
+
+  <section id="notes">
+    <div class="sec-head"><h2>Notes</h2><span class="en">前提与约定</span></div>
+    <ul class="notes">
+      <li><p class="zh">领域：个人/家庭消费记账 + 商品价格追踪。</p><p class="en">Domain: personal/family expense tracking + product price monitoring.</p></li>
+      <li><p class="zh">已定：小票文字识别方案使用多模态大模型（如 Claude / GPT-4V 一类），不走专用 OCR API 或自训练模型。</p><p class="en">Decided: receipt text recognition uses a multimodal LLM (e.g. the Claude / GPT-4V family), not a dedicated OCR API or a self-trained model.</p></li>
+      <li><p class="zh">已定：面向家庭共享使用（多人共同记录），非单人场景；且项目做完后计划开放给朋友使用，因此需要正式的账号注册体系，能支持多个互不相关的用户/群组各自使用（不只是单一家庭的邀请码模式）。</p><p class="en">Decided: built for family sharing (multiple people recording together), not a single-user scenario; the project is also planned to open up to friends after completion, so it needs a proper account/registration system that supports multiple independent users/groups, not just a single family's invite-code model.</p></li>
+      <li><p class="zh">已定：先做网页版（Web App），原生/跨平台 App 列入后续路线图，本轮不做。</p><p class="en">Decided: build the web app first; a native/cross-platform app is deferred to a future roadmap and is not part of this round.</p></li>
+      <li><p class="zh">已定：技术栈方向为 React.js + TypeScript + Node.js，部署 Vercel（前端/接口）+ Supabase（数据库/认证），GitHub 做版本控制。</p><p class="en">Decided: the tech stack direction is React.js + TypeScript + Node.js, deployed on Vercel (frontend/API) + Supabase (database/auth), with GitHub for version control.</p></li>
+      <li><p class="zh">已定：用户在新西兰，小票原文是英文（Countdown/New World/PAK'nSAVE 等新西兰超市），不是中文。</p><p class="en">Decided: the user is based in New Zealand, so receipts are originally in English (from supermarkets like Countdown, New World, PAK'nSAVE), not Chinese.</p></li>
+      <li><p class="zh">已定：产品需支持中英双语——动态数据内容（商品名、店铺名、分类标签）中英双语存储，<code>_en</code> 是 OCR 识别的英文原文，<code>_zh</code> 是同一次多模态大模型调用顺带翻译出的中文版本；界面固定文案（菜单、按钮）只做英文，不做切换。</p><p class="en">Decided: the product must support Chinese/English bilingual content — dynamic data (product names, store names, category labels) is stored bilingually, with <code>_en</code> being the OCR-recognized English source text and <code>_zh</code> the Chinese translation produced by that same multimodal-LLM call; fixed UI chrome (menus, buttons) is English-only, with no language switch.</p></li>
+      <li><p class="zh">沟通统一使用中文；地图和工单文档采用中英双语、逐句对照（中文在上，英文在下），呼应产品本身的双语需求。</p><p class="en">Communication is in Chinese throughout; the map and ticket documents are bilingual with sentence-by-sentence pairing (Chinese above, English below), mirroring the product's own bilingual requirement.</p></li>
+      <li><p class="zh">每张 ticket 优先用 <code>/grilling</code>（配合 <code>/domain-modeling</code> 沉淀术语和数据结构）解决；涉及外部技术选型对比时可临时借用 <code>/research</code>。</p><p class="en">Each ticket is preferentially resolved via <code>/grilling</code> (paired with <code>/domain-modeling</code> to capture terminology and data structures); <code>/research</code> may be borrowed temporarily when comparing external technology options.</p></li>
+    </ul>
+  </section>
+
+  <section id="decisions">
+    <div class="sec-head"><h2>Decisions so far</h2><span class="en">已解决</span><span class="count">14 tickets</span></div>
+    <ol class="decisions">
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">01</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/01-platform-choice.md">平台选型<span class="en-title">Platform choice</span></a></div>
+          <p class="zh">先做网页版，App 列入后续路线图；技术栈方向 React+TS+Node.js / Vercel+Supabase / GitHub。</p>
+          <p class="en">Build the web app first, native app deferred to a future roadmap; tech stack direction is React+TS+Node.js / Vercel+Supabase / GitHub.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">02</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/02-family-sharing-model.md">账号与共享模型<span class="en-title">Account &amp; sharing model</span></a></div>
+          <p class="zh">Supabase Auth 邮箱登录；一账号一圈子（默认上限 10 人）；owner/member 两级权限，member 只能改删自己的记录；邮箱邀请链接；店铺+日期+金额自动查重；购买人=登录邮箱。</p>
+          <p class="en">Supabase Auth email login; one account per circle (default cap 10 members); owner/member roles, members can only edit/delete their own records; email invite links; duplicate detection by store+date+amount; buyer field = login email.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">03</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/03-receipt-data-schema.md">小票数据结构<span class="en-title">Receipt data schema</span></a></div>
+          <p class="zh">拍照→AI 识别草稿→用户预览确认入库；Receipt/ReceiptItem/EditLog 三表结构，规格拆成数值+单位，促销单独标记原价；原图 Supabase Storage 保留 12 个月；拍照上传用标准 file input 控件，兼顾拍照与相册选图。</p>
+          <p class="en">Photo upload → AI draft → user reviews and confirms before it's saved; a Receipt/ReceiptItem/EditLog three-table structure, spec split into value+unit, promotions flagged with original price kept; original photos kept 12 months in Supabase Storage; upload uses a standard file input, covering both camera capture and gallery selection.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">04</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/04-category-taxonomy.md">分类体系<span class="en-title">Category taxonomy</span></a></div>
+          <p class="zh">两级固定预设分类目录（食品/日用品等 9 大类）；AI 只能从预设列表选，不自造类目；记住用户手动修正，同名商品自动沿用。</p>
+          <p class="en">A two-level, system-fixed category list (9 top-level categories such as food/household); AI must pick from the preset list, never invent categories; user corrections are remembered and auto-applied to the same product name.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">05</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/05-product-matching-strategy.md">商品匹配策略<span class="en-title">Product matching strategy</span></a></div>
+          <p class="zh">AI 建议匹配候选，用户在预览确认流程里确认/改；不处理条码；规格变化仍算同一商品，规格是购买记录的属性；新增 Product 表（<code>product_id</code>），06/07 号 ticket 按 <code>product_id</code> 分组统计，分类记忆的 key 也迁移到 <code>product_id</code>。</p>
+          <p class="en">AI suggests a match candidate, the user confirms/changes it in the existing preview flow; barcodes are not handled; spec changes still count as the same product, with spec as a per-purchase-record attribute; adds a Product table (<code>product_id</code>) that tickets 06/07 will group by, and category memory's key also migrates to <code>product_id</code>.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">06</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/06-price-change-calculation.md">涨幅计算逻辑<span class="en-title">Price-change calculation</span></a></div>
+          <p class="zh">和上一次购买价对比，排除促销行；按重量/体积统一换算成每 100g/100ml 比较，计数类不换算；页面展示涨幅榜单+单品趋势图+红涨绿跌配色。</p>
+          <p class="en">Compares against the last purchase price, excluding promotional rows; weight/volume units are normalized to a per-100g/100ml basis before comparing, count-based units are not normalized; the page shows a price-change leaderboard, a per-product trend chart, and red/green color coding for increases/decreases.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">07</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/07-consumption-rate-calculation.md">消耗速度计算<span class="en-title">Consumption-rate calculation</span></a></div>
+          <p class="zh">近 5 次购买滑动窗口（总量÷总天数）算日均消耗；不足 3 次购买不估算；预计剩余天数 &lt; 5 天触发提醒；完全自动推算，不需要用户手动标记用完/没用完。</p>
+          <p class="en">A sliding window of the last 5 purchases (total quantity ÷ total days) gives the average daily consumption rate; fewer than 3 purchases means no estimate is shown; a reminder triggers when estimated days remaining drops below 5; fully automatic, with no manual "used up / not used up" marking required.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">08</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/08-tech-stack-storage.md">技术栈与数据存储<span class="en-title">Tech stack &amp; storage</span></a></div>
+          <p class="zh">OCR+翻译用 Anthropic Claude API；调用必须经 Vercel Serverless Function 后端中转，API Key 不进前端；每人每月调用次数设上限；小票图片存私有 Supabase Storage bucket，靠签名 URL 访问。</p>
+          <p class="en">OCR + translation uses the Anthropic Claude API; calls must be proxied through a Vercel Serverless Function backend, keeping the API key out of the frontend; a per-user monthly call cap is set; receipt images live in a private Supabase Storage bucket, accessed via signed URLs.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">09</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/09-bilingual-content-strategy.md">中英双语策略<span class="en-title">Bilingual content strategy</span></a></div>
+          <p class="zh">仅动态数据内容双语（商品名/店铺名/分类），存成 <code>_zh</code>/<code>_en</code> 两列，<code>_en</code> 是 OCR 英文原文，<code>_zh</code> 是同一次大模型调用顺带产出的翻译；界面固定文案只做英文；连带更新了 03、04 号 ticket 的字段设计。</p>
+          <p class="en">Only dynamic data content is bilingual (product names/store names/categories), stored as <code>_zh</code>/<code>_en</code> columns, with <code>_en</code> as the OCR English source text and <code>_zh</code> as the translation produced by that same LLM call; fixed UI chrome is English-only; this required updating the field design of tickets 03 and 04.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">10</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/10-price-spike-alert-rules.md">价格异常提醒规则<span class="en-title">Price-spike alert rules</span></a></div>
+          <p class="zh">固定阈值涨幅 &gt; 15% 触发；每次确认小票立刻检查；圈子全员可见；应用内通知列表 + 按小票汇总的单封邮件；暂不做按商品静音。</p>
+          <p class="en">A fixed 15% increase triggers an alert; checked immediately after each receipt is confirmed; visible to all circle members; an in-app notification list plus a single email batched per receipt; per-product muting not built for now.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">11</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/11-low-stock-alert-rules.md">库存提醒规则<span class="en-title">Low-stock alert rules</span></a></div>
+          <p class="zh">每天定时任务扫描所有商品；用 <code>low_stock_alert_active</code> 标记只提醒一次，直到回升到阈值以上才重置；复用 10 号的应用内列表和邮件模板，同样全员可见。</p>
+          <p class="en">A daily scheduled job scans all products; a <code>low_stock_alert_active</code> flag ensures only one reminder per episode until it recovers above the threshold; reuses ticket 10's in-app list and email template, also visible to all members.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">13</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/13-multi-store-price-comparison.md">多店铺比价<span class="en-title">Multi-store price comparison</span></a></div>
+          <p class="zh">确认纳入范围；复用 06 号的促销过滤和单位换算规则，比每家店最新正常价；作为单品页面里紧挨价格趋势图的一个模块，而不是独立页面；只在一家店买过时不显示对比。</p>
+          <p class="en">Confirmed in scope; reuses ticket 06's promotion-filtering and unit-conversion rules, comparing each store's latest normal price; shown as a module on the per-product page next to the price trend chart, not a standalone page; no comparison is shown if the product has only been bought at one store.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">14</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/14-ui-structure-and-language-toggle.md">UI 结构与双语切换<span class="en-title">UI structure &amp; language toggle</span></a></div>
+          <p class="zh">页面清单（首页/拍照上传/小票列表/商品详情/月度报告/通知中心/圈子设置）；底部 Tab Bar 导航 + 悬浮拍照按钮；双语内容靠一个语言切换开关显示单一语言，界面固定文案不受影响；像素级视觉设计留给实现/原型阶段。</p>
+          <p class="en">Page list (home/photo upload/receipt list/product detail/monthly report/notification center/circle settings); bottom tab-bar navigation plus a floating photo-upload button; bilingual content is shown via a language toggle displaying one language at a time, with fixed UI chrome unaffected; pixel-level visual design is left for implementation/prototyping.</p>
+        </div>
+      </li>
+
+      <li class="decision">
+        <div class="decision-badge"><span class="decision-check">✓</span><span class="decision-num">12</span></div>
+        <div>
+          <div class="decision-title"><a href="issues/12-data-export-report-format.md">数据导出/报告格式<span class="en-title">Data export &amp; report format</span></a></div>
+          <p class="zh">CSV 逐条明细导出，整个圈子数据可选时间范围；独立的月度报告页汇总总支出环比、分类占比、涨幅榜单（复用 06 号）、提醒次数、按人支出分布，导出按钮就放在报告页上。</p>
+          <p class="en">CSV line-by-line export, whole-circle data with a selectable time range; a standalone monthly report page rolls up total spend vs. last month, category breakdown, the price-change leaderboard (reusing ticket 06), alert counts, and per-uploader spending, with the export button living on that same page.</p>
+        </div>
+      </li>
+
+    </ol>
+  </section>
+
+  <section id="fog">
+    <div class="sec-head"><h2>Not yet specified</h2><span class="en">尚不明确的雾</span></div>
+    <div class="empty-state">
+      <span class="check">✓</span>
+      <div>
+        <div><strong>（尚无）</strong> — 所有原本的雾都已经走完，图上没有遗留的模糊地带。</div>
+        <div>(None yet) — every patch of fog on this map has resolved into a decision; nothing remains unspecified.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="oos">
+    <div class="sec-head"><h2>Out of scope</h2><span class="en">明确排除</span></div>
+    <div class="oos-item">
+      <p class="zh">像素级视觉设计（配色细节之外的字体、间距、组件样式等）——14 号 ticket 定了页面清单和信息架构，但具体视觉呈现留给实现阶段或后续 <code>/prototype</code> 环节，不是这份需求文档要交付的深度。</p>
+      <p class="en">Pixel-level visual design (fonts, spacing, component styling beyond the color-coding already decided) — ticket 14 settled the page list and information architecture, but exact visual presentation is left for implementation or a later <code>/prototype</code> pass; it's not the depth this requirements document is meant to deliver.</p>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <span>grocery-receipt-tracker · wayfinder map</span>
+  <span>14/14 resolved · fog cleared · see spec.html</span>
+</footer>

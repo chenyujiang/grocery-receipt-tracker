@@ -1,0 +1,90 @@
+/* Minimal functional layout only — pixel-level visual design is explicitly
+   out of scope for this round (spec.md Section 2.3) and left for a later
+   implementation/prototyping pass. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-content {
+  flex: 1;
+  padding-bottom: 72px; /* clears the bottom nav */
+}
+
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.upload-control {
+  display: block;
+  border: 1px dashed #999;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.upload-control input {
+  display: block;
+  margin: 0 auto 8px;
+}
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #ddd;
+  background: #fff;
+  padding: 8px 0;
+}
+
+.bottom-nav a {
+  flex: 1;
+  text-align: center;
+  text-decoration: none;
+  color: #666;
+  font-size: 13px;
+}
+
+.bottom-nav a.active {
+  color: #000;
+  font-weight: 600;
+}
+
+.bottom-nav-spacer {
+  flex: 1.4;
+}
+
+.fab {
+  position: fixed;
+  bottom: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #222;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  text-decoration: none;
+  z-index: 10;
+}

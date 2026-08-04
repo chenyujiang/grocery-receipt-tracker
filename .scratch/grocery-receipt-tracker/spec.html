@@ -1,0 +1,791 @@
+<title>超市小票记账 App 需求文档 · Spec</title>
+<style>
+  :root{
+    --bg:#faf7f1;
+    --surface:#ffffff;
+    --surface-2:#f2ede1;
+    --ink:#2b2820;
+    --ink-muted:#8a8372;
+    --accent:#3f6e5c;
+    --accent-ink:#2e5346;
+    --border:#e6dfcf;
+    --chip-bg:rgba(63,110,92,.08);
+    --code-ink:#4a4638;
+    --shadow: 0 1px 2px rgba(43,40,32,.04);
+  }
+  :root[data-theme="dark"]{
+    --bg:#1b1a16;
+    --surface:#221f19;
+    --surface-2:#282419;
+    --ink:#ede8db;
+    --ink-muted:#9c9583;
+    --accent:#7fb4a0;
+    --accent-ink:#9bcab8;
+    --border:#34312a;
+    --chip-bg:rgba(127,180,160,.14);
+    --code-ink:#d8d2bf;
+    --shadow: 0 1px 2px rgba(0,0,0,.3);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1b1a16;
+      --surface:#221f19;
+      --surface-2:#282419;
+      --ink:#ede8db;
+      --ink-muted:#9c9583;
+      --accent:#7fb4a0;
+      --accent-ink:#9bcab8;
+      --border:#34312a;
+      --chip-bg:rgba(127,180,160,.14);
+      --code-ink:#d8d2bf;
+      --shadow: 0 1px 2px rgba(0,0,0,.3);
+    }
+  }
+
+  *{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei","Segoe UI",sans-serif;
+    line-height:1.65;
+    font-size:16px;
+  }
+  ::selection{ background:var(--chip-bg); color:var(--accent-ink); }
+
+  h1,h2,h3{
+    font-family:"Iowan Old Style","Songti SC","Noto Serif SC",Georgia,serif;
+    font-weight:600;
+    text-wrap:balance;
+    color:var(--ink);
+    margin:0;
+  }
+
+  code, .field, .fields td:first-child code{
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:.9em;
+    color:var(--code-ink);
+    background:var(--chip-bg);
+    padding:.1em .38em;
+    border-radius:4px;
+    white-space:nowrap;
+  }
+
+  /* ---- masthead ---- */
+  .masthead{
+    max-width:920px;
+    margin:0 auto;
+    padding:64px 28px 36px;
+  }
+  .eyebrow{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:12.5px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    color:var(--ink-muted);
+    margin-bottom:18px;
+  }
+  .eyebrow .dot{ width:6px;height:6px;border-radius:50%;background:var(--accent); }
+  .masthead h1{
+    font-size:clamp(28px,4vw,40px);
+    line-height:1.25;
+    margin-bottom:6px;
+  }
+  .masthead h1 .en{
+    display:block;
+    font-family:"Iowan Old Style","Songti SC","Noto Serif SC",Georgia,serif;
+    font-weight:400;
+    font-style:italic;
+    color:var(--ink-muted);
+    font-size:.56em;
+    margin-top:6px;
+  }
+  .masthead .lede{
+    max-width:62ch;
+    margin-top:22px;
+    color:var(--ink);
+  }
+  .masthead .lede .en{
+    color:var(--ink-muted);
+    font-size:.93em;
+    margin-top:.4em;
+  }
+  .meta-strip{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 22px;
+    margin-top:28px;
+    padding-top:20px;
+    border-top:1px dashed var(--border);
+    font-size:13px;
+    color:var(--ink-muted);
+  }
+  .meta-strip b{ color:var(--ink); font-weight:600; }
+  .meta-strip .tag{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:var(--chip-bg);
+    color:var(--accent-ink);
+    padding:3px 10px;
+    border-radius:100px;
+    font-size:12px;
+    font-weight:600;
+  }
+
+  /* ---- layout ---- */
+  .layout{
+    max-width:920px;
+    margin:0 auto;
+    padding:0 28px 120px;
+    display:grid;
+    grid-template-columns:200px minmax(0,1fr);
+    gap:48px;
+    align-items:start;
+  }
+  @media (max-width:820px){
+    .layout{ grid-template-columns:1fr; }
+    nav.toc{ position:static !important; order:2; }
+    main{ order:1; }
+  }
+
+  nav.toc{
+    position:sticky;
+    top:28px;
+    font-size:13.5px;
+    max-height:calc(100vh - 56px);
+    overflow-y:auto;
+  }
+  nav.toc a{
+    display:block;
+    padding:5px 0 5px 12px;
+    color:var(--ink-muted);
+    text-decoration:none;
+    border-left:2px solid transparent;
+    transition:color .15s, border-color .15s;
+  }
+  nav.toc a:hover{ color:var(--ink); }
+  nav.toc a.active{
+    color:var(--accent-ink);
+    border-left-color:var(--accent);
+    font-weight:600;
+  }
+  nav.toc .toc-title{
+    font-size:11.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--ink-muted);
+    padding-left:12px;
+    margin-bottom:10px;
+    display:block;
+  }
+
+  main{ min-width:0; }
+
+  section{
+    padding:42px 0;
+    border-bottom:1px solid var(--border);
+  }
+  section:last-child{ border-bottom:none; }
+
+  .sec-head{
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+    margin-bottom:22px;
+  }
+  .sec-num{
+    font-family:"Iowan Old Style","Songti SC","Noto Serif SC",Georgia,serif;
+    font-size:15px;
+    color:var(--accent-ink);
+    background:var(--chip-bg);
+    border-radius:6px;
+    padding:2px 9px;
+    flex-shrink:0;
+    font-variant-numeric:tabular-nums;
+  }
+  .sec-head h2{ font-size:22px; }
+  .sec-head .en{
+    font-family:"Iowan Old Style","Songti SC","Noto Serif SC",Georgia,serif;
+    font-style:italic;
+    font-weight:400;
+    color:var(--ink-muted);
+    font-size:16px;
+    margin-left:2px;
+  }
+
+  h3{
+    font-size:17px;
+    margin:26px 0 14px;
+  }
+  h3 .en{
+    font-style:italic;
+    font-weight:400;
+    color:var(--ink-muted);
+    font-size:.85em;
+  }
+
+  /* bilingual gloss pairs: zh primary, en secondary */
+  p.zh, li.zh, dd.zh{
+    margin:0 0 2px;
+    max-width:68ch;
+  }
+  p.en, li .en-line, dd .en-line{
+    margin:0 0 14px;
+    max-width:68ch;
+    color:var(--ink-muted);
+    font-size:14.5px;
+    line-height:1.55;
+  }
+  .pair{ margin-bottom:16px; }
+  .pair:last-child{ margin-bottom:0; }
+
+  ul.spec-list{ list-style:none; margin:0; padding:0; }
+  ul.spec-list > li{
+    position:relative;
+    padding-left:20px;
+    margin-bottom:18px;
+  }
+  ul.spec-list > li:last-child{ margin-bottom:0; }
+  ul.spec-list > li::before{
+    content:"–";
+    position:absolute;
+    left:0;
+    color:var(--accent);
+  }
+  ul.spec-list ul{ margin-top:10px; padding-left:20px; }
+
+  ol.flow{ margin:0; padding-left:22px; }
+  ol.flow li{ margin-bottom:16px; padding-left:4px; }
+  ol.flow li:last-child{ margin-bottom:0; }
+  ol.flow li::marker{
+    font-family:"Iowan Old Style","Songti SC","Noto Serif SC",Georgia,serif;
+    color:var(--accent-ink);
+    font-weight:600;
+  }
+
+  strong{ color:var(--ink); }
+
+  .table-wrap{
+    overflow-x:auto;
+    border:1px solid var(--border);
+    border-radius:10px;
+    margin:18px 0 22px;
+    background:var(--surface);
+    box-shadow:var(--shadow);
+  }
+  table{
+    border-collapse:collapse;
+    width:100%;
+    font-size:14.5px;
+  }
+  thead th{
+    text-align:left;
+    font-size:11.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--ink-muted);
+    background:var(--surface-2);
+    padding:10px 16px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  tbody td{
+    padding:11px 16px;
+    border-top:1px solid var(--border);
+    vertical-align:top;
+  }
+  tbody tr:hover{ background:var(--surface-2); }
+  tbody td:first-child{ white-space:nowrap; }
+
+  .callout{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-left:3px solid var(--accent);
+    border-radius:8px;
+    padding:16px 18px;
+    margin:20px 0;
+    box-shadow:var(--shadow);
+  }
+  .callout .zh{ margin-bottom:4px; }
+  .callout-label{
+    display:block;
+    font-size:11.5px;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+    font-weight:700;
+    margin-bottom:8px;
+  }
+
+  .formula{
+    display:block;
+    font-family:ui-monospace,"SF Mono","Cascadia Code",Consolas,monospace;
+    font-size:14px;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:14px 16px;
+    margin:14px 0 20px;
+    overflow-x:auto;
+    white-space:pre;
+    color:var(--code-ink);
+  }
+
+  .swatch-row{
+    display:flex;
+    gap:10px;
+    margin:16px 0 22px;
+    font-size:13px;
+    color:var(--ink-muted);
+  }
+  .swatch{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    padding:5px 11px 5px 8px;
+    border-radius:100px;
+  }
+  .swatch i{
+    width:9px;height:9px;border-radius:50%;display:inline-block;
+  }
+  .swatch.up i{ background:#c0433a; }
+  .swatch.down i{ background:#3f8a5c; }
+
+  footer{
+    max-width:920px;
+    margin:0 auto;
+    padding:0 28px 80px;
+    color:var(--ink-muted);
+    font-size:13px;
+    display:flex;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+
+  a.src-link{ color:var(--accent-ink); }
+
+  @media (max-width:520px){
+    .masthead{ padding:44px 20px 28px; }
+    .layout{ padding:0 20px 100px; }
+    section{ padding:32px 0; }
+  }
+</style>
+
+<div class="masthead">
+  <div class="eyebrow"><span class="dot"></span> Product Requirements Document · wayfinder map / grocery-receipt-tracker</div>
+  <h1>家庭超市小票记账与价格追踪 App<span class="en">Grocery Receipt Tracking &amp; Price Monitoring App</span></h1>
+  <div class="lede">
+    <p class="zh">本文档整理自 wayfinder 规划地图里 14 张已解决 ticket 的决策，是这个项目的完整需求说明，可直接交付给开发阶段使用。</p>
+    <p class="en">This document consolidates the decisions from all 14 resolved tickets in the wayfinder planning map into a complete requirements specification, ready to hand off to development.</p>
+  </div>
+  <div class="meta-strip">
+    <span class="tag">14 / 14 tickets resolved</span>
+    <span>状态 Status: <b>可交付开发 Ready for development</b></span>
+    <span>地区 Region: <b>新西兰 New Zealand</b></span>
+    <span>技术栈 Stack: <b>React · Node.js · Supabase · Vercel</b></span>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="toc" id="toc">
+    <span class="toc-title">Contents</span>
+    <a href="#s1">1 · 概述</a>
+    <a href="#s2">2 · 范围</a>
+    <a href="#s3">3 · 技术栈与架构</a>
+    <a href="#s4">4 · 账号与共享</a>
+    <a href="#s5">5 · 数据模型</a>
+    <a href="#s6">6 · 上传与识别</a>
+    <a href="#s7">7 · 双语策略</a>
+    <a href="#s8">8 · 商品匹配</a>
+    <a href="#s9">9 · 分类体系</a>
+    <a href="#s10">10 · 涨幅计算</a>
+    <a href="#s11">11 · 多店铺比价</a>
+    <a href="#s12">12 · 消耗速度与库存</a>
+    <a href="#s13">13 · 价格异常提醒</a>
+    <a href="#s14">14 · 导出与报告</a>
+    <a href="#s15">15 · UI 结构</a>
+  </nav>
+
+  <main>
+
+    <section id="s1">
+      <div class="sec-head"><span class="sec-num">01</span><h2>概述<span class="en">Overview</span></h2></div>
+      <div class="pair">
+        <p class="zh">这是一个面向家庭（以及未来可能的朋友圈子）共享使用的网页应用：用户拍照上传超市小票，AI 自动识别出商品明细并中英双语化，应用据此追踪每件商品的单价变化、消耗速度，并在价格异常上涨或库存快用完时主动提醒。</p>
+        <p class="en">This is a web application for shared use by a family (and potentially friend groups in the future): users photograph grocery receipts, AI automatically recognizes the line items and renders them bilingually in Chinese and English, and the app tracks each product's unit-price changes and consumption rate, proactively alerting when a price spikes or stock is running low.</p>
+      </div>
+      <div class="pair">
+        <p class="zh">用户所在地为新西兰，小票原文为英文（如 Countdown、New World、PAK'nSAVE 等超市），应用会将识别出的英文内容自动翻译成中文。</p>
+        <p class="en">The user is based in New Zealand, so receipts are originally in English (from supermarkets such as Countdown, New World, and PAK'nSAVE); the app automatically translates the recognized English content into Chinese.</p>
+      </div>
+    </section>
+
+    <section id="s2">
+      <div class="sec-head"><span class="sec-num">02</span><h2>范围<span class="en">Scope</span></h2></div>
+
+      <h3>2.1 本期功能范围 <span class="en">In scope</span></h3>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh">拍照/选图上传小票，AI 识别 + 中英翻译（第 6 节）。</p><p class="en">Photograph/select and upload a receipt, with AI recognition + Chinese/English translation (Section 6).</p></div></li>
+        <li><div class="pair"><p class="zh">家庭/圈子共享账号体系（第 4 节）。</p><p class="en">A family/circle account-sharing system (Section 4).</p></div></li>
+        <li><div class="pair"><p class="zh">商品自动分类与匹配（第 8、9 节）。</p><p class="en">Automatic product categorization and matching (Sections 8, 9).</p></div></li>
+        <li><div class="pair"><p class="zh">月度单价涨幅对比、隐性涨价识别（第 10 节）。</p><p class="en">Monthly unit-price change comparison and hidden price-hike detection (Section 10).</p></div></li>
+        <li><div class="pair"><p class="zh">多店铺比价（第 11 节）。</p><p class="en">Multi-store price comparison (Section 11).</p></div></li>
+        <li><div class="pair"><p class="zh">消耗速度分析与库存快用完提醒（第 12 节）。</p><p class="en">Consumption-rate analysis and low-stock alerts (Section 12).</p></div></li>
+        <li><div class="pair"><p class="zh">价格异常提醒（第 13 节）。</p><p class="en">Price-spike alerts (Section 13).</p></div></li>
+        <li><div class="pair"><p class="zh">数据导出（CSV）与月度报告页面（第 14 节）。</p><p class="en">Data export (CSV) and a monthly report page (Section 14).</p></div></li>
+      </ul>
+
+      <h3>2.2 后续路线图（本期不做）<span class="en">Future roadmap (not in this round)</span></h3>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh">原生/跨平台手机 App（先做网页版验证可行性）。</p><p class="en">A native/cross-platform mobile app (the web version ships first to validate the concept).</p></div></li>
+        <li><div class="pair"><p class="zh">App 级别的原生推送通知（本期用"网页内展示 + 邮件通知"代替）。</p><p class="en">App-level native push notifications (this round uses "in-app display + email" instead).</p></div></li>
+        <li><div class="pair"><p class="zh">按商品/分类自定义提醒阈值和静音功能。</p><p class="en">Per-product/category custom alert thresholds and mute functionality.</p></div></li>
+      </ul>
+
+      <h3>2.3 明确排除 <span class="en">Explicitly out of scope</span></h3>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh">像素级视觉设计（字体、间距、组件样式）——本文档定义页面结构和信息架构，具体视觉呈现留给实现阶段或后续原型环节。</p><p class="en">Pixel-level visual design (fonts, spacing, component styling) — this document defines page structure and information architecture; exact visual presentation is left for implementation or a later prototyping pass.</p></div></li>
+      </ul>
+    </section>
+
+    <section id="s3">
+      <div class="sec-head"><span class="sec-num">03</span><h2>技术栈与架构<span class="en">Tech Stack &amp; Architecture</span></h2></div>
+
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh"><strong>前端</strong>：React.js + TypeScript，移动优先的响应式网页应用，部署在 Vercel。</p><p class="en"><strong>Frontend</strong>: React.js + TypeScript, a mobile-first responsive web app, deployed on Vercel.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>后端</strong>：Node.js，以 Vercel Serverless Functions 的形式运行，承担 AI 调用中转、业务逻辑和定时任务。</p><p class="en"><strong>Backend</strong>: Node.js, running as Vercel Serverless Functions, handling AI call proxying, business logic, and scheduled jobs.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>数据库/认证/存储</strong>：Supabase（Postgres 数据库 + Supabase Auth 邮箱登录 + Supabase Storage 对象存储）。</p><p class="en"><strong>Database/Auth/Storage</strong>: Supabase (Postgres database + Supabase Auth email login + Supabase Storage for objects).</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>版本控制</strong>：GitHub。</p><p class="en"><strong>Version control</strong>: GitHub.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>AI 模型</strong>：Anthropic Claude API 的多模态模型，用于小票 OCR 识别 + 中英翻译 + 商品匹配建议，全部在同一次后端调用中完成。</p><p class="en"><strong>AI model</strong>: the Anthropic Claude API's multimodal model, used for receipt OCR, Chinese/English translation, and product-match suggestions — all performed within the same backend call.</p></div></li>
+      </ul>
+
+      <h3>3.1 安全与成本控制 <span class="en">Security &amp; cost control</span></h3>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh">AI 调用必须经后端 Serverless Function 中转，Claude API Key 只存在后端环境变量里，绝不出现在前端代码或浏览器网络请求中。</p><p class="en">AI calls must be proxied through a backend Serverless Function; the Claude API key lives only in backend environment variables and never appears in frontend code or browser network requests.</p></div></li>
+        <li><div class="pair"><p class="zh">每个用户设一个每月调用次数上限（具体数值留给开发阶段定），在调用 Claude API 前做检查，防止异常情况导致账单失控。</p><p class="en">A monthly per-user call cap is set (the exact number left for development to decide), checked before calling the Claude API, to prevent runaway costs from anomalies.</p></div></li>
+        <li><div class="pair"><p class="zh">小票原图存储在 Supabase Storage 的私有 bucket，不开放公开 URL；前端需要显示原图时，由后端生成一个有效期较短的签名 URL，仅圈子成员可获取。</p><p class="en">Original receipt images are stored in a private Supabase Storage bucket with no public URL; when the frontend needs to display an image, the backend generates a short-lived signed URL, obtainable only by circle members.</p></div></li>
+      </ul>
+
+      <h3>3.2 端到端数据流 <span class="en">End-to-end data flow</span></h3>
+      <ol class="flow">
+        <li><div class="pair"><p class="zh">用户在网页上传/拍摄小票图片，前端把图片发给后端 API route。</p><p class="en">The user uploads/photographs a receipt image on the web page; the frontend sends the image to a backend API route.</p></div></li>
+        <li><div class="pair"><p class="zh">后端把原图存入 Supabase Storage 私有 bucket，同时调用 Claude API 完成 OCR 识别 + 中英翻译，产出结构化草稿。</p><p class="en">The backend stores the image in the private Supabase Storage bucket and calls the Claude API to perform OCR recognition and Chinese/English translation, producing a structured draft.</p></div></li>
+        <li><div class="pair"><p class="zh">后端把识别出的商品英文原文与该圈子已有的标准商品列表做匹配，生成匹配建议，一并写入草稿。</p><p class="en">The backend matches the recognized product's English text against the circle's existing standardized-product list, generating a match suggestion included in the same draft.</p></div></li>
+        <li><div class="pair"><p class="zh">草稿以 <code>status = pending_review</code> 存入数据库；用户在预览页逐条确认/修正后，状态更新为 <code>confirmed</code>，正式计入统计。</p><p class="en">The draft is saved with <code>status = pending_review</code>; once the user reviews and confirms/corrects each line, the status updates to <code>confirmed</code> and it counts toward statistics.</p></div></li>
+        <li><div class="pair"><p class="zh">小票确认后，后端立即跑价格异常检查（第 13 节）；每天的定时任务另外扫描所有商品的库存状态（第 12 节）。</p><p class="en">Once a receipt is confirmed, the backend immediately runs the price-spike check (Section 13); a separate daily scheduled job scans all products' stock status (Section 12).</p></div></li>
+      </ol>
+    </section>
+
+    <section id="s4">
+      <div class="sec-head"><span class="sec-num">04</span><h2>账号与共享模型<span class="en">Accounts &amp; Sharing</span></h2></div>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh"><strong>登录方式</strong>：Supabase Auth 自带的邮箱登录方案。</p><p class="en"><strong>Login method</strong>: Supabase Auth's built-in email login.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>账号与圈子关系</strong>：一个账号只属于一个"圈子"（Circle）——注册时自动创建一个圈子，或通过邀请链接加入别人的圈子。这是个简化模型：家庭是一个圈子，未来朋友各自使用则是互不相关的独立圈子。</p><p class="en"><strong>Account-to-circle relationship</strong>: one account belongs to exactly one "Circle" — a circle is created automatically at signup, or joined via someone else's invite link. This is a simplified model: a family is one circle, and friends using the app independently in the future form their own separate, unrelated circles.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>圈子人数</strong>：默认上限 10 人（后续可调整）。</p><p class="en"><strong>Circle size</strong>: a default cap of 10 members (adjustable later).</p></div></li>
+        <li>
+          <div class="pair"><p class="zh"><strong>权限分级</strong>：</p><p class="en"><strong>Permission tiers</strong>:</p></div>
+          <ul>
+            <li><div class="pair"><p class="zh"><strong>owner</strong>：创建圈子的人，可邀请/移除成员、解散圈子；和 member 一样，只能修改/删除自己上传的记录。</p><p class="en"><strong>owner</strong>: the person who created the circle; can invite/remove members and dissolve the circle; like members, can only edit/delete records they uploaded themselves.</p></div></li>
+            <li><div class="pair"><p class="zh"><strong>member</strong>：只能新增记录，只能修改/删除自己上传的记录，不能动别人的。</p><p class="en"><strong>member</strong>: can only add records, and can only edit/delete records they uploaded themselves — never anyone else's.</p></div></li>
+            <li><div class="pair"><p class="zh">所有成员（无论角色）都能<strong>查看</strong>圈子内的全部记录、报告和提醒。</p><p class="en">All members (regardless of role) can <strong>view</strong> all of the circle's records, reports, and alerts.</p></div></li>
+          </ul>
+        </li>
+        <li><div class="pair"><p class="zh"><strong>邀请方式</strong>：邮箱邀请链接，需要接入邮件发送服务（如 Supabase 自带方案或 Resend）。</p><p class="en"><strong>Invite method</strong>: emailed invite links, requiring an email-sending service (e.g. Supabase's built-in option or Resend).</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>防重复拍票</strong>：新小票按"店铺 + 日期 + 总金额"自动检测疑似重复，检测到就提示用户确认"确实重复，不导入"或"不是重复，继续导入"。</p><p class="en"><strong>Duplicate-receipt prevention</strong>: new receipts are auto-checked for suspected duplicates by matching store + date + total amount; when detected, the user confirms either "yes, duplicate, don't import" or "not a duplicate, continue."</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>购买人字段</strong>：每条记录的 <code>uploaded_by</code> 自动取当前登录账号的邮箱，无需额外输入，可用于按人统计消费。</p><p class="en"><strong>Buyer field</strong>: each record's <code>uploaded_by</code> is automatically set to the current login email, requiring no extra input, and enables per-person spending statistics.</p></div></li>
+      </ul>
+    </section>
+
+    <section id="s5">
+      <div class="sec-head"><span class="sec-num">05</span><h2>数据模型<span class="en">Data Model</span></h2></div>
+
+      <h3>5.0 Circle（圈子）与用户资料 <span class="en">Circle &amp; User Profile</span></h3>
+      <p class="zh"><strong>Circle</strong></p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>字段 Field</th><th>说明 Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>主键 Primary key</td></tr>
+          <tr><td><code>name</code></td><td>圈子名称（可选，如"我们家"）Circle name (optional, e.g. "Our Family")</td></tr>
+          <tr><td><code>max_members</code></td><td>人数上限，默认 10 Member cap, default 10</td></tr>
+          <tr><td><code>created_at</code></td><td>创建时间 Created timestamp</td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="pair"><p class="zh"><strong>Profile</strong>（一对一关联 Supabase Auth 的 <code>auth.users</code>）</p><p class="en"><strong>Profile</strong> (one-to-one with Supabase Auth's <code>auth.users</code>)</p></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>字段 Field</th><th>说明 Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>user_id</code></td><td>= <code>auth.users.id</code></td></tr>
+          <tr><td><code>circle_id</code></td><td>所属圈子 The circle this user belongs to</td></tr>
+          <tr><td><code>role</code></td><td><code>owner</code> / <code>member</code></td></tr>
+        </tbody>
+      </table></div>
+
+      <div class="pair"><p class="zh">由于"一个账号只属于一个圈子"（第 4 节），圈子归属和角色直接存在用户资料表上，不需要多对多的成员关系表。</p><p class="en">Since "one account belongs to exactly one circle" (Section 4), circle membership and role are stored directly on the user profile table — no many-to-many membership table is needed.</p></div>
+      <div class="pair"><p class="zh">邀请链接的具体实现（邀请 token 的生成、过期时间等）留给开发阶段设计，本文档不展开。</p><p class="en">The concrete implementation of invite links (token generation, expiry, etc.) is left for development to design and isn't expanded on in this document.</p></div>
+
+      <h3>5.1 Receipt（小票）</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>字段 Field</th><th>说明 Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>主键 Primary key</td></tr>
+          <tr><td><code>circle_id</code></td><td>所属圈子 Which circle this belongs to</td></tr>
+          <tr><td><code>uploaded_by</code></td><td>上传人登录邮箱 Uploader's login email</td></tr>
+          <tr><td><code>store_name_en</code></td><td>店铺名，OCR 识别的英文原文 Store name, OCR-recognized English source text</td></tr>
+          <tr><td><code>store_name_zh</code></td><td>店铺名中文翻译 Store name, Chinese translation</td></tr>
+          <tr><td><code>purchase_date</code></td><td>购买日期 Purchase date</td></tr>
+          <tr><td><code>total_amount</code></td><td>小票总价 Receipt total</td></tr>
+          <tr><td><code>original_image_url</code></td><td>原图存储地址（保留期后清空）Original image address (cleared after retention period)</td></tr>
+          <tr><td><code>uploaded_at</code></td><td>上传时间 Upload timestamp</td></tr>
+          <tr><td><code>status</code></td><td><code>pending_review</code> / <code>confirmed</code></td></tr>
+        </tbody>
+      </table></div>
+      <div class="pair"><p class="zh">原图存储在 Supabase Storage，默认保留 12 个月后自动清理（只清图片，结构化数据永久保留）。</p><p class="en">Original images are stored in Supabase Storage and auto-deleted after 12 months by default (only the images are cleared; structured data is kept forever).</p></div>
+
+      <h3>5.2 ReceiptItem（商品行）</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>字段 Field</th><th>说明 Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code>, <code>receipt_id</code></td><td>主键、关联小票 Primary key, linked receipt</td></tr>
+          <tr><td><code>raw_name_en</code></td><td>AI 识别的商品名英文原文 AI-recognized product name, English source text</td></tr>
+          <tr><td><code>raw_name_zh</code></td><td>商品名中文翻译 Product name, Chinese translation</td></tr>
+          <tr><td><code>product_id</code></td><td>关联到标准化商品（见 5.3）Linked standardized product (see 5.3)</td></tr>
+          <tr><td><code>quantity</code></td><td>数量 Quantity</td></tr>
+          <tr><td><code>unit_spec_value</code> / <code>unit_spec_unit</code></td><td>规格数值 + 单位（如 500 / g）Spec value + unit (e.g. 500 / g)</td></tr>
+          <tr><td><code>unit_price</code></td><td>实际成交单价 Actual transacted unit price</td></tr>
+          <tr><td><code>original_price</code></td><td>原价（可为空，识别到划线价/优惠时才填）Original price (nullable, filled only when a struck-through/promo price is recognized)</td></tr>
+          <tr><td><code>is_promotion</code></td><td>布尔，是否促销价 Boolean, whether it's a promotional price</td></tr>
+          <tr><td><code>subtotal</code></td><td>小计 Line subtotal</td></tr>
+        </tbody>
+      </table></div>
+      <div class="pair"><p class="zh"><code>raw_name_en</code>/<code>raw_name_zh</code> 记录"这次识别到的原始文本"，<code>product_id</code> 记录"这行被认定属于哪个标准商品"——两者分工不同。</p><p class="en"><code>raw_name_en</code>/<code>raw_name_zh</code> record "the raw text recognized this time," while <code>product_id</code> records "which standardized product this line is judged to belong to" — the two serve different purposes.</p></div>
+
+      <div class="callout">
+        <span class="callout-label">注意 · Note</span>
+        <div class="pair"><p class="zh"><code>ReceiptItem</code> 不单独存 <code>category</code> 字段——分类归属统一挂在 <code>Product</code>（见 5.3）上，通过 <code>product_id</code> 读取，避免同一个商品的分类在多条 <code>ReceiptItem</code> 记录里各存一份、事后修正时彼此不同步。预览确认页上仍然可以让用户对某一行编辑分类，但保存的是它所匹配的 <code>Product.category</code>，而不是 <code>ReceiptItem</code> 自己的副本。</p>
+        <p class="en"><code>ReceiptItem</code> does not store its own <code>category</code> field — categorization is owned entirely by <code>Product</code> (see 5.3) and read via <code>product_id</code>, avoiding a situation where the same product's category is duplicated across multiple <code>ReceiptItem</code> rows and drifts out of sync when corrected later. The preview/confirm screen can still let a user edit the category shown for a given line, but what's saved is its matched <code>Product.category</code>, not a separate copy on the <code>ReceiptItem</code>.</p></div>
+      </div>
+
+      <h3>5.3 Product（标准商品，圈子内维度）</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>字段 Field</th><th>说明 Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code>, <code>circle_id</code></td><td>主键、所属圈子（标准商品是圈子内概念）Primary key, owning circle (a per-circle concept)</td></tr>
+          <tr><td><code>canonical_name_en</code> / <code>canonical_name_zh</code></td><td>用户确认后的标准商品名，双语 Standardized product name once confirmed, bilingual</td></tr>
+          <tr><td><code>category</code></td><td>分类，唯一的存储位置（见第 9 节）Category, the single place it's stored (see Section 9)</td></tr>
+          <tr><td><code>low_stock_alert_active</code></td><td>布尔，是否处于"已提醒、尚未回升"状态（见第 12 节）Boolean, whether currently in an "already alerted, not yet recovered" state (see Section 12)</td></tr>
+          <tr><td><code>created_at</code></td><td>创建时间 Created timestamp</td></tr>
+        </tbody>
+      </table></div>
+      <div class="pair"><p class="zh">同一个标准商品下，不同购买记录的规格（<code>unit_spec_value</code>/<code>unit_spec_unit</code>）可以不一样——这正是隐性涨价识别和消耗速度计算的数据基础。</p><p class="en">Different purchase records under the same standardized product can have different specs (<code>unit_spec_value</code>/<code>unit_spec_unit</code>) — this is precisely the data foundation for hidden price-hike detection and consumption-rate calculation.</p></div>
+
+      <h3>5.4 EditLog（修改历史）</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>字段 Field</th><th>说明 Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code></td><td>主键 Primary key</td></tr>
+          <tr><td><code>receipt_id</code> / <code>receipt_item_id</code></td><td>关联记录 Linked record</td></tr>
+          <tr><td><code>field_name</code>, <code>old_value</code>, <code>new_value</code></td><td>改了哪个字段、改前改后的值 Which field changed, old and new values</td></tr>
+          <tr><td><code>edited_by</code>, <code>edited_at</code></td><td>修改人、修改时间 Editor, timestamp</td></tr>
+        </tbody>
+      </table></div>
+      <div class="pair"><p class="zh">所有用户编辑（英文原文的识别纠错、中文翻译的修正、分类修正等）都记录在这张表里。</p><p class="en">All user edits (correcting English OCR errors, fixing Chinese translations, correcting categories, etc.) are recorded in this table.</p></div>
+    </section>
+
+    <section id="s6">
+      <div class="sec-head"><span class="sec-num">06</span><h2>小票上传与识别流程<span class="en">Receipt Upload &amp; Recognition Flow</span></h2></div>
+      <div class="pair"><p class="zh"><strong>上传方式</strong>：网页用标准的 <code>&lt;input type="file" accept="image/*" capture="environment"&gt;</code> 控件，手机浏览器会自动提供"拍照"和"从相册选择"两个入口，无需自建相机取景 UI。</p><p class="en"><strong>Upload method</strong>: the web app uses a standard <code>&lt;input type="file" accept="image/*" capture="environment"&gt;</code> control; mobile browsers automatically offer both "take photo" and "choose from library," with no need to build a custom camera UI.</p></div>
+
+      <div class="pair"><p class="zh"><strong>处理流程</strong>：</p><p class="en"><strong>Processing flow</strong>:</p></div>
+      <ol class="flow">
+        <li><div class="pair"><p class="zh">上传后立即调用 Claude API 完成 OCR + 翻译 + 商品匹配建议，生成 <code>status = pending_review</code> 的草稿。</p><p class="en">Upon upload, the Claude API is immediately called to perform OCR, translation, and product-match suggestion, producing a <code>status = pending_review</code> draft.</p></div></li>
+        <li><div class="pair"><p class="zh">用户在预览页逐条确认/修正每个字段（商品名、数量、规格、单价、分类、匹配的标准商品）。</p><p class="en">The user reviews and corrects each field line by line on a preview screen (product name, quantity, spec, unit price, category, matched standardized product).</p></div></li>
+        <li><div class="pair"><p class="zh">确认后状态变为 <code>confirmed</code>，正式计入统计，并触发价格异常检查（第 13 节）。</p><p class="en">Once confirmed, the status becomes <code>confirmed</code>, it counts toward statistics, and triggers the price-spike check (Section 13).</p></div></li>
+      </ol>
+      <div class="pair"><p class="zh">不单独设"识别置信度低"标记——预览确认这一步本身就是识别错误的兜底机制。</p><p class="en">There's no separate "low confidence" flag — the review/confirm step itself is the safety net for recognition errors.</p></div>
+    </section>
+
+    <section id="s7">
+      <div class="sec-head"><span class="sec-num">07</span><h2>双语内容策略<span class="en">Bilingual Content Strategy</span></h2></div>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh"><strong>范围</strong>：仅动态数据内容（商品名、店铺名、分类标签）双语化；界面固定文案（菜单、按钮等）只做英文，不做切换，不需要 i18n 框架。</p><p class="en"><strong>Scope</strong>: only dynamic data content (product names, store names, category labels) is bilingual; fixed UI chrome (menus, buttons, etc.) is English-only, with no switching and no i18n framework needed.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>方向</strong>：小票原文是英文，<code>_en</code> 字段是 OCR 识别的原始真实文本，<code>_zh</code> 字段是同一次 Claude API 调用顺带产出的中文翻译。</p><p class="en"><strong>Direction</strong>: receipt text is originally English; <code>_en</code> fields hold the authentic OCR source text, while <code>_zh</code> fields hold the Chinese translation produced by that same Claude API call.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>存储</strong>：双语字段拆成两列（如 <code>name_zh</code> / <code>name_en</code>），不用 JSON 字段。</p><p class="en"><strong>Storage</strong>: bilingual fields are split into two columns (e.g. <code>name_zh</code> / <code>name_en</code>), not packed into a JSON field.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>修正</strong>：<code>_en</code> 的识别错误走标准的预览确认/EditLog 流程；用户发现 <code>_zh</code> 翻译不准时可以手动修改，同样记入 EditLog。</p><p class="en"><strong>Corrections</strong>: OCR errors in <code>_en</code> go through the standard preview/EditLog flow; if a user finds the <code>_zh</code> translation inaccurate, they can edit it manually, likewise recorded in EditLog.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>界面显示</strong>：做一个语言切换开关（放在设置页或页面顶部），默认只显示一种语言的动态内容，切换后整批内容跟随显示对应语言版本。</p><p class="en"><strong>UI display</strong>: a language toggle is provided (on the settings page or at the top of the page); by default only one language's dynamic content is shown, and switching it changes the displayed language across the board.</p></div></li>
+      </ul>
+    </section>
+
+    <section id="s8">
+      <div class="sec-head"><span class="sec-num">08</span><h2>商品匹配<span class="en">Product Matching</span></h2></div>
+      <div class="pair"><p class="zh"><strong>匹配方式</strong>：AI 在识别小票的同一次调用（或紧接着）里，把新识别出的 <code>raw_name_en</code> 与该圈子已有的标准商品（Product）列表做语义相似度比对，生成匹配建议；用户在预览确认流程里直接确认或改这个建议，不增加额外操作步骤。</p><p class="en"><strong>Matching method</strong>: within the same call that recognizes the receipt (or immediately after), the AI compares the newly recognized <code>raw_name_en</code> against the circle's existing Product list via semantic similarity, producing a match suggestion; the user confirms or changes it directly within the preview/confirm flow, with no extra steps added.</p></div>
+      <div class="pair"><p class="zh"><strong>判定依据</strong>：以 <code>raw_name_en</code>（英文原文）为主要判断依据，<code>raw_name_zh</code>（中文翻译）不参与匹配。</p><p class="en"><strong>Matching basis</strong>: primarily based on <code>raw_name_en</code> (the English source text); <code>raw_name_zh</code> (the Chinese translation) doesn't factor into matching.</p></div>
+      <div class="pair"><p class="zh"><strong>规格变化</strong>：不影响匹配判定——同一个标准商品下，不同购买记录的规格可以不一样，规格只是 <code>ReceiptItem</code> 自己的属性。</p><p class="en"><strong>Spec changes</strong>: don't affect the matching decision — different purchase records under the same standardized product can have different specs; spec is just an attribute of each <code>ReceiptItem</code>.</p></div>
+      <div class="pair"><p class="zh"><strong>条码</strong>：不处理。新西兰超市小票通常不打印条码，不为此预留字段。</p><p class="en"><strong>Barcodes</strong>: not handled. New Zealand supermarket receipts typically don't print barcodes, so no field is reserved for this.</p></div>
+    </section>
+
+    <section id="s9">
+      <div class="sec-head"><span class="sec-num">09</span><h2>分类体系<span class="en">Category Taxonomy</span></h2></div>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh"><strong>层级</strong>：两级（大类 + 子类），系统固定预设，所有圈子共用，不支持圈子自定义新增。</p><p class="en"><strong>Levels</strong>: two (top-level category + subcategory), a system-fixed preset shared by all circles; circles cannot add their own custom categories.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>AI 分类范围</strong>：只能从预设列表里选最匹配的子类，不允许生成新类目。</p><p class="en"><strong>AI categorization scope</strong>: can only pick the best-matching subcategory from the preset list, never invent new categories.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>分类记忆机制</strong>：用户手动改过某个商品的分类后，记住这次修正；同一个 <code>product_id</code> 下次再出现时自动套用改过的分类（key 是 <code>product_id</code>，不是原始文本，因为不同措辞的原始文本都会归到同一个标准商品）。</p><p class="en"><strong>Category-memory mechanism</strong>: once a user corrects a product's category, that correction is remembered; the same <code>product_id</code> is auto-assigned the corrected category next time (keyed by <code>product_id</code>, not raw text, since different wordings of the raw text all resolve to the same standardized product).</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>初始值来源</strong>：识别出一行新商品时，如果它匹配到圈子里已有的 <code>Product</code>（第 8 节），分类直接取该 <code>Product.category</code>（已有的分类记忆生效）；如果没有匹配、要新建 <code>Product</code>，才用 AI 在同一次识别调用里给出的分类建议作为这个新 <code>Product.category</code> 的初始值。</p><p class="en"><strong>Initial value source</strong>: when a new line item is recognized, if it matches an existing <code>Product</code> in the circle (Section 8), its category is simply that <code>Product.category</code> (existing category memory applies); only when there's no match and a new <code>Product</code> is created does the AI's category suggestion from that same recognition call become the new <code>Product.category</code>'s initial value.</p></div></li>
+      </ul>
+
+      <div class="pair"><p class="zh"><strong>初始分类目录</strong>：</p><p class="en"><strong>Initial category list</strong>:</p></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>大类 Top-level</th><th>English</th></tr></thead>
+        <tbody>
+          <tr><td>食品-粮油调味</td><td>Food – Grains &amp; Oil</td></tr>
+          <tr><td>食品-生鲜</td><td>Food – Fresh Produce</td></tr>
+          <tr><td>食品-乳制品烘焙</td><td>Food – Dairy &amp; Bakery</td></tr>
+          <tr><td>食品-零食饮料</td><td>Food – Snacks &amp; Beverages</td></tr>
+          <tr><td>日用品-清洁洗护</td><td>Household – Cleaning</td></tr>
+          <tr><td>日用品-个人护理</td><td>Household – Personal Care</td></tr>
+          <tr><td>母婴用品</td><td>Baby &amp; Maternity</td></tr>
+          <tr><td>宠物用品</td><td>Pet Supplies</td></tr>
+          <tr><td>其他/未分类</td><td>Other / Uncategorized</td></tr>
+        </tbody>
+      </table></div>
+      <div class="pair"><p class="zh">具体子类留给开发阶段微调；英文名是分类目录的原始定义，中文是翻译。</p><p class="en">Exact subcategories are left for development to fine-tune; the English names are the taxonomy's original definition, with Chinese as the translation.</p></div>
+    </section>
+
+    <section id="s10">
+      <div class="sec-head"><span class="sec-num">10</span><h2>涨幅计算与展示<span class="en">Price-Change Calculation &amp; Display</span></h2></div>
+
+      <div class="pair"><p class="zh"><strong>对比基准</strong>：和上一次购买价格对比（不是历史均价）。</p><p class="en"><strong>Comparison baseline</strong>: against the last purchase price (not a historical average).</p></div>
+      <div class="pair"><p class="zh"><strong>促销过滤</strong>：排除 <code>is_promotion = true</code> 的行，基准价和当前价都只取正常价记录；如果最近一次购买恰好是促销价，就继续往前找最近一次非促销记录做基准，避免促销价回归原价被误判为暴涨。</p><p class="en"><strong>Promotion filtering</strong>: rows with <code>is_promotion = true</code> are excluded; both the baseline and current price are taken from normal-price records only. If the most recent purchase was promotional, the calculation looks further back for the nearest non-promotional record, avoiding a false spike when a promo price reverts to normal.</p></div>
+
+      <div class="pair"><p class="zh"><strong>单位换算</strong>：</p><p class="en"><strong>Unit conversion</strong>:</p></div>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh">重量类（g/kg）换算成每 100g 单价；体积类（ml/L）换算成每 100ml 单价；计数类（个/pack）直接比 <code>unit_price</code>。</p><p class="en">Weight units (g/kg) are normalized to price per 100g; volume units (ml/L) to price per 100ml; count-based units (each/pack) are compared directly by <code>unit_price</code>.</p></div></li>
+        <li><div class="pair"><p class="zh">换算表（如 kg→1000g、L→1000ml）由开发阶段维护，属于实现细节。</p><p class="en">The conversion table (e.g. kg→1000g, L→1000ml) is maintained during development, as an implementation detail.</p></div></li>
+      </ul>
+
+      <div class="pair"><p class="zh"><strong>公式</strong>：</p><p class="en"><strong>Formula</strong>:</p></div>
+      <span class="formula">涨幅% = (本次换算后单价 − 基准换算后单价) / 基准换算后单价 × 100%
+change % = (this purchase's normalized unit price − baseline's normalized unit price) / baseline's normalized unit price × 100%</span>
+
+      <div class="pair"><p class="zh"><strong>展示内容</strong>：</p><p class="en"><strong>Display</strong>:</p></div>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh"><strong>涨幅榜单</strong>：本月涨幅最高的商品排行，按 <code>product_id</code> 分组。</p><p class="en"><strong>Price-change leaderboard</strong>: this month's biggest price increases, grouped by <code>product_id</code>.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>单品价格趋势图</strong>：某个标准商品历史换算单价随时间变化的折线图，促销记录用空心点等不同样式标出。</p><p class="en"><strong>Per-product price trend chart</strong>: a line chart of a standardized product's normalized unit price over time, with promotional records marked using a distinct style (e.g. hollow dots).</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>涨跌颜色</strong>：涨价显示红色，降价显示绿色。</p><p class="en"><strong>Color coding</strong>: increases in red, decreases in green.</p></div></li>
+      </ul>
+      <div class="swatch-row">
+        <span class="swatch up"><i></i> 涨 Up</span>
+        <span class="swatch down"><i></i> 跌 Down</span>
+      </div>
+    </section>
+
+    <section id="s11">
+      <div class="sec-head"><span class="sec-num">11</span><h2>多店铺比价<span class="en">Multi-Store Price Comparison</span></h2></div>
+      <div class="pair"><p class="zh"><code>Product</code> 本身是圈子内维度、不区分店铺，<code>ReceiptItem</code> 通过 <code>receipt_id</code> 关联到 <code>Receipt.store_name</code>，所以同一个 <code>product_id</code> 天然可能对应多个店铺——数据结构本身已支持跨店铺比较。</p><p class="en"><code>Product</code> is scoped per circle, not per store, and <code>ReceiptItem</code> links to <code>Receipt.store_name</code> via <code>receipt_id</code> — so a single <code>product_id</code> can naturally span multiple stores; the data structure already supports cross-store comparison.</p></div>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh"><strong>对比基准</strong>：复用第 10 节的规则——排除促销行，只比每家店最新一次正常价，不引入"最低价"或"平均价"。</p><p class="en"><strong>Comparison basis</strong>: reuses the rules from Section 10 — promotional rows excluded, comparing only each store's latest normal price, without introducing "lowest price" or "average price."</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>单位换算</strong>：同样复用第 10 节的规则，确保跨店铺比较用同一个基准。</p><p class="en"><strong>Unit conversion</strong>: also reuses the rules from Section 10, ensuring cross-store comparisons use the same basis.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>展示位置</strong>：商品详情页里紧挨价格趋势图的一个模块，不是独立页面。</p><p class="en"><strong>Display location</strong>: a module on the product detail page, next to the price trend chart — not a standalone page.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>数据不足</strong>：只在一家店买过时不显示对比，显示"暂无其他店铺的购买记录"。</p><p class="en"><strong>Insufficient data</strong>: if only bought at one store so far, no comparison is shown — it displays "no purchase records from other stores yet."</p></div></li>
+      </ul>
+    </section>
+
+    <section id="s12">
+      <div class="sec-head"><span class="sec-num">12</span><h2>消耗速度与库存提醒<span class="en">Consumption Rate &amp; Low-Stock Alerts</span></h2></div>
+
+      <div class="pair"><p class="zh"><strong>计算窗口</strong>：按 <code>product_id</code> 取最近 5 次购买记录（不足 5 次用全部）做滑动窗口，日均消耗速度 = 窗口内总购买量（换算成基准单位）÷ 窗口跨越的总天数。这样囤货不会打乱估算。同一天内同一 <code>product_id</code> 出现多条 <code>ReceiptItem</code>（比如一次买了不同规格的两瓶）时，按同一次"购买记录"合并处理，量直接相加。</p><p class="en"><strong>Calculation window</strong>: for a given <code>product_id</code>, take the most recent 5 purchases (or all available if fewer) as a sliding window; average daily consumption = total quantity in the window (converted to base units) ÷ total days spanned. This way stockpiling doesn't distort the estimate. If multiple <code>ReceiptItem</code> rows for the same <code>product_id</code> fall on the same day (e.g. two differently-sized bottles bought in one trip), they're treated as a single "purchase" and their quantities summed.</p></div>
+
+      <div class="pair"><p class="zh"><strong>数据不足</strong>：累计购买记录少于 3 次时不计算、不提醒，显示"数据不足"。</p><p class="en"><strong>Insufficient data</strong>: fewer than 3 accumulated purchases means no estimate or alert — it shows "not enough data yet."</p></div>
+
+      <div class="pair"><p class="zh"><strong>触发条件</strong>：</p><p class="en"><strong>Trigger condition</strong>:</p></div>
+      <span class="formula">预计当前剩余量 = 最近一次购买量（基准单位）− 日均消耗速度 ×（今天 − 最近一次购买日期的天数）
+预计剩余天数 = 预计当前剩余量 ÷ 日均消耗速度 → 跌破 5 天（默认阈值）时触发提醒</span>
+
+      <div class="pair"><p class="zh"><strong>检查机制</strong>：不像价格提醒挂在"确认小票"事件上，而是用每天一次的定时任务（Vercel Cron / Supabase pg_cron）扫描所有商品。</p><p class="en"><strong>Check mechanism</strong>: unlike price alerts, this doesn't hang off the "receipt confirmed" event — instead, a daily scheduled job (Vercel Cron / Supabase pg_cron) scans all products.</p></div>
+      <div class="pair"><p class="zh"><strong>提醒频率</strong>：用 <code>Product.low_stock_alert_active</code> 标记只提醒一次，直到用户买了新的、剩余天数回升到阈值以上才重置，避免每天重复骚扰。</p><p class="en"><strong>Reminder frequency</strong>: the <code>Product.low_stock_alert_active</code> flag ensures only one reminder per episode, resetting only once the user buys more and days remaining recovers above the threshold, avoiding repeated daily nagging.</p></div>
+      <div class="pair"><p class="zh"><strong>自动化</strong>：完全依赖购买记录自动推算，不引入手动"标记用完"的录入；UI 明确标注这是"预计"数值，非精确库存。</p><p class="en"><strong>Automation</strong>: fully derived from purchase records, with no manual "mark as used up" input; the UI clearly labels these as "estimated" figures, not exact inventory counts.</p></div>
+    </section>
+
+    <section id="s13">
+      <div class="sec-head"><span class="sec-num">13</span><h2>价格异常提醒<span class="en">Price-Spike Alerts</span></h2></div>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh"><strong>阈值</strong>：固定百分比，涨幅超过 15% 触发（默认值，后续可开放成可调设置项）。</p><p class="en"><strong>Threshold</strong>: a fixed percentage — triggers above a 15% increase (a default, adjustable later).</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>检查时机</strong>：每次小票确认后，立刻对涉及的商品跑第 10 节的涨幅计算。</p><p class="en"><strong>Check timing</strong>: immediately after each receipt is confirmed, the price-change calculation from Section 10 runs for the products on it.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>接收范围</strong>：圈子内所有成员，不按历史购买人筛选。</p><p class="en"><strong>Audience</strong>: all members of the circle, not filtered by historical buyer.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>应用内展示</strong>：通知列表，每条显示商品名（双语）、新价格、涨幅百分比，链接到该商品的价格趋势图。</p><p class="en"><strong>In-app display</strong>: a notification list; each entry shows the product name (bilingual), the new price, the percentage increase, and a link to that product's price trend chart.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>邮件通知</strong>：按小票汇总成一封（同一张小票的多个触发商品合并），不逐条单发。</p><p class="en"><strong>Email notification</strong>: batched per receipt (multiple triggered products on the same receipt combined into one email), not sent individually.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>静音</strong>：暂不支持按商品关闭提醒。</p><p class="en"><strong>Muting</strong>: per-product muting is not supported for now.</p></div></li>
+      </ul>
+    </section>
+
+    <section id="s14">
+      <div class="sec-head"><span class="sec-num">14</span><h2>数据导出与月度报告<span class="en">Data Export &amp; Monthly Report</span></h2></div>
+
+      <div class="pair"><p class="zh"><strong>月度报告页面</strong>：独立页面，按月份选择查看（可回溯历史月份），汇总：</p><p class="en"><strong>Monthly report page</strong>: a standalone page, selectable by month (with the ability to browse past months), summarizing:</p></div>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh">本月总支出及环比变化。</p><p class="en">This month's total spend and its change vs. last month.</p></div></li>
+        <li><div class="pair"><p class="zh">按分类的支出占比。</p><p class="en">Spending breakdown by category.</p></div></li>
+        <li><div class="pair"><p class="zh">涨幅榜单（复用第 10 节的计算逻辑，作为本页一个板块）。</p><p class="en">The price-change leaderboard (reusing Section 10's logic as a section on this page).</p></div></li>
+        <li><div class="pair"><p class="zh">本月触发的价格异常/低库存提醒次数。</p><p class="en">The number of price-spike/low-stock alerts triggered this month.</p></div></li>
+        <li><div class="pair"><p class="zh">按上传人的支出分布，以及本月上传的小票/商品条目总数。</p><p class="en">Spending distribution by uploader, and the total receipts/line items uploaded this month.</p></div></li>
+      </ul>
+
+      <div class="pair"><p class="zh"><strong>数据导出</strong>：</p><p class="en"><strong>Data export</strong>:</p></div>
+      <ul class="spec-list">
+        <li><div class="pair"><p class="zh">格式：CSV。</p><p class="en">Format: CSV.</p></div></li>
+        <li><div class="pair"><p class="zh">内容：逐条明细，每个 <code>ReceiptItem</code> 展开一行（商品名、分类、数量、规格、单价、店铺、日期、上传人），不预先汇总。</p><p class="en">Content: line-by-line detail, with each <code>ReceiptItem</code> expanded into one row (product name, category, quantity, spec, unit price, store, date, uploader); nothing pre-aggregated.</p></div></li>
+        <li><div class="pair"><p class="zh">范围：整个圈子的数据，可选时间范围（如最近一个月、自定义起止日期）。</p><p class="en">Scope: the whole circle's data, with a selectable time range (e.g. the last month, or a custom range).</p></div></li>
+        <li><div class="pair"><p class="zh">入口：月度报告页面上的一个导出按钮，不单独开导出页面。</p><p class="en">Entry point: an export button on the monthly report page, with no separate export page.</p></div></li>
+      </ul>
+    </section>
+
+    <section id="s15">
+      <div class="sec-head"><span class="sec-num">15</span><h2>UI 结构与导航<span class="en">UI Structure &amp; Navigation</span></h2></div>
+
+      <div class="pair"><p class="zh"><strong>页面清单</strong>（移动优先）：</p><p class="en"><strong>Page list</strong> (mobile-first):</p></div>
+      <ol class="flow">
+        <li><div class="pair"><p class="zh"><strong>首页/Dashboard</strong>：本月总支出、分类占比、待处理提醒摘要、最近几张小票。</p><p class="en"><strong>Home/Dashboard</strong>: this month's total spend, category breakdown, a pending-alerts summary, recent receipts.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>拍照上传流程</strong>：拍照/选图 → AI 处理中 → 预览确认页 → 确认入库。</p><p class="en"><strong>Photo upload flow</strong>: photograph/select → AI processing → preview/confirm → save.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>小票列表</strong>：按店铺/日期/上传人筛选历史小票。</p><p class="en"><strong>Receipt list</strong>: historical receipts, filterable by store/date/uploader.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>商品详情页</strong>：价格趋势图 + 多店铺比价模块 + 消耗速度/预计剩余天数 + 购买历史。</p><p class="en"><strong>Product detail page</strong>: price trend chart + multi-store comparison module + consumption rate/estimated days remaining + purchase history.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>月度报告页</strong>：见第 14 节。</p><p class="en"><strong>Monthly report page</strong>: see Section 14.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>通知中心</strong>：价格异常 + 低库存提醒列表。</p><p class="en"><strong>Notification center</strong>: the price-spike and low-stock alert list.</p></div></li>
+        <li><div class="pair"><p class="zh"><strong>圈子设置</strong>：成员管理、邀请链接。</p><p class="en"><strong>Circle settings</strong>: member management, invite links.</p></div></li>
+      </ol>
+
+      <div class="pair"><p class="zh"><strong>导航</strong>：底部 Tab Bar——首页 / 小票 / 月度报告 / 通知 / 我的；拍照上传是一个居中悬浮按钮。</p><p class="en"><strong>Navigation</strong>: a bottom tab bar — Home / Receipts / Monthly Report / Notifications / Me; photo upload is a centered floating action button.</p></div>
+      <div class="pair"><p class="zh"><strong>双语切换</strong>：语言切换开关（设置页或页面顶部），默认只显示一种语言的动态内容，只影响数据内容，不影响英文界面文案。</p><p class="en"><strong>Bilingual toggle</strong>: a language toggle (settings page or page top), showing only one language's dynamic content by default, affecting only data content — not the English UI chrome.</p></div>
+      <div class="pair"><p class="zh">视觉样式（配色之外的字体、间距、组件设计）不在本文档范围内，留给实现阶段或后续 /prototype 环节。</p><p class="en">Visual styling (fonts, spacing, component design beyond color coding) is outside this document's scope, left for implementation or a later /prototype pass.</p></div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <span>grocery-receipt-tracker · wayfinder spec</span>
+  <span>14/14 tickets · New Zealand · bilingual EN→ZH</span>
+</footer>
+
+<script>
+  (function(){
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+    var sections = links.map(function(a){ return document.querySelector(a.getAttribute('href')); });
+    function onScroll(){
+      var pos = window.scrollY + 120;
+      var activeIdx = 0;
+      for (var i = 0; i < sections.length; i++){
+        if (sections[i] && sections[i].offsetTop <= pos) activeIdx = i;
+      }
+      links.forEach(function(a, i){ a.classList.toggle('active', i === activeIdx); });
+    }
+    document.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
