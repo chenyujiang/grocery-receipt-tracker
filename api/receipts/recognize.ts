@@ -1,16 +1,29 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { randomUUID } from "node:crypto";
+import { supabaseAdmin } from "../_lib/supabaseAdmin";
+import { getSpendStatus, recordSpend } from "../_lib/spendLimit";
+import { calculateHaikuCost } from "../_lib/haikuCost";
+import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt";
+import { saveDraftReceipt } from "../_lib/saveDraftReceipt";
 
 // Section 3.2 (End-to-end data flow) + Section 8 (Product Matching):
-// 1. Store the uploaded image in a private Supabase Storage bucket.
-// 2. Call the Claude API (server-side only — the API key never reaches the
-//    client) with model claude-haiku-4-5 to OCR the receipt and translate
-//    English -> Chinese in one call.
-// 3. Match each recognized `raw_name_en` against the circle's existing
-//    Product list to produce a match suggestion.
-// 4. Write the draft (status = "pending_review") to Supabase.
+// 1. Verify the caller's Supabase session and look up their circle.
+// 2. Refuse if the circle's ai_spend_limit is already at/over cap.
+// 3. Store the uploaded image in a private Supabase Storage bucket.
+// 4. Call Claude (claude-haiku-4-5) to OCR the receipt, translate
+//    English -> Chinese, and suggest a product match, all in one call.
+// 5. Add the call's actual cost onto ai_spend_limit.spent_usd.
+// 6. Write the draft (status = "pending_review") to Supabase.
 //
-// This is a scaffold stub — the actual Claude call, Supabase writes, and
-// matching logic are implementation work, not part of this scaffolding pass.
+// Thin orchestration only — the actual logic lives in api/_lib/*, each
+// already covered by its own tests against a mocked Supabase/Claude client.
+
+const ALLOWED_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+type AllowedMediaType = (typeof ALLOWED_MEDIA_TYPES)[number];
+
+function isAllowedMediaType(value: unknown): value is AllowedMediaType {
+  return typeof value === "string" && (ALLOWED_MEDIA_TYPES as readonly string[]).includes(value);
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -18,16 +31,91 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // TODO: before calling Claude, check the `ai_spend_limit` singleton row
-  // (spent_usd >= cap_usd) and refuse with a clear error if the global $1
-  // cap is already hit — no auto-reset, an owner raises cap_usd by hand.
-  // TODO: read the uploaded image, store it in Supabase Storage (private bucket).
-  // TODO: call the Claude API server-side (CLAUDE_API_KEY from env, model
-  // claude-haiku-4-5, never sent to the client).
-  // TODO: after the call, add its actual cost (usage.input_tokens/output_tokens
-  // × Haiku 4.5 pricing) onto ai_spend_limit.spent_usd.
-  // TODO: match raw_name_en against this circle's Product table (Section 8).
-  // TODO: insert Receipt + ReceiptItem rows with status = "pending_review".
+  const authHeader = req.headers.authorization;
+  const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
+  if (!accessToken) {
+    res.status(401).json({ error: "Missing Authorization: Bearer <access_token> header" });
+    return;
+  }
 
-  res.status(501).json({ error: "Not implemented — scaffold only" });
+  const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(accessToken);
+  if (userError || !userData.user) {
+    res.status(401).json({ error: "Invalid or expired session" });
+    return;
+  }
+  const user = userData.user;
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("circle_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profileError || !profile) {
+    res.status(403).json({ error: "No circle found for this account" });
+    return;
+  }
+  const circleId = profile.circle_id as string;
+
+  const { imageBase64, mediaType } = (req.body ?? {}) as {
+    imageBase64?: unknown;
+    mediaType?: unknown;
+  };
+  if (typeof imageBase64 !== "string" || !imageBase64) {
+    res.status(400).json({ error: "Missing imageBase64" });
+    return;
+  }
+  if (!isAllowedMediaType(mediaType)) {
+    res.status(400).json({ error: `mediaType must be one of ${ALLOWED_MEDIA_TYPES.join(", ")}` });
+    return;
+  }
+
+  // Section 3.1: global hard-dollar cap, checked before every Claude call —
+  // no auto-reset, a circle owner raises ai_spend_limit.cap_usd by hand.
+  const spendStatus = await getSpendStatus();
+  if (spendStatus.overCap) {
+    res.status(402).json({
+      error: `AI recognition quota used up ($${spendStatus.spentUsd} of $${spendStatus.capUsd}). Ask a circle owner to raise the cap.`,
+    });
+    return;
+  }
+
+  const extension = mediaType.split("/")[1];
+  const storagePath = `${circleId}/${randomUUID()}.${extension}`;
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("receipts")
+    .upload(storagePath, Buffer.from(imageBase64, "base64"), { contentType: mediaType });
+  if (uploadError) {
+    res.status(500).json({ error: "Failed to store the receipt image" });
+    return;
+  }
+
+  const { data: existingProductRows, error: productsError } = await supabaseAdmin
+    .from("products")
+    .select("id, canonical_name_en")
+    .eq("circle_id", circleId);
+  if (productsError) {
+    res.status(500).json({ error: "Failed to load this circle's existing products" });
+    return;
+  }
+  const existingProducts: ExistingProduct[] = (existingProductRows ?? []).map((row) => ({
+    id: row.id,
+    canonicalNameEn: row.canonical_name_en,
+  }));
+
+  const { receipt, usage } = await recognizeReceipt({ imageBase64, mediaType, existingProducts });
+
+  const cost = calculateHaikuCost({
+    input_tokens: usage.inputTokens,
+    output_tokens: usage.outputTokens,
+  });
+  await recordSpend(cost);
+
+  const { receiptId } = await saveDraftReceipt({
+    circleId,
+    uploadedBy: user.email ?? "",
+    originalImageUrl: storagePath,
+    receipt,
+  });
+
+  res.status(200).json({ receiptId });
 }
