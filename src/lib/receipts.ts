@@ -313,12 +313,27 @@ async function recordPriceSpikeAlerts(
   }
 }
 
-// Section 4: used when the user confirms a suspected-duplicate draft really
-// is a duplicate — deletes the draft receipt (receipt_items cascade via
-// their FK to receipts).
+// Section 4 + 15 page 3: deletes a receipt (receipt_items cascade via their
+// FK to receipts), whether that's a confirmed upload the user removed from
+// the receipt list or a suspected-duplicate draft. Also removes its stored
+// image from the private "receipts" bucket (Section 3.1) — otherwise the
+// original photo is orphaned in storage forever.
 export async function deleteReceipt(receiptId: string): Promise<void> {
-  const { error } = await supabase.from("receipts").delete().eq("id", receiptId);
+  const { data, error } = await supabase
+    .from("receipts")
+    .delete()
+    .eq("id", receiptId)
+    .select("original_image_url")
+    .single();
   if (error) {
     throw error;
+  }
+
+  const imagePath = (data as { original_image_url: string | null } | null)?.original_image_url;
+  if (imagePath) {
+    const { error: storageError } = await supabase.storage.from("receipts").remove([imagePath]);
+    if (storageError) {
+      throw storageError;
+    }
   }
 }

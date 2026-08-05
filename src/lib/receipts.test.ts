@@ -9,6 +9,7 @@ vi.mock("@/lib/supabaseClient", () => ({
   supabase: {
     auth: { getSession: vi.fn(), getUser: vi.fn() },
     from: vi.fn(),
+    storage: { from: vi.fn() },
   },
 }));
 vi.mock("@/lib/imageResize", () => ({
@@ -421,22 +422,47 @@ describe("deleteReceipt", () => {
     vi.clearAllMocks();
   });
 
-  it("deletes the receipt (receipt_items cascade via the FK)", async () => {
-    const eq = vi.fn().mockResolvedValue({ error: null });
+  function mockDeleteRow(result: { data: unknown; error: unknown }) {
+    const single = vi.fn().mockResolvedValue(result);
+    const select = vi.fn(() => ({ single }));
+    const eq = vi.fn(() => ({ select }));
     const del = vi.fn(() => ({ eq }));
     vi.mocked(supabase.from).mockReturnValue({ delete: del } as never);
+    return { del, eq, select, single };
+  }
+
+  it("deletes the receipt row (receipt_items cascade via the FK) and its stored image", async () => {
+    mockDeleteRow({ data: { original_image_url: "circle-1/receipt-1.jpg" }, error: null });
+    const remove = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(supabase.storage.from).mockReturnValue({ remove } as never);
 
     await deleteReceipt("receipt-1");
 
-    expect(del).toHaveBeenCalled();
-    expect(eq).toHaveBeenCalledWith("id", "receipt-1");
+    expect(supabase.from).toHaveBeenCalledWith("receipts");
+    expect(supabase.storage.from).toHaveBeenCalledWith("receipts");
+    expect(remove).toHaveBeenCalledWith(["circle-1/receipt-1.jpg"]);
   });
 
-  it("throws when the delete fails", async () => {
-    const eq = vi.fn().mockResolvedValue({ error: new Error("network error") });
-    const del = vi.fn(() => ({ eq }));
-    vi.mocked(supabase.from).mockReturnValue({ delete: del } as never);
+  it("skips storage cleanup when the receipt had no stored image", async () => {
+    mockDeleteRow({ data: { original_image_url: null }, error: null });
+
+    await deleteReceipt("receipt-1");
+
+    expect(supabase.storage.from).not.toHaveBeenCalled();
+  });
+
+  it("throws when the row delete fails", async () => {
+    mockDeleteRow({ data: null, error: new Error("network error") });
 
     await expect(deleteReceipt("receipt-1")).rejects.toThrow("network error");
+    expect(supabase.storage.from).not.toHaveBeenCalled();
+  });
+
+  it("throws when the row is deleted but the storage cleanup fails", async () => {
+    mockDeleteRow({ data: { original_image_url: "circle-1/receipt-1.jpg" }, error: null });
+    const remove = vi.fn().mockResolvedValue({ error: new Error("storage error") });
+    vi.mocked(supabase.storage.from).mockReturnValue({ remove } as never);
+
+    await expect(deleteReceipt("receipt-1")).rejects.toThrow("storage error");
   });
 });
