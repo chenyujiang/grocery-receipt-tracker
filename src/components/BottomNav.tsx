@@ -52,10 +52,11 @@ function MeIcon() {
   );
 }
 
-function PlusIcon() {
+function UploadIcon() {
   return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" />
+    <svg {...IconProps()} width={20} height={20} aria-hidden="true">
+      <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5" />
+      <path d="M4.5 16v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V16" />
     </svg>
   );
 }
@@ -66,7 +67,8 @@ export default function BottomNav() {
   return (
     <>
       <NavLink to="/upload" className="fab" aria-label="Upload receipt">
-        <PlusIcon />
+        <UploadIcon />
+        Upload
       </NavLink>
       <nav className="bottom-nav">
         <NavLink to="/" end>

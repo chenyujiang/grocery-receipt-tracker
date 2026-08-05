@@ -61,13 +61,22 @@ describe("CircleSettings", () => {
     render(<CircleSettings />);
     await screen.findByText(/eason/);
 
-    const zhOption = screen.getByRole("radio", { name: "中文" });
-    expect(screen.getByRole("radio", { name: "English" })).toBeChecked();
-    expect(zhOption).not.toBeChecked();
+    const toggle = screen.getByRole("switch", { name: /display language/i });
+    expect(toggle).not.toBeChecked();
 
-    await userEvent.click(zhOption);
+    await userEvent.click(toggle);
 
     expect(setLanguage).toHaveBeenCalledWith("zh");
+  });
+
+  it("shows a live preview of the selected display language", async () => {
+    vi.mocked(useLanguage).mockReturnValue({ language: "zh", setLanguage: vi.fn() });
+    vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER]);
+
+    render(<CircleSettings />);
+    await screen.findByText(/eason/);
+
+    expect(screen.getByText(/城内城外超市/)).toBeInTheDocument();
   });
 
   it("lets the signed-in member save a new display name", async () => {

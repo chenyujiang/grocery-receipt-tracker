@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { pickText } from "@/lib/bilingual";
 import { signOut } from "@/lib/auth";
 import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
 import { updateOwnDisplayName, removeMember, dissolveCircle } from "@/lib/circleActions";
@@ -129,26 +130,24 @@ export default function CircleSettings() {
           <section>
             <h2>Display language</h2>
             <p>Controls which language product and store names show in, across the app.</p>
-            <label>
+            <label className="lang-switch">
+              <span className={language === "en" ? "lang-switch-label active" : "lang-switch-label"}>
+                English
+              </span>
               <input
-                type="radio"
-                name="language"
-                value="en"
-                checked={language === "en"}
-                onChange={() => setLanguage("en")}
-              />
-              English
-            </label>{" "}
-            <label>
-              <input
-                type="radio"
-                name="language"
-                value="zh"
+                type="checkbox"
+                role="switch"
                 checked={language === "zh"}
-                onChange={() => setLanguage("zh")}
+                onChange={(event) => setLanguage(event.target.checked ? "zh" : "en")}
+                aria-label="Display language"
               />
-              中文
+              <span className={language === "zh" ? "lang-switch-label active" : "lang-switch-label"}>
+                中文
+              </span>
             </label>
+            <p className="lang-preview">
+              Preview: {pickText("Countdown Supermarket", "城内城外超市", language)}
+            </p>
           </section>
 
           <section>

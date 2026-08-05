@@ -247,6 +247,61 @@ label:has(input[type="checkbox"]) {
   font-weight: 500;
 }
 
+.lang-switch {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.lang-switch-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.lang-switch-label.active {
+  color: var(--text);
+}
+
+.lang-switch input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  width: 42px;
+  height: 24px;
+  min-width: 42px;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.lang-switch input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(27, 33, 29, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.lang-switch input[type="checkbox"]:checked {
+  background: var(--primary);
+}
+
+.lang-switch input[type="checkbox"]:checked::after {
+  transform: translateX(18px);
+}
+
+.lang-preview {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
 button {
   font: inherit;
   font-weight: 700;
@@ -348,24 +403,32 @@ p[role="alert"] {
 
 .fab {
   position: fixed;
-  bottom: 40px;
+  bottom: 38px;
   left: 50%;
   transform: translateX(-50%);
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 18px;
+  border-radius: 18px;
   background: var(--primary);
   color: var(--primary-contrast);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   text-decoration: none;
+  font-size: 11px;
+  font-weight: 700;
   box-shadow: 0 4px 14px rgba(47, 107, 79, 0.4);
   z-index: 10;
 }
 
+.fab svg {
+  stroke: currentColor;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  button {
+  button,
+  .lang-switch input[type="checkbox"],
+  .lang-switch input[type="checkbox"]::after {
     transition: none;
   }
 }
