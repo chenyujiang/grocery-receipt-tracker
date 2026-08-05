@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchHomeSummary, type HomeSummary } from "@/lib/home";
+import { useLanguage } from "@/lib/LanguageProvider";
+import { pickText, categoryLabel } from "@/lib/bilingual";
 
 // Section 15, page 1: Home/Dashboard — this month's total spend, category
 // breakdown, a pending-alerts summary, and recent receipts.
 export default function Home() {
+  const { language } = useLanguage();
   const [summary, setSummary] = useState<HomeSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +40,7 @@ export default function Home() {
               <ul>
                 {summary.categoryBreakdown.map((entry) => (
                   <li key={entry.category}>
-                    {entry.category} — ${entry.total.toFixed(2)}
+                    {categoryLabel(entry.category, language)} — ${entry.total.toFixed(2)}
                   </li>
                 ))}
               </ul>
@@ -59,8 +62,8 @@ export default function Home() {
               <ul>
                 {summary.recentReceipts.map((receipt) => (
                   <li key={receipt.id}>
-                    {receipt.purchaseDate} · {receipt.storeNameZh} {receipt.storeNameEn} — $
-                    {receipt.totalAmount.toFixed(2)}
+                    {receipt.purchaseDate} · {pickText(receipt.storeNameEn, receipt.storeNameZh, language)}{" "}
+                    — ${receipt.totalAmount.toFixed(2)}
                     {receipt.status === "pending_review" && (
                       <>
                         {" "}

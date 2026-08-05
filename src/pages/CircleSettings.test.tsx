@@ -11,6 +11,9 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/AuthProvider", () => ({
   useAuth: vi.fn(),
 }));
+vi.mock("@/lib/LanguageProvider", () => ({
+  useLanguage: vi.fn(),
+}));
 vi.mock("@/lib/circleMembers", () => ({
   fetchCircleMembers: vi.fn(),
 }));
@@ -22,6 +25,7 @@ vi.mock("@/lib/circleActions", () => ({
 
 import { signOut } from "@/lib/auth";
 import { useAuth } from "@/lib/AuthProvider";
+import { useLanguage } from "@/lib/LanguageProvider";
 import { fetchCircleMembers } from "@/lib/circleMembers";
 import { updateOwnDisplayName, removeMember, dissolveCircle } from "@/lib/circleActions";
 import CircleSettings from "@/pages/CircleSettings";
@@ -36,6 +40,7 @@ describe("CircleSettings", () => {
       session: { userId: "user-1", accessToken: "tok" },
       loading: false,
     });
+    vi.mocked(useLanguage).mockReturnValue({ language: "en", setLanguage: vi.fn() });
   });
 
   it("loads and displays the circle's members with their roles", async () => {
@@ -46,6 +51,23 @@ describe("CircleSettings", () => {
     expect(await screen.findByText(/kelly/)).toBeInTheDocument();
     expect(screen.getByText(/\(member\)/)).toBeInTheDocument();
     expect(screen.getByText(/\(owner\)/)).toBeInTheDocument();
+  });
+
+  it("lets the user switch the display language", async () => {
+    const setLanguage = vi.fn();
+    vi.mocked(useLanguage).mockReturnValue({ language: "en", setLanguage });
+    vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER]);
+
+    render(<CircleSettings />);
+    await screen.findByText(/eason/);
+
+    const zhOption = screen.getByRole("radio", { name: "中文" });
+    expect(screen.getByRole("radio", { name: "English" })).toBeChecked();
+    expect(zhOption).not.toBeChecked();
+
+    await userEvent.click(zhOption);
+
+    expect(setLanguage).toHaveBeenCalledWith("zh");
   });
 
   it("lets the signed-in member save a new display name", async () => {

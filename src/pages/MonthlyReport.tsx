@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { fetchMonthlyReport, type MonthlyReport as MonthlyReportData } from "@/lib/monthlyReport";
 import { fetchExportRows, rowsToCsv, downloadCsv } from "@/lib/exportCsv";
 import { monthBounds } from "@/lib/dateRange";
+import { useLanguage } from "@/lib/LanguageProvider";
+import { pickText, categoryLabel } from "@/lib/bilingual";
 
 function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -15,6 +17,7 @@ function formatMonthLabel(date: Date): string {
 // category breakdown, the price-change leaderboard (reusing Section 10),
 // alert counts, per-uploader spending, and the CSV export button.
 export default function MonthlyReport() {
+  const { language } = useLanguage();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [report, setReport] = useState<MonthlyReportData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +98,7 @@ export default function MonthlyReport() {
               <ul>
                 {report.categoryBreakdown.map((entry) => (
                   <li key={entry.category}>
-                    {entry.category} — ${entry.total.toFixed(2)}
+                    {categoryLabel(entry.category, language)} — ${entry.total.toFixed(2)}
                   </li>
                 ))}
               </ul>
@@ -110,7 +113,7 @@ export default function MonthlyReport() {
               <ul>
                 {report.priceChangeLeaderboard.map((entry) => (
                   <li key={entry.productId}>
-                    {entry.nameZh} {entry.nameEn} — +{entry.changePercent}%
+                    {pickText(entry.nameEn, entry.nameZh, language)} — +{entry.changePercent}%
                   </li>
                 ))}
               </ul>

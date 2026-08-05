@@ -8,10 +8,13 @@ import {
   type DraftItem,
 } from "@/lib/receipts";
 import { findDuplicateReceipt, type DuplicateMatch } from "@/lib/duplicateCheck";
+import { useLanguage } from "@/lib/LanguageProvider";
+import { pickText, categoryLabel } from "@/lib/bilingual";
 
 // Section 6, 15 page 2 (preview/confirm): the review step is the safety net
 // for OCR errors — user edits each field before it counts toward statistics.
 export default function ReceiptReview() {
+  const { language } = useLanguage();
   const { receiptId } = useParams<{ receiptId: string }>();
   const navigate = useNavigate();
 
@@ -109,7 +112,7 @@ export default function ReceiptReview() {
     <div className="page">
       <h1>Confirm Receipt</h1>
       <p>
-        {draft.storeNameZh} {draft.storeNameEn} · {draft.purchaseDate}
+        {pickText(draft.storeNameEn, draft.storeNameZh, language)} · {draft.purchaseDate}
       </p>
 
       {duplicate && !duplicateDismissed && (
@@ -168,7 +171,7 @@ export default function ReceiptReview() {
             />
             Promotion
           </label>
-          <p>Category: {item.category ?? "—"}</p>
+          <p>Category: {item.category ? categoryLabel(item.category, language) : "—"}</p>
         </fieldset>
       ))}
 

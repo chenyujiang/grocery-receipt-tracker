@@ -2,9 +2,12 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { fetchReceipts, type ReceiptListItem, type ReceiptFilters } from "@/lib/receiptList";
 import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
+import { useLanguage } from "@/lib/LanguageProvider";
+import { pickText } from "@/lib/bilingual";
 
 // Section 15, page 3: historical receipts, filterable by store/date/uploader.
 export default function ReceiptList() {
+  const { language } = useLanguage();
   const [receipts, setReceipts] = useState<ReceiptListItem[] | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -86,8 +89,8 @@ export default function ReceiptList() {
         <ul>
           {receipts.map((receipt) => (
             <li key={receipt.id}>
-              {receipt.purchaseDate} · {receipt.storeNameZh} {receipt.storeNameEn} — $
-              {receipt.totalAmount.toFixed(2)}
+              {receipt.purchaseDate} · {pickText(receipt.storeNameEn, receipt.storeNameZh, language)} —
+              ${receipt.totalAmount.toFixed(2)}
               {receipt.status === "pending_review" && (
                 <>
                   {" "}

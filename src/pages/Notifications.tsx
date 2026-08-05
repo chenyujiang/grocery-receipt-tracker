@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchAlerts, type AlertListItem } from "@/lib/alerts";
+import { useLanguage } from "@/lib/LanguageProvider";
+import { pickText } from "@/lib/bilingual";
 
 // Section 13 + 15, page 6: price-spike and low-stock alert list (shared UI, ticket 11).
 export default function Notifications() {
+  const { language } = useLanguage();
   const [alerts, setAlerts] = useState<AlertListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +32,7 @@ export default function Notifications() {
           {alerts.map((alert) => (
             <li key={alert.id}>
               <Link to={`/products/${alert.productId}`}>
-                {alert.productNameZh} {alert.productNameEn}
+                {pickText(alert.productNameEn, alert.productNameZh, language)}
               </Link>
               {alert.type === "price_spike" ? (
                 <span>

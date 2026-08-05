@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { fetchProductDetail, type ProductDetail as ProductDetailData } from "@/lib/productDetail";
 import type { PriceTrendPoint } from "@/lib/priceTrend";
+import { useLanguage } from "@/lib/LanguageProvider";
+import { pickText, categoryLabel } from "@/lib/bilingual";
 
 const PRICE_BASIS_LABEL: Record<string, string> = {
   per_100g: "/100g",
@@ -65,6 +67,7 @@ function PriceTrendChart({ points }: { points: PriceTrendPoint[] }) {
 }
 
 export default function ProductDetail() {
+  const { language } = useLanguage();
   const { productId } = useParams<{ productId: string }>();
   const [detail, setDetail] = useState<ProductDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +90,8 @@ export default function ProductDetail() {
       {!error && detail !== null && (
         <>
           <p>
-            {detail.canonicalNameZh} {detail.canonicalNameEn} · {detail.category}
+            {pickText(detail.canonicalNameEn, detail.canonicalNameZh, language)} ·{" "}
+            {categoryLabel(detail.category, language)}
           </p>
 
           <section>
@@ -120,7 +124,8 @@ export default function ProductDetail() {
               <ul>
                 {detail.storeComparison.map((entry) => (
                   <li key={entry.storeNameEn}>
-                    {entry.storeNameZh} {entry.storeNameEn} — ${entry.value.toFixed(2)}
+                    {pickText(entry.storeNameEn, entry.storeNameZh, language)} — $
+                    {entry.value.toFixed(2)}
                     {PRICE_BASIS_LABEL[entry.basis]} ({entry.purchaseDate})
                   </li>
                 ))}
@@ -149,8 +154,8 @@ export default function ProductDetail() {
               <ul>
                 {detail.purchaseHistory.map((entry, index) => (
                   <li key={index}>
-                    {entry.purchaseDate} · {entry.storeNameZh} {entry.storeNameEn} — $
-                    {entry.unitPrice.toFixed(2)}
+                    {entry.purchaseDate} · {pickText(entry.storeNameEn, entry.storeNameZh, language)}{" "}
+                    — ${entry.unitPrice.toFixed(2)}
                     {entry.isPromotion && " (promo)"}
                   </li>
                 ))}

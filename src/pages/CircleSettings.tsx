@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/AuthProvider";
+import { useLanguage } from "@/lib/LanguageProvider";
 import { signOut } from "@/lib/auth";
 import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
 import { updateOwnDisplayName, removeMember, dissolveCircle } from "@/lib/circleActions";
@@ -11,6 +12,7 @@ const DISSOLVE_CONFIRM_TEXT = "DISSOLVE";
 // joining a circle is still owner-at-signup only — see README.
 export default function CircleSettings() {
   const { session } = useAuth();
+  const { language, setLanguage } = useLanguage();
   const [members, setMembers] = useState<CircleMember[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -122,6 +124,31 @@ export default function CircleSettings() {
                 {savingName ? "Saving…" : "Save"}
               </button>
             </form>
+          </section>
+
+          <section>
+            <h2>Display language</h2>
+            <p>Controls which language product and store names show in, across the app.</p>
+            <label>
+              <input
+                type="radio"
+                name="language"
+                value="en"
+                checked={language === "en"}
+                onChange={() => setLanguage("en")}
+              />
+              English
+            </label>{" "}
+            <label>
+              <input
+                type="radio"
+                name="language"
+                value="zh"
+                checked={language === "zh"}
+                onChange={() => setLanguage("zh")}
+              />
+              中文
+            </label>
           </section>
 
           <section>
