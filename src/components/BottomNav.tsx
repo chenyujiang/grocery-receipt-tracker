@@ -1,7 +1,8 @@
 import { NavLink } from "react-router-dom";
+import { useLanguage } from "@/lib/LanguageProvider";
 
 // Minimal 22px line icons, hand-authored to avoid pulling in an icon library
-// for five glyphs. Purely decorative — the visible label carries meaning.
+// for six glyphs. Purely decorative — the visible label carries meaning.
 function IconProps() {
   return { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 }
@@ -54,43 +55,44 @@ function MeIcon() {
 
 function UploadIcon() {
   return (
-    <svg {...IconProps()} width={20} height={20} aria-hidden="true">
+    <svg {...IconProps()} aria-hidden="true">
       <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5" />
       <path d="M4.5 16v2.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V16" />
     </svg>
   );
 }
 
-// Section 15: bottom tab bar — Home / Receipts / Monthly Report / Notifications / Me,
-// with photo upload as a centered floating action button rather than a tab.
+// Section 15: bottom tab bar — Home / Receipts / Upload / Report / Me, five
+// even items. Notifications lives as a separate icon pinned to the top-right
+// corner instead of crowding a sixth item into the row.
 export default function BottomNav() {
+  const { t } = useLanguage();
+
   return (
     <>
-      <NavLink to="/upload" className="fab" aria-label="Upload receipt">
-        <UploadIcon />
-        Upload
+      <NavLink to="/notifications" className="top-notifications" aria-label={t("nav.notifications")}>
+        <NotificationsIcon />
       </NavLink>
       <nav className="bottom-nav">
         <NavLink to="/" end>
           <HomeIcon />
-          Home
+          {t("nav.home")}
         </NavLink>
         <NavLink to="/receipts">
           <ReceiptsIcon />
-          Receipts
+          {t("nav.receipts")}
         </NavLink>
-        <span className="bottom-nav-spacer" />
+        <NavLink to="/upload">
+          <UploadIcon />
+          {t("nav.upload")}
+        </NavLink>
         <NavLink to="/report">
           <ReportIcon />
-          Report
-        </NavLink>
-        <NavLink to="/notifications">
-          <NotificationsIcon />
-          Notifications
+          {t("nav.report")}
         </NavLink>
         <NavLink to="/settings">
           <MeIcon />
-          Me
+          {t("nav.me")}
         </NavLink>
       </nav>
     </>

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { translate, type TranslationKey } from "@/lib/i18n";
+import type { Language } from "@/lib/bilingual";
 
 // Each of these is a boundary whose own behavior is covered by its own test
 // file (auth.test.ts, circleMembers.test.ts, circleActions.test.ts); this
@@ -33,6 +35,18 @@ import CircleSettings from "@/pages/CircleSettings";
 const OWNER = { userId: "user-1", displayName: "eason", role: "owner" as const, circleId: "circle-1" };
 const MEMBER = { userId: "user-2", displayName: "kelly", role: "member" as const, circleId: "circle-1" };
 
+// Real translate() so translated strings actually render, rather than
+// re-testing i18n.ts's dictionary (already covered by i18n.test.ts) here.
+function mockLanguage(language: Language, setLanguage = vi.fn()) {
+  vi.mocked(useLanguage).mockReturnValue({
+    language,
+    setLanguage,
+    t: (key: TranslationKey, params?: Record<string, string | number>) =>
+      translate(language, key, params),
+  });
+  return setLanguage;
+}
+
 describe("CircleSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,7 +54,7 @@ describe("CircleSettings", () => {
       session: { userId: "user-1", accessToken: "tok" },
       loading: false,
     });
-    vi.mocked(useLanguage).mockReturnValue({ language: "en", setLanguage: vi.fn() });
+    mockLanguage("en");
   });
 
   it("loads and displays the circle's members with their roles", async () => {
@@ -54,8 +68,7 @@ describe("CircleSettings", () => {
   });
 
   it("lets the user switch the display language", async () => {
-    const setLanguage = vi.fn();
-    vi.mocked(useLanguage).mockReturnValue({ language: "en", setLanguage });
+    const setLanguage = mockLanguage("en");
     vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER]);
 
     render(<CircleSettings />);
@@ -69,14 +82,15 @@ describe("CircleSettings", () => {
     expect(setLanguage).toHaveBeenCalledWith("zh");
   });
 
-  it("shows a live preview of the selected display language", async () => {
-    vi.mocked(useLanguage).mockReturnValue({ language: "zh", setLanguage: vi.fn() });
+  it("translates the page's UI chrome when the language is Chinese", async () => {
+    mockLanguage("zh");
     vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER]);
 
     render(<CircleSettings />);
-    await screen.findByText(/eason/);
 
-    expect(screen.getByText(/城内城外超市/)).toBeInTheDocument();
+    expect(await screen.findByText("圈子设置")).toBeInTheDocument();
+    expect(screen.getByText("成员")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "退出登录" })).toBeInTheDocument();
   });
 
   it("lets the signed-in member save a new display name", async () => {

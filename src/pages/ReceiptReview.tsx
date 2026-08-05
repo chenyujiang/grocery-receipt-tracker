@@ -14,7 +14,7 @@ import { pickText, categoryLabel } from "@/lib/bilingual";
 // Section 6, 15 page 2 (preview/confirm): the review step is the safety net
 // for OCR errors — user edits each field before it counts toward statistics.
 export default function ReceiptReview() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { receiptId } = useParams<{ receiptId: string }>();
   const navigate = useNavigate();
 
@@ -103,30 +103,29 @@ export default function ReceiptReview() {
   if (!draft) {
     return (
       <div className="page">
-        <p>Loading…</p>
+        <p>{t("common.loading")}</p>
       </div>
     );
   }
 
   return (
     <div className="page">
-      <h1>Confirm Receipt</h1>
+      <h1>{t("review.title")}</h1>
       <p>
         {pickText(draft.storeNameEn, draft.storeNameZh, language)} · {draft.purchaseDate}
       </p>
 
       {duplicate && !duplicateDismissed && (
         <section>
-          <h2>Possible duplicate</h2>
+          <h2>{t("review.duplicateTitle")}</h2>
           <p>
-            This looks like a receipt you already uploaded (same store, date, and total) on{" "}
-            {new Date(duplicate.uploadedAt).toLocaleDateString()}.
+            {t("review.duplicateBody")} {new Date(duplicate.uploadedAt).toLocaleDateString()}.
           </p>
           <button type="button" className="btn-secondary" onClick={() => setDuplicateDismissed(true)}>
-            Not a duplicate, continue
+            {t("review.notDuplicate")}
           </button>{" "}
           <button type="button" onClick={handleDeleteDuplicate} disabled={deleting}>
-            {deleting ? "Deleting…" : "Yes, it's a duplicate — delete"}
+            {deleting ? t("review.deleting") : t("review.confirmDuplicate")}
           </button>
         </section>
       )}
@@ -134,21 +133,21 @@ export default function ReceiptReview() {
       {items.map((item, index) => (
         <fieldset key={item.id}>
           <label>
-            Name (EN)
+            {t("review.nameEn")}
             <input
               value={item.rawNameEn}
               onChange={(event) => updateItem(index, "rawNameEn", event.target.value)}
             />
           </label>
           <label>
-            Name (ZH)
+            {t("review.nameZh")}
             <input
               value={item.rawNameZh}
               onChange={(event) => updateItem(index, "rawNameZh", event.target.value)}
             />
           </label>
           <label>
-            Quantity
+            {t("review.quantity")}
             <input
               type="number"
               value={item.quantity}
@@ -156,7 +155,7 @@ export default function ReceiptReview() {
             />
           </label>
           <label>
-            Unit price
+            {t("review.unitPrice")}
             <input
               type="number"
               value={item.unitPrice}
@@ -169,14 +168,16 @@ export default function ReceiptReview() {
               checked={item.isPromotion}
               onChange={(event) => updateItem(index, "isPromotion", event.target.checked)}
             />
-            Promotion
+            {t("review.promotion")}
           </label>
-          <p>Category: {item.category ? categoryLabel(item.category, language) : "—"}</p>
+          <p>
+            {t("common.category")}: {item.category ? categoryLabel(item.category, language) : "—"}
+          </p>
         </fieldset>
       ))}
 
       <button type="button" onClick={handleConfirm} disabled={confirming}>
-        {confirming ? "Confirming…" : "Confirm"}
+        {confirming ? t("review.confirming") : t("review.confirm")}
       </button>
     </div>
   );

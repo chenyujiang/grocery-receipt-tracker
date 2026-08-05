@@ -21,8 +21,9 @@ const QUANTITY_BASIS_LABEL: Record<string, string> = {
 // not worth pulling in a charting library for. Promotional points render
 // hollow (Section 10's "distinct style" requirement for promo records).
 function PriceTrendChart({ points }: { points: PriceTrendPoint[] }) {
+  const { t } = useLanguage();
   if (points.length === 0) {
-    return <p>Not enough data yet.</p>;
+    return <p>{t("product.notEnoughData")}</p>;
   }
   if (points.length === 1) {
     return (
@@ -67,7 +68,7 @@ function PriceTrendChart({ points }: { points: PriceTrendPoint[] }) {
 }
 
 export default function ProductDetail() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { productId } = useParams<{ productId: string }>();
   const [detail, setDetail] = useState<ProductDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,11 +82,11 @@ export default function ProductDetail() {
 
   return (
     <div className="page">
-      <h1>Product Detail</h1>
+      <h1>{t("product.title")}</h1>
 
       {error && <p role="alert">{error}</p>}
 
-      {!error && detail === null && <p>Loading…</p>}
+      {!error && detail === null && <p>{t("common.loading")}</p>}
 
       {!error && detail !== null && (
         <>
@@ -95,9 +96,9 @@ export default function ProductDetail() {
           </p>
 
           <section>
-            <h2>Price change</h2>
+            <h2>{t("product.priceChange")}</h2>
             {detail.priceChange === null ? (
-              <p>Not enough data yet.</p>
+              <p>{t("product.notEnoughData")}</p>
             ) : (
               <p
                 className={
@@ -112,14 +113,14 @@ export default function ProductDetail() {
           </section>
 
           <section>
-            <h2>Price trend</h2>
+            <h2>{t("product.priceTrend")}</h2>
             <PriceTrendChart points={detail.priceTrend} />
           </section>
 
           <section>
-            <h2>Compare stores</h2>
+            <h2>{t("product.compareStores")}</h2>
             {detail.storeComparison.length < 2 ? (
-              <p>No purchase records from other stores yet.</p>
+              <p>{t("product.noOtherStores")}</p>
             ) : (
               <ul>
                 {detail.storeComparison.map((entry) => (
@@ -134,29 +135,29 @@ export default function ProductDetail() {
           </section>
 
           <section>
-            <h2>Consumption</h2>
+            <h2>{t("product.consumption")}</h2>
             {detail.consumption === null ? (
-              <p>Not enough data yet.</p>
+              <p>{t("product.notEnoughData")}</p>
             ) : (
               <p>
-                Estimated {detail.consumption.estimatedDaysRemaining} days remaining ({" "}
-                {detail.consumption.dailyRate} {QUANTITY_BASIS_LABEL[detail.consumption.basis]}/day —
-                estimated, not an exact count)
+                {t("product.estimatedDaysRemaining", { days: detail.consumption.estimatedDaysRemaining })}{" "}
+                ({detail.consumption.dailyRate} {QUANTITY_BASIS_LABEL[detail.consumption.basis]}/day —{" "}
+                {t("product.consumptionNote")})
               </p>
             )}
           </section>
 
           <section>
-            <h2>Purchase history</h2>
+            <h2>{t("product.purchaseHistory")}</h2>
             {detail.purchaseHistory.length === 0 ? (
-              <p>No purchases yet.</p>
+              <p>{t("product.noPurchases")}</p>
             ) : (
               <ul>
                 {detail.purchaseHistory.map((entry, index) => (
                   <li key={index}>
                     {entry.purchaseDate} · {pickText(entry.storeNameEn, entry.storeNameZh, language)}{" "}
                     — ${entry.unitPrice.toFixed(2)}
-                    {entry.isPromotion && " (promo)"}
+                    {entry.isPromotion && ` (${t("product.promo")})`}
                   </li>
                 ))}
               </ul>

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { signUpWithEmail } from "@/lib/auth";
 import type { Role } from "@/types";
+import { useLanguage } from "@/lib/LanguageProvider";
 
 interface SignUpResult {
   userId: string;
@@ -13,6 +14,7 @@ interface SignUpFormProps {
 }
 
 export default function SignUpForm({ onSuccess }: SignUpFormProps) {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
   return (
     <form onSubmit={handleSubmit}>
       <label>
-        Email
+        {t("auth.email")}
         <input
           type="email"
           value={email}
@@ -44,7 +46,7 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
         />
       </label>
       <label>
-        Password
+        {t("auth.password")}
         <input
           type="password"
           value={password}
@@ -54,7 +56,7 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
       </label>
       {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={submitting}>
-        {submitting ? "Signing up…" : "Sign up"}
+        {submitting ? t("auth.signingUp") : t("auth.signUp.submit")}
       </button>
     </form>
   );

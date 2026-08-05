@@ -7,7 +7,7 @@ import { pickText } from "@/lib/bilingual";
 
 // Section 15, page 3: historical receipts, filterable by store/date/uploader.
 export default function ReceiptList() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [receipts, setReceipts] = useState<ReceiptListItem[] | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -45,30 +45,30 @@ export default function ReceiptList() {
 
   return (
     <div className="page">
-      <h1>Receipts</h1>
+      <h1>{t("receiptList.title")}</h1>
 
       <form onSubmit={handleSubmit}>
         <label>
-          Store
+          {t("receiptList.store")}
           <input
             type="text"
             value={storeQuery}
             onChange={(event) => setStoreQuery(event.target.value)}
-            placeholder="Store name"
+            placeholder={t("receiptList.storePlaceholder")}
           />
         </label>
         <label>
-          From
+          {t("receiptList.from")}
           <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
         </label>
         <label>
-          To
+          {t("receiptList.to")}
           <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
         </label>
         <label>
-          Uploader
+          {t("receiptList.uploader")}
           <select value={uploadedBy} onChange={(event) => setUploadedBy(event.target.value)}>
-            <option value="">All</option>
+            <option value="">{t("receiptList.all")}</option>
             {members.map((member) => (
               <option key={member.userId} value={member.userId}>
                 {member.displayName}
@@ -76,14 +76,14 @@ export default function ReceiptList() {
             ))}
           </select>
         </label>
-        <button type="submit">Filter</button>
+        <button type="submit">{t("receiptList.filter")}</button>
       </form>
 
       {error && <p role="alert">{error}</p>}
 
-      {!error && receipts === null && <p>Loading…</p>}
+      {!error && receipts === null && <p>{t("common.loading")}</p>}
 
-      {!error && receipts !== null && receipts.length === 0 && <p>No receipts found.</p>}
+      {!error && receipts !== null && receipts.length === 0 && <p>{t("receiptList.noneFound")}</p>}
 
       {!error && receipts !== null && receipts.length > 0 && (
         <ul>
@@ -94,7 +94,7 @@ export default function ReceiptList() {
               {receipt.status === "pending_review" && (
                 <>
                   {" "}
-                  · <Link to={`/receipts/${receipt.id}/review`}>Needs review</Link>
+                  · <Link to={`/receipts/${receipt.id}/review`}>{t("home.needsReview")}</Link>
                 </>
               )}
             </li>

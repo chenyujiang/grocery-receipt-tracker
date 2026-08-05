@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { signInWithEmail } from "@/lib/auth";
+import { useLanguage } from "@/lib/LanguageProvider";
 
 interface SignInResult {
   userId: string;
@@ -11,6 +12,7 @@ interface SignInFormProps {
 }
 
 export default function SignInForm({ onSuccess }: SignInFormProps) {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
   return (
     <form onSubmit={handleSubmit}>
       <label>
-        Email
+        {t("auth.email")}
         <input
           type="email"
           value={email}
@@ -42,7 +44,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
         />
       </label>
       <label>
-        Password
+        {t("auth.password")}
         <input
           type="password"
           value={password}
@@ -52,7 +54,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
       </label>
       {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={submitting}>
-        {submitting ? "Signing in…" : "Sign in"}
+        {submitting ? t("auth.signingIn") : t("auth.signIn.submit")}
       </button>
     </form>
   );

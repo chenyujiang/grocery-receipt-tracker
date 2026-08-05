@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
-import { pickText } from "@/lib/bilingual";
 import { signOut } from "@/lib/auth";
 import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
 import { updateOwnDisplayName, removeMember, dissolveCircle } from "@/lib/circleActions";
@@ -13,7 +12,7 @@ const DISSOLVE_CONFIRM_TEXT = "DISSOLVE";
 // joining a circle is still owner-at-signup only — see README.
 export default function CircleSettings() {
   const { session } = useAuth();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const [members, setMembers] = useState<CircleMember[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,19 +101,19 @@ export default function CircleSettings() {
 
   return (
     <div className="page">
-      <h1>Circle Settings</h1>
+      <h1>{t("settings.title")}</h1>
 
       {error && <p role="alert">{error}</p>}
 
-      {!error && members === null && <p>Loading…</p>}
+      {!error && members === null && <p>{t("common.loading")}</p>}
 
       {!error && members !== null && (
         <>
           <section>
-            <h2>Your name</h2>
+            <h2>{t("settings.yourName")}</h2>
             <form onSubmit={handleSaveName}>
               <label>
-                Display name
+                {t("settings.displayName")}
                 <input
                   value={displayNameInput}
                   onChange={(event) => setDisplayNameInput(event.target.value)}
@@ -122,40 +121,38 @@ export default function CircleSettings() {
                 />
               </label>
               <button type="submit" disabled={savingName}>
-                {savingName ? "Saving…" : "Save"}
+                {savingName ? t("settings.saving") : t("settings.save")}
               </button>
             </form>
           </section>
 
           <section>
-            <h2>Display language</h2>
-            <p>Controls which language product and store names show in, across the app.</p>
+            <h2>{t("settings.language")}</h2>
+            <p>{t("settings.languageHint")}</p>
             <label className="lang-switch">
               <span className={language === "en" ? "lang-switch-label active" : "lang-switch-label"}>
-                English
+                {t("settings.languageEn")}
               </span>
               <input
                 type="checkbox"
                 role="switch"
                 checked={language === "zh"}
                 onChange={(event) => setLanguage(event.target.checked ? "zh" : "en")}
-                aria-label="Display language"
+                aria-label={t("settings.language")}
               />
               <span className={language === "zh" ? "lang-switch-label active" : "lang-switch-label"}>
-                中文
+                {t("settings.languageZh")}
               </span>
             </label>
-            <p className="lang-preview">
-              Preview: {pickText("Countdown Supermarket", "城内城外超市", language)}
-            </p>
           </section>
 
           <section>
-            <h2>Members</h2>
+            <h2>{t("settings.members")}</h2>
             <ul>
               {members.map((member) => (
                 <li key={member.userId}>
-                  {member.displayName} ({member.role})
+                  {member.displayName} (
+                  {member.role === "owner" ? t("settings.roleOwner") : t("settings.roleMember")})
                   {isOwner && member.userId !== session?.userId && (
                     <>
                       {" "}
@@ -165,7 +162,7 @@ export default function CircleSettings() {
                         onClick={() => handleRemoveMember(member.userId)}
                         disabled={removingUserId === member.userId}
                       >
-                        {removingUserId === member.userId ? "Removing…" : "Remove"}
+                        {removingUserId === member.userId ? t("settings.removing") : t("settings.remove")}
                       </button>
                     </>
                   )}
@@ -176,13 +173,10 @@ export default function CircleSettings() {
 
           {isOwner && self && (
             <section>
-              <h2>Dissolve circle</h2>
-              <p>
-                This permanently removes every member and deletes the circle's data. Type{" "}
-                {DISSOLVE_CONFIRM_TEXT} to confirm.
-              </p>
+              <h2>{t("settings.dissolveTitle")}</h2>
+              <p>{t("settings.dissolveBody", { word: DISSOLVE_CONFIRM_TEXT })}</p>
               <label>
-                Confirm
+                {t("settings.confirm")}
                 <input
                   value={dissolveConfirmInput}
                   onChange={(event) => setDissolveConfirmInput(event.target.value)}
@@ -193,13 +187,13 @@ export default function CircleSettings() {
                 onClick={handleDissolveCircle}
                 disabled={dissolveConfirmInput !== DISSOLVE_CONFIRM_TEXT || dissolving}
               >
-                {dissolving ? "Dissolving…" : "Dissolve circle"}
+                {dissolving ? t("settings.dissolving") : t("settings.dissolve")}
               </button>
             </section>
           )}
 
           <button type="button" className="btn-secondary" onClick={handleSignOut} disabled={signingOut}>
-            {signingOut ? "Signing out…" : "Sign out"}
+            {signingOut ? t("settings.signingOut") : t("settings.signOut")}
           </button>
         </>
       )}

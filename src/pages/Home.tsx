@@ -7,7 +7,7 @@ import { pickText, categoryLabel } from "@/lib/bilingual";
 // Section 15, page 1: Home/Dashboard — this month's total spend, category
 // breakdown, a pending-alerts summary, and recent receipts.
 export default function Home() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [summary, setSummary] = useState<HomeSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,23 +19,23 @@ export default function Home() {
 
   return (
     <div className="page">
-      <h1>Home</h1>
+      <h1>{t("home.title")}</h1>
 
       {error && <p role="alert">{error}</p>}
 
-      {!error && summary === null && <p>Loading…</p>}
+      {!error && summary === null && <p>{t("common.loading")}</p>}
 
       {!error && summary !== null && (
         <>
           <section>
-            <h2>This month</h2>
+            <h2>{t("home.thisMonth")}</h2>
             <p className="home-month-total">${summary.monthTotal.toFixed(2)}</p>
           </section>
 
           <section>
-            <h2>By category</h2>
+            <h2>{t("home.byCategory")}</h2>
             {summary.categoryBreakdown.length === 0 ? (
-              <p>No data yet.</p>
+              <p>{t("home.noData")}</p>
             ) : (
               <ul>
                 {summary.categoryBreakdown.map((entry) => (
@@ -48,16 +48,18 @@ export default function Home() {
           </section>
 
           <section>
-            <h2>Alerts</h2>
+            <h2>{t("home.alerts")}</h2>
             <p>
-              <Link to="/notifications">{summary.pendingAlertsCount} pending alerts</Link>
+              <Link to="/notifications">
+                {summary.pendingAlertsCount} {t("home.pendingAlerts")}
+              </Link>
             </p>
           </section>
 
           <section>
-            <h2>Recent receipts</h2>
+            <h2>{t("home.recentReceipts")}</h2>
             {summary.recentReceipts.length === 0 ? (
-              <p>No receipts yet.</p>
+              <p>{t("home.noReceipts")}</p>
             ) : (
               <ul>
                 {summary.recentReceipts.map((receipt) => (
@@ -67,7 +69,7 @@ export default function Home() {
                     {receipt.status === "pending_review" && (
                       <>
                         {" "}
-                        · <Link to={`/receipts/${receipt.id}/review`}>Needs review</Link>
+                        · <Link to={`/receipts/${receipt.id}/review`}>{t("home.needsReview")}</Link>
                       </>
                     )}
                   </li>

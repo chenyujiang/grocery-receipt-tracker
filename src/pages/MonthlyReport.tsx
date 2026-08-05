@@ -3,21 +3,24 @@ import { fetchMonthlyReport, type MonthlyReport as MonthlyReportData } from "@/l
 import { fetchExportRows, rowsToCsv, downloadCsv } from "@/lib/exportCsv";
 import { monthBounds } from "@/lib/dateRange";
 import { useLanguage } from "@/lib/LanguageProvider";
-import { pickText, categoryLabel } from "@/lib/bilingual";
+import { pickText, categoryLabel, type Language } from "@/lib/bilingual";
 
 function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-function formatMonthLabel(date: Date): string {
-  return date.toLocaleDateString("en-NZ", { month: "long", year: "numeric" });
+function formatMonthLabel(date: Date, language: Language): string {
+  return date.toLocaleDateString(language === "zh" ? "zh-CN" : "en-NZ", {
+    month: "long",
+    year: "numeric",
+  });
 }
 
 // Section 14 + 15, page 5: month-scoped overview — total spend vs last month,
 // category breakdown, the price-change leaderboard (reusing Section 10),
 // alert counts, per-uploader spending, and the CSV export button.
 export default function MonthlyReport() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [report, setReport] = useState<MonthlyReportData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,38 +65,38 @@ export default function MonthlyReport() {
 
   return (
     <div className="page">
-      <h1>Monthly Report</h1>
+      <h1>{t("report.title")}</h1>
 
       <div className="month-nav">
         <button type="button" className="btn-secondary" onClick={goToPreviousMonth}>
-          ‹ Previous
+          {t("report.previous")}
         </button>
-        <strong>{formatMonthLabel(month)}</strong>
+        <strong>{formatMonthLabel(month, language)}</strong>
         <button type="button" className="btn-secondary" onClick={goToNextMonth}>
-          Next ›
+          {t("report.next")}
         </button>
       </div>
 
       {error && <p role="alert">{error}</p>}
 
-      {!error && report === null && <p>Loading…</p>}
+      {!error && report === null && <p>{t("common.loading")}</p>}
 
       {!error && report !== null && (
         <>
           <section>
-            <h2>Total spend</h2>
+            <h2>{t("report.totalSpend")}</h2>
             <p className="home-month-total">${report.totalSpend.toFixed(2)}</p>
             <p>
               {report.changePercent === null
-                ? "No spend last month to compare against."
-                : `${report.changePercent > 0 ? "+" : ""}${report.changePercent}% vs. last month ($${report.previousMonthSpend.toFixed(2)})`}
+                ? t("report.noPriorSpend")
+                : `${report.changePercent > 0 ? "+" : ""}${report.changePercent}% ${t("report.vsLastMonth")} ($${report.previousMonthSpend.toFixed(2)})`}
             </p>
           </section>
 
           <section>
-            <h2>By category</h2>
+            <h2>{t("report.byCategory")}</h2>
             {report.categoryBreakdown.length === 0 ? (
-              <p>No data yet.</p>
+              <p>{t("home.noData")}</p>
             ) : (
               <ul>
                 {report.categoryBreakdown.map((entry) => (
@@ -106,9 +109,9 @@ export default function MonthlyReport() {
           </section>
 
           <section>
-            <h2>Biggest price increases</h2>
+            <h2>{t("report.leaderboard")}</h2>
             {report.priceChangeLeaderboard.length === 0 ? (
-              <p>No price increases this month.</p>
+              <p>{t("report.noIncreases")}</p>
             ) : (
               <ul>
                 {report.priceChangeLeaderboard.map((entry) => (
@@ -121,14 +124,16 @@ export default function MonthlyReport() {
           </section>
 
           <section>
-            <h2>Alerts</h2>
-            <p>{report.alertCount} alerts triggered this month</p>
+            <h2>{t("home.alerts")}</h2>
+            <p>
+              {report.alertCount} {t("report.alertsTriggered")}
+            </p>
           </section>
 
           <section>
-            <h2>By uploader</h2>
+            <h2>{t("report.byUploader")}</h2>
             {report.spendByUploader.length === 0 ? (
-              <p>No data yet.</p>
+              <p>{t("home.noData")}</p>
             ) : (
               <ul>
                 {report.spendByUploader.map((entry) => (
@@ -139,23 +144,23 @@ export default function MonthlyReport() {
               </ul>
             )}
             <p>
-              {report.receiptCount} receipts · {report.lineItemCount} line items
+              {report.receiptCount} {t("report.receipts")} · {report.lineItemCount} {t("report.lineItems")}
             </p>
           </section>
 
           <section>
-            <h2>Export CSV</h2>
+            <h2>{t("report.exportCsv")}</h2>
             <label>
-              From
+              {t("receiptList.from")}
               <input type="date" value={exportFrom} onChange={(event) => setExportFrom(event.target.value)} />
             </label>
             <label>
-              To
+              {t("receiptList.to")}
               <input type="date" value={exportTo} onChange={(event) => setExportTo(event.target.value)} />
             </label>
             {exportError && <p role="alert">{exportError}</p>}
             <button type="button" onClick={handleExport} disabled={exporting}>
-              {exporting ? "Exporting…" : "Export CSV"}
+              {exporting ? t("report.exporting") : t("report.exportCsv")}
             </button>
           </section>
         </>
