@@ -262,3 +262,13 @@ async function recordPriceSpikeAlerts(
     throw alertsError;
   }
 }
+
+// Section 4: used when the user confirms a suspected-duplicate draft really
+// is a duplicate — deletes the draft receipt (receipt_items cascade via
+// their FK to receipts).
+export async function deleteReceipt(receiptId: string): Promise<void> {
+  const { error } = await supabase.from("receipts").delete().eq("id", receiptId);
+  if (error) {
+    throw error;
+  }
+}

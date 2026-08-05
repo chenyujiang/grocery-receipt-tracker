@@ -11,7 +11,7 @@ vi.mock("@/lib/supabaseClient", () => ({
 }));
 
 import { supabase } from "@/lib/supabaseClient";
-import { uploadReceipt, fetchReceiptDraft, confirmReceipt } from "@/lib/receipts";
+import { uploadReceipt, fetchReceiptDraft, confirmReceipt, deleteReceipt } from "@/lib/receipts";
 
 function makeFile(content: string, type: string) {
   return new File([content], "receipt.jpg", { type });
@@ -329,5 +329,30 @@ describe("confirmReceipt", () => {
     ]);
 
     expect(alertsInsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteReceipt", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("deletes the receipt (receipt_items cascade via the FK)", async () => {
+    const eq = vi.fn().mockResolvedValue({ error: null });
+    const del = vi.fn(() => ({ eq }));
+    vi.mocked(supabase.from).mockReturnValue({ delete: del } as never);
+
+    await deleteReceipt("receipt-1");
+
+    expect(del).toHaveBeenCalled();
+    expect(eq).toHaveBeenCalledWith("id", "receipt-1");
+  });
+
+  it("throws when the delete fails", async () => {
+    const eq = vi.fn().mockResolvedValue({ error: new Error("network error") });
+    const del = vi.fn(() => ({ eq }));
+    vi.mocked(supabase.from).mockReturnValue({ delete: del } as never);
+
+    await expect(deleteReceipt("receipt-1")).rejects.toThrow("network error");
   });
 });

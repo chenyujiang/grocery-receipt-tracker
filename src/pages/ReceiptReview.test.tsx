@@ -3,15 +3,21 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
-// @/lib/receipts is the boundary — its own Supabase behavior is already
-// covered by receipts.test.ts; this only checks the page's UI behavior
-// (loading the draft, editing a field, confirming, navigating away).
+// @/lib/receipts and @/lib/duplicateCheck are the boundary — their own
+// Supabase behavior is already covered by their own test files; this only
+// checks the page's UI behavior (loading the draft, editing a field,
+// confirming, the duplicate-check banner, navigating away).
 vi.mock("@/lib/receipts", () => ({
   fetchReceiptDraft: vi.fn(),
   confirmReceipt: vi.fn(),
+  deleteReceipt: vi.fn(),
+}));
+vi.mock("@/lib/duplicateCheck", () => ({
+  findDuplicateReceipt: vi.fn(),
 }));
 
-import { fetchReceiptDraft, confirmReceipt } from "@/lib/receipts";
+import { fetchReceiptDraft, confirmReceipt, deleteReceipt } from "@/lib/receipts";
+import { findDuplicateReceipt } from "@/lib/duplicateCheck";
 import ReceiptReview from "@/pages/ReceiptReview";
 
 const SAMPLE_DRAFT = {
@@ -54,6 +60,7 @@ function renderReviewPage() {
 describe("ReceiptReview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(findDuplicateReceipt).mockResolvedValue(null);
   });
 
   it("loads and displays the draft's items", async () => {
@@ -87,5 +94,36 @@ describe("ReceiptReview", () => {
     renderReviewPage();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Receipt not found");
+  });
+
+  it("shows a duplicate warning and dismisses it on 'not a duplicate'", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
+    vi.mocked(findDuplicateReceipt).mockResolvedValue({
+      id: "receipt-old",
+      uploadedAt: "2026-08-01T10:00:00Z",
+    });
+
+    renderReviewPage();
+
+    expect(await screen.findByText(/possible duplicate/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /not a duplicate/i }));
+
+    expect(screen.queryByText(/possible duplicate/i)).not.toBeInTheDocument();
+  });
+
+  it("deletes the draft and navigates home when confirmed as a duplicate", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
+    vi.mocked(findDuplicateReceipt).mockResolvedValue({
+      id: "receipt-old",
+      uploadedAt: "2026-08-01T10:00:00Z",
+    });
+    vi.mocked(deleteReceipt).mockResolvedValue(undefined);
+
+    renderReviewPage();
+    await screen.findByText(/possible duplicate/i);
+    await userEvent.click(screen.getByRole("button", { name: /it's a duplicate/i }));
+
+    expect(deleteReceipt).toHaveBeenCalledWith("receipt-1");
+    expect(await screen.findByText("Home stub")).toBeInTheDocument();
   });
 });

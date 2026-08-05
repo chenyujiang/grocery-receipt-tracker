@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { fetchReceiptDraft, confirmReceipt, type ReceiptDraft, type DraftItem } from "@/lib/receipts";
+import {
+  fetchReceiptDraft,
+  confirmReceipt,
+  deleteReceipt,
+  type ReceiptDraft,
+  type DraftItem,
+} from "@/lib/receipts";
+import { findDuplicateReceipt, type DuplicateMatch } from "@/lib/duplicateCheck";
 
 // Section 6, 15 page 2 (preview/confirm): the review step is the safety net
 // for OCR errors — user edits each field before it counts toward statistics.
@@ -13,15 +20,39 @@ export default function ReceiptReview() {
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
+  const [duplicate, setDuplicate] = useState<DuplicateMatch | null>(null);
+  const [duplicateDismissed, setDuplicateDismissed] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
     if (!receiptId) return;
     fetchReceiptDraft(receiptId)
       .then((loaded) => {
         setDraft(loaded);
         setItems(loaded.items);
+        return findDuplicateReceipt({
+          storeNameEn: loaded.storeNameEn,
+          purchaseDate: loaded.purchaseDate,
+          totalAmount: loaded.totalAmount,
+          excludeReceiptId: loaded.id,
+        });
       })
+      .then(setDuplicate)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load receipt"));
   }, [receiptId]);
+
+  async function handleDeleteDuplicate() {
+    if (!receiptId) return;
+    setError(null);
+    setDeleting(true);
+    try {
+      await deleteReceipt(receiptId);
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete receipt");
+      setDeleting(false);
+    }
+  }
 
   function updateItem<K extends keyof DraftItem>(index: number, field: K, value: DraftItem[K]) {
     setItems((current) =>
@@ -80,6 +111,22 @@ export default function ReceiptReview() {
       <p>
         {draft.storeNameZh} {draft.storeNameEn} · {draft.purchaseDate}
       </p>
+
+      {duplicate && !duplicateDismissed && (
+        <section>
+          <h2>Possible duplicate</h2>
+          <p>
+            This looks like a receipt you already uploaded (same store, date, and total) on{" "}
+            {new Date(duplicate.uploadedAt).toLocaleDateString()}.
+          </p>
+          <button type="button" className="btn-secondary" onClick={() => setDuplicateDismissed(true)}>
+            Not a duplicate, continue
+          </button>{" "}
+          <button type="button" onClick={handleDeleteDuplicate} disabled={deleting}>
+            {deleting ? "Deleting…" : "Yes, it's a duplicate — delete"}
+          </button>
+        </section>
+      )}
 
       {items.map((item, index) => (
         <fieldset key={item.id}>
