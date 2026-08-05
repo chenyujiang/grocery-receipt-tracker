@@ -319,13 +319,13 @@ ul {
   padding-top: 0;
 }
 
-/* Each receipt is its own white card (not just a text row in a list) — used
-   on the receipts list and its read-only detail view. Overrides the plain
+/* Each receipt is its own white card (not just a text row in a list), three
+   rows: title, then date/amount, then view-link/delete. Overrides the plain
    `.page li` row styling above since these carry their own card chrome. */
 .receipt-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .receipt-list li.receipt-card {
@@ -336,29 +336,20 @@ ul {
 .receipt-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 14px 16px;
+  padding: 16px 18px;
 }
 
-.receipt-card-link {
+.receipt-card-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  text-decoration: none;
-  color: var(--text);
-}
-
-.receipt-card-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
 }
 
 .receipt-card-store {
@@ -366,16 +357,8 @@ ul {
 }
 
 .receipt-card-date {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
-}
-
-.receipt-card-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  flex-shrink: 0;
 }
 
 .receipt-card-amount {
@@ -394,21 +377,64 @@ ul {
   white-space: nowrap;
 }
 
+.receipt-card-view-link {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+}
+
 .receipt-card-actions {
   display: flex;
-  justify-content: flex-end;
   gap: 8px;
+}
+
+/* Receipt detail page: a green "title" header (store + date + total) above
+   one big white card holding every line item, each item just spaced apart
+   rather than boxed individually. */
+.receipt-detail-header {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  margin-bottom: 16px;
 }
 
 .receipt-detail-store {
   font-weight: 700;
-  color: var(--text);
+  font-size: 18px;
+  color: inherit;
   margin-bottom: 2px;
 }
 
 .receipt-detail-meta {
   font-size: 13px;
+  color: inherit;
+  opacity: 0.9;
   margin-bottom: 0;
+}
+
+.receipt-detail-items {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.receipt-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.receipt-detail-item-name {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.receipt-detail-item-meta {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 form {

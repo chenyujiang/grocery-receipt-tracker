@@ -117,56 +117,61 @@ export default function ReceiptList() {
         <ul className="receipt-list">
           {receipts.map((receipt) => (
             <li key={receipt.id} className="receipt-card">
-              <Link
-                to={
-                  receipt.status === "pending_review"
-                    ? `/receipts/${receipt.id}/review`
-                    : `/receipts/${receipt.id}`
-                }
-                className="receipt-card-link"
-              >
-                <div className="receipt-card-info">
-                  <span className="receipt-card-store">
-                    {pickText(receipt.storeNameEn, receipt.storeNameZh, language)}
-                  </span>
-                  <span className="receipt-card-date">{receipt.purchaseDate}</span>
-                </div>
-                <div className="receipt-card-side">
-                  <span className="receipt-card-amount">${receipt.totalAmount.toFixed(2)}</span>
-                  {receipt.status === "pending_review" && (
-                    <span className="receipt-card-badge">{t("home.needsReview")}</span>
-                  )}
-                </div>
-              </Link>
-              <div className="receipt-card-actions">
-                {confirmingDeleteId === receipt.id ? (
-                  <>
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      onClick={() => setConfirmingDeleteId(null)}
-                      disabled={deletingId === receipt.id}
-                    >
-                      {t("common.cancel")}
-                    </button>
+              <div className="receipt-card-row">
+                <span className="receipt-card-store">
+                  {pickText(receipt.storeNameEn, receipt.storeNameZh, language)}
+                </span>
+                {receipt.status === "pending_review" && (
+                  <span className="receipt-card-badge">{t("home.needsReview")}</span>
+                )}
+              </div>
+              <div className="receipt-card-row">
+                <span className="receipt-card-date">{receipt.purchaseDate}</span>
+                <span className="receipt-card-amount">${receipt.totalAmount.toFixed(2)}</span>
+              </div>
+              <div className="receipt-card-row">
+                <Link
+                  to={
+                    receipt.status === "pending_review"
+                      ? `/receipts/${receipt.id}/review`
+                      : `/receipts/${receipt.id}`
+                  }
+                  className="receipt-card-view-link"
+                >
+                  {receipt.status === "pending_review"
+                    ? t("home.needsReview")
+                    : t("receiptList.viewDetail")}
+                </Link>
+                <div className="receipt-card-actions">
+                  {confirmingDeleteId === receipt.id ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        onClick={() => setConfirmingDeleteId(null)}
+                        disabled={deletingId === receipt.id}
+                      >
+                        {t("common.cancel")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-danger btn-sm"
+                        onClick={() => handleDelete(receipt.id)}
+                        disabled={deletingId === receipt.id}
+                      >
+                        {deletingId === receipt.id ? t("receiptList.deleting") : t("receiptList.confirmDelete")}
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       className="btn-danger btn-sm"
-                      onClick={() => handleDelete(receipt.id)}
-                      disabled={deletingId === receipt.id}
+                      onClick={() => setConfirmingDeleteId(receipt.id)}
                     >
-                      {deletingId === receipt.id ? t("receiptList.deleting") : t("receiptList.confirmDelete")}
+                      {t("receiptList.delete")}
                     </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn-danger btn-sm"
-                    onClick={() => setConfirmingDeleteId(receipt.id)}
-                  >
-                    {t("receiptList.delete")}
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
             </li>
           ))}

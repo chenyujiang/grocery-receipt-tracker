@@ -41,31 +41,30 @@ export default function ReceiptDetail() {
   return (
     <div className="page">
       <h1>{t("detail.title")}</h1>
-      <section>
+
+      <div className="receipt-detail-header">
         <p className="receipt-detail-store">
           {pickText(draft.storeNameEn, draft.storeNameZh, language)}
         </p>
         <p className="receipt-detail-meta">
           {draft.purchaseDate} · ${draft.totalAmount.toFixed(2)}
         </p>
-      </section>
+      </div>
 
-      <ul className="receipt-list">
+      <section className="receipt-detail-items">
         {draft.items.map((item) => (
-          <li key={item.id} className="receipt-card">
-            <div className="receipt-card-info">
-              <span className="receipt-card-store">
-                {pickText(item.rawNameEn, item.rawNameZh, language)}
-              </span>
-              <span className="receipt-card-date">
-                {item.quantity} × ${item.unitPrice.toFixed(2)}
-                {item.isPromotion && <> · {t("review.promotion")}</>}
-                {item.category && <> · {categoryLabel(item.category, language)}</>}
-              </span>
-            </div>
-          </li>
+          <div key={item.id} className="receipt-detail-item">
+            <span className="receipt-detail-item-name">
+              {pickText(item.rawNameEn, item.rawNameZh, language)}
+            </span>
+            <span className="receipt-detail-item-meta">
+              {item.quantity} × ${item.unitPrice.toFixed(2)}
+              {item.isPromotion && <> · {t("review.promotion")}</>}
+              {item.category && <> · {categoryLabel(item.category, language)}</>}
+            </span>
+          </div>
         ))}
-      </ul>
+      </section>
     </div>
   );
 }

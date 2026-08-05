@@ -82,8 +82,11 @@ describe("ReceiptList", () => {
     );
 
     expect(await screen.findByText("Countdown")).toBeInTheDocument();
-    expect(screen.getByText("Countdown").closest("a")).toHaveAttribute("href", "/receipts/receipt-1");
-    expect(screen.getByText("New World").closest("a")).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /view details/i })).toHaveAttribute(
+      "href",
+      "/receipts/receipt-1"
+    );
+    expect(screen.getByRole("link", { name: /needs review/i })).toHaveAttribute(
       "href",
       "/receipts/receipt-2/review"
     );
