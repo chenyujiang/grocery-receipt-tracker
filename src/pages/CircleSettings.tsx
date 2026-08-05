@@ -195,7 +195,7 @@ export default function CircleSettings() {
 
           <button
             type="button"
-            className="btn-secondary btn-block"
+            className="btn-dark btn-block"
             onClick={handleSignOut}
             disabled={signingOut}
           >

@@ -406,6 +406,19 @@ button.btn-danger:hover:not(:disabled) {
   filter: brightness(0.9);
 }
 
+/* Inverted relative to the page (dark-on-light in light mode, light-on-dark
+   in dark mode) — a deliberately distinct look for sign-out, not tied to any
+   semantic color like primary/danger. */
+button.btn-dark {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+
+button.btn-dark:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
 button.btn-secondary {
   background: transparent;
   color: var(--text);
