@@ -22,7 +22,9 @@ The output should be the app's standardized product-record data structure (field
 
 **Flow**: photo upload → AI produces a draft (status = pending_review) → the user reviews and corrects each line on a preview screen → once confirmed, status = confirmed and it counts toward statistics; there's no separate "low confidence" flag — the review step is the safety net for everything. Any edit made along the way is written to the change history.
 
-**How photo upload is implemented (added later)**: the web version can just use the standard `<input type="file" accept="image/*" capture="environment">` file-picker control; mobile browsers (iOS Safari / Android Chrome) automatically pop up a system menu offering both "take photo" and "choose from library," so there's no need to build a custom camera viewfinder UI with `getUserMedia` — less development effort and better compatibility.
+**How photo upload is implemented (added later)**: the web version can just use the standard `<input type="file" accept="image/*">` file-picker control; mobile browsers (iOS Safari / Android Chrome) automatically pop up a system menu offering both "take photo" and "choose from library," so there's no need to build a custom camera viewfinder UI with `getUserMedia` — less development effort and better compatibility.
+
+**Correction (found in production)**: the `capture="environment"` attribute mentioned in the original plan above turned out to be a mistake — on most mobile browsers, setting `capture` skips the "take photo / choose from library" chooser entirely and jumps straight into the camera, which is exactly what hides the library option this ticket wanted preserved. It's been removed from the actual `<input>`.
 
 **Receipt**
 

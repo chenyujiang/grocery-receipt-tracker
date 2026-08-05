@@ -39,3 +39,7 @@ Needs to cover:
    - Other / Uncategorized
 
 **A note for ticket 05 ("product matching strategy")**: receipt text is originally English, so the matching logic should be based primarily on `raw_name_en` (the English source text); `raw_name_zh` is a translation for display only and shouldn't factor into the matching decision.
+
+## Post-launch amendment
+
+Once real screens existed with translated data content next to an English-only shell, the English-only-chrome scope call above stopped feeling right — the user asked to widen it to full-chrome translation. Fixed UI chrome is now translated too, via a hand-written EN/ZH dictionary (`src/lib/i18n.ts`, `translate(language, key, params?)`), wired through `LanguageProvider`'s `t()` alongside the existing `language`/`setLanguage`. The single toggle on the circle settings page now drives both dynamic content and chrome language together — see spec.md Section 7 for current behavior.

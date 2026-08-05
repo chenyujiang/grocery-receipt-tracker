@@ -152,7 +152,7 @@ All user edits (correcting English OCR errors, fixing Chinese translations, corr
 
 ## 6. Receipt Upload & Recognition Flow
 
-**Upload method**: the web app uses a standard `<input type="file" accept="image/*" capture="environment">` control; mobile browsers automatically offer both "take photo" and "choose from library," with no need to build a custom camera UI.
+**Upload method**: the web app uses a standard `<input type="file" accept="image/*">` control, deliberately *without* a `capture` attribute — setting `capture` makes most mobile browsers jump straight into the camera and skip the OS chooser, which is exactly what would hide "choose from library." Left off, mobile browsers offer both "take photo" and "choose from library," with no need to build a custom camera UI.
 
 **Processing flow**:
 
@@ -164,11 +164,11 @@ There's no separate "low confidence" flag — the review/confirm step itself is 
 
 ## 7. Bilingual Content Strategy
 
-- **Scope**: only dynamic data content (product names, store names, category labels) is bilingual; fixed UI chrome (menus, buttons, etc.) is English-only, with no switching and no i18n framework needed.
+- **Scope**: dynamic data content (product names, store names, category labels) is bilingual by design. **Amended from the original English-only-chrome decision**: fixed UI chrome (menus, buttons, labels) is fully translated too, via a hand-written EN/ZH string dictionary (`src/lib/i18n.ts`) rather than a full i18n framework — an English-only shell felt inconsistent once real screens showed translated data next to it.
 - **Direction**: receipt text is originally English; `_en` fields hold the authentic OCR source text, while `_zh` fields hold the Chinese translation produced by that same Claude API call.
 - **Storage**: bilingual fields are split into two columns (e.g. `name_zh` / `name_en`), not packed into a JSON field.
 - **Corrections**: OCR errors in `_en` go through the standard preview/EditLog flow; if a user finds the `_zh` translation inaccurate, they can edit it manually, likewise recorded in EditLog.
-- **UI display**: a language toggle is provided (on the settings page or at the top of the page); by default only one language's dynamic content is shown, and switching it changes the displayed language across the board.
+- **UI display**: a single language toggle (a switch on the circle settings page) controls both the dynamic content's displayed language and the UI chrome's language together — not two independent toggles.
 
 ## 8. Product Matching
 
@@ -271,7 +271,7 @@ Exact subcategories are left for development to fine-tune; the English names are
 
 - Format: CSV.
 - Content: line-by-line detail, with each `ReceiptItem` expanded into one row (product name, category, quantity, spec, unit price, store, date, uploader); nothing pre-aggregated.
-- Scope: the whole circle's data, with a selectable time range (e.g. the last month, or a custom range).
+- Scope: the whole circle's data, with a selectable month range (from month → to month, via the same year-then-month picker used elsewhere — **amended from an arbitrary day-level custom range** to keep every date picker in the app consistent).
 - Entry point: an export button on the monthly report page, with no separate export page.
 
 ## 15. UI Structure & Navigation
@@ -280,14 +280,14 @@ Exact subcategories are left for development to fine-tune; the English names are
 
 1. **Home/Dashboard**: this month's total spend, category breakdown, a pending-alerts summary, recent receipts.
 2. **Photo upload flow**: photograph/select → AI processing → preview/confirm → save.
-3. **Receipt list**: historical receipts, filterable by store/date/uploader.
+3. **Receipt list**: historical receipts, filterable by store/uploader/month range (a year-then-month picker, not day-precise). Each receipt can be deleted (by its own uploader, per Section 4's permissions — also removes its stored image from Supabase Storage) and, once `confirmed`, opens a **read-only detail view** (its own page) listing every line item; a still-`pending_review` receipt instead opens the editable preview/confirm screen from Section 6.
 4. **Product detail page**: price trend chart + multi-store comparison module + consumption rate/estimated days remaining + purchase history.
 5. **Monthly report page**: see Section 14.
 6. **Notification center**: the price-spike and low-stock alert list.
 7. **Circle settings**: member management, invite links.
 
-**Navigation**: a bottom tab bar — Home / Receipts / Monthly Report / Notifications / Me; photo upload is a centered floating action button.
+**Navigation**: a bottom tab bar with five even items — Home / Receipts / Upload / Report / Me (photo upload is a normal tab, **amended from** a centered floating action button). Notifications is a separate icon pinned to the top-right of every page instead of living in the tab bar.
 
-**Bilingual toggle**: a language toggle (settings page or page top), showing only one language's dynamic content by default, affecting only data content — not the English UI chrome.
+**Bilingual toggle**: a language toggle on the circle settings page controls both dynamic data content and fixed UI chrome together (Section 7) — **amended from** data-content-only.
 
 Visual styling (fonts, spacing, component design beyond color coding) is outside this document's scope, left for implementation or a later `/prototype` pass.

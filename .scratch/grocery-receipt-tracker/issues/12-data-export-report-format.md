@@ -29,3 +29,7 @@ Needs to cover:
 - Spending distribution by uploader (`uploaded_by`), plus the total number of receipts and line items uploaded this month.
 
 **Export entry point**: placed on this monthly report page as an "export data for the current time range" button, rather than opening a separate dedicated export page.
+
+## Post-launch amendment
+
+The "custom start/end date" range above became a **from-month/to-month** range instead: the same year-then-month popover used throughout the app (rather than native day-precise date inputs), trading exact day boundaries for one consistent picker interaction everywhere a date range is chosen. See spec.md Section 14 and ticket 14's amendment.

@@ -22,3 +22,12 @@ What does the page structure/information architecture look like, and how does th
 **Bilingual content display mechanism**: a language toggle (placed on the "Me"/settings page, or at the top of the page) is added; by default only one language's version of dynamic content (`_zh`/`_en` fields like product names, store names) is shown, and switching it changes which language version is displayed across the board. The toggle only affects dynamic data content — it doesn't affect fixed UI chrome, which per ticket 09 is English-only regardless of this toggle.
 
 **Scope note**: this ticket settles the page list, navigation structure, and the bilingual toggle mechanism — not pixel-level visual design (color coding is already settled in ticket 06 as red-up/green-down; fonts, spacing, and component styling are left for implementation/prototyping).
+
+## Post-launch amendments
+
+Several rounds of implementation-time UI feedback changed this ticket's answer:
+
+- **Navigation**: the floating-action-button upload became a normal fifth tab (Home / Receipts / Upload / Report / Me — five even items), and Notifications moved out of the tab bar entirely to a small icon pinned top-right on every page, once five items plus a floating button in one bottom bar started feeling crowded.
+- **Bilingual toggle**: per ticket 09's amendment, the toggle now drives fixed UI chrome too, not just dynamic content.
+- **Receipt list**: gained a delete action per row (uploader-only, per ticket 02's permission model; also cleans up the image in Storage), and a `confirmed` receipt now opens a dedicated **read-only detail page** rather than nothing — confirming only locks a receipt against further edits, it doesn't stop it from being viewed again.
+- **Date pickers**: the receipt list's date filter and the monthly report's CSV export range both moved from native day-precise `<input type="date">` controls to the same custom year-then-month popover as the report's own month navigator — trading day precision for a single consistent picker interaction across the app (see spec.md Section 14/15).

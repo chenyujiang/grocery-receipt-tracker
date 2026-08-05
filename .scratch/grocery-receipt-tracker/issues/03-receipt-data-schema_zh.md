@@ -22,7 +22,9 @@ Status: resolved
 
 **流程**：拍照上传 → AI 识别产出草稿（status = pending_review）→ 用户在预览页逐条确认/修正 → 确认后 status = confirmed，正式计入统计；不单独设"识别置信度低"标记，统一靠预览确认这一步兜底。期间任何编辑都写入修改历史。
 
-**拍照上传的实现方式（追加讨论）**：网页版用标准的 `<input type="file" accept="image/*" capture="environment">` 文件选择控件即可，手机浏览器（iOS Safari / Android Chrome）会自动弹出系统菜单，同时提供"拍照"和"从相册选择"两个入口，不需要用 `getUserMedia` 自己搭一套相机取景 UI，开发量更小、兼容性也更好。
+**拍照上传的实现方式（追加讨论）**：网页版用标准的 `<input type="file" accept="image/*">` 文件选择控件即可，手机浏览器（iOS Safari / Android Chrome）会自动弹出系统菜单，同时提供"拍照"和"从相册选择"两个入口，不需要用 `getUserMedia` 自己搭一套相机取景 UI，开发量更小、兼容性也更好。
+
+**修正（上线后发现的问题）**：上面原计划里提到的 `capture="environment"` 属性其实是个错误——大部分手机浏览器只要设了 `capture`，就会直接跳过"拍照/从相册选择"这个系统选择菜单，直接进相机，正好把这张 ticket 原本想保留的"从相册选择"入口给挡住了。实际的 `<input>` 上已经把它去掉了。
 
 **Receipt（小票）**
 
