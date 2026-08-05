@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { signOut } from "@/lib/auth";
 import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
 import { updateOwnDisplayName, removeMember, dissolveCircle } from "@/lib/circleActions";
+import { isGlobalAdmin, ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
 
 const DISSOLVE_CONFIRM_TEXT = "DISSOLVE";
 
@@ -25,6 +27,19 @@ export default function CircleSettings() {
   const [dissolving, setDissolving] = useState(false);
 
   const [signingOut, setSigningOut] = useState(false);
+
+  // Issue 15 decision 8's post-login redirect is a one-time thing right
+  // after sign-in; this is the persistent way back in for whoever's
+  // actually a global admin (checked server-side by RequireGlobalAdmin
+  // regardless of what this shows).
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!session) return;
+    isGlobalAdmin(session.userId)
+      .then(setIsAdmin)
+      .catch(() => setIsAdmin(false));
+  }, [session?.userId]);
 
   function load() {
     setError(null);
@@ -145,6 +160,16 @@ export default function CircleSettings() {
               </span>
             </label>
           </section>
+
+          {isAdmin && (
+            <Link
+              to={ADMIN_DASHBOARD_PATH}
+              className="receipt-card-view-btn"
+              style={{ marginTop: 14, marginBottom: 16 }}
+            >
+              {t("settings.adminDashboard")}
+            </Link>
+          )}
 
           <section>
             <h2>{t("settings.members")}</h2>

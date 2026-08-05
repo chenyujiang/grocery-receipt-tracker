@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { translate, type TranslationKey } from "@/lib/i18n";
 import type { Language } from "@/lib/bilingual";
 
 // Each of these is a boundary whose own behavior is covered by its own test
-// file (auth.test.ts, circleMembers.test.ts, circleActions.test.ts); this
-// only checks the page's UI behavior.
+// file (auth.test.ts, circleMembers.test.ts, circleActions.test.ts,
+// adminApi.test.ts); this only checks the page's UI behavior.
 vi.mock("@/lib/auth", () => ({
   signOut: vi.fn(),
 }));
@@ -24,13 +25,28 @@ vi.mock("@/lib/circleActions", () => ({
   removeMember: vi.fn(),
   dissolveCircle: vi.fn(),
 }));
+vi.mock("@/lib/adminApi", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/adminApi")>("@/lib/adminApi");
+  return { ...actual, isGlobalAdmin: vi.fn() };
+});
 
 import { signOut } from "@/lib/auth";
 import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { fetchCircleMembers } from "@/lib/circleMembers";
 import { updateOwnDisplayName, removeMember, dissolveCircle } from "@/lib/circleActions";
-import CircleSettings from "@/pages/CircleSettings";
+import { isGlobalAdmin } from "@/lib/adminApi";
+import CircleSettingsInner from "@/pages/CircleSettings";
+
+// CircleSettings itself renders a react-router <Link>, so every render needs
+// a Router ancestor.
+function CircleSettings() {
+  return (
+    <MemoryRouter>
+      <CircleSettingsInner />
+    </MemoryRouter>
+  );
+}
 
 const OWNER = { userId: "user-1", displayName: "eason", role: "owner" as const, circleId: "circle-1" };
 const MEMBER = { userId: "user-2", displayName: "kelly", role: "member" as const, circleId: "circle-1" };
@@ -55,6 +71,26 @@ describe("CircleSettings", () => {
       loading: false,
     });
     mockLanguage("en");
+    vi.mocked(isGlobalAdmin).mockResolvedValue(false);
+  });
+
+  it("shows a link to the admin dashboard when the signed-in user is a global admin", async () => {
+    vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER]);
+    vi.mocked(isGlobalAdmin).mockResolvedValue(true);
+
+    render(<CircleSettings />);
+
+    expect(await screen.findByRole("link", { name: /admin dashboard/i })).toBeInTheDocument();
+  });
+
+  it("hides the admin dashboard link for a non-admin user", async () => {
+    vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER]);
+    vi.mocked(isGlobalAdmin).mockResolvedValue(false);
+
+    render(<CircleSettings />);
+    await screen.findByText(/eason/);
+
+    expect(screen.queryByRole("link", { name: /admin dashboard/i })).not.toBeInTheDocument();
   });
 
   it("loads and displays the circle's members with their roles", async () => {

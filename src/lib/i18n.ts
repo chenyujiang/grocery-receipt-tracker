@@ -133,6 +133,7 @@ export const translations = {
     "settings.dissolve": "Dissolve circle",
     "settings.signOut": "Sign out",
     "settings.signingOut": "Signing out…",
+    "settings.adminDashboard": "Go to admin dashboard",
   },
   zh: {
     "auth.signIn": "登录",
@@ -262,6 +263,7 @@ export const translations = {
     "settings.dissolve": "解散圈子",
     "settings.signOut": "退出登录",
     "settings.signingOut": "退出中…",
+    "settings.adminDashboard": "前往管理后台",
   },
 } as const;
 
