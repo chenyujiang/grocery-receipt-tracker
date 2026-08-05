@@ -11,6 +11,7 @@ import ProductDetail from "@/pages/ProductDetail";
 import MonthlyReport from "@/pages/MonthlyReport";
 import Notifications from "@/pages/Notifications";
 import CircleSettings from "@/pages/CircleSettings";
+import AdminDashboardPrototype from "@/pages/AdminDashboardPrototype";
 
 // Everything except /auth requires a signed-in session and shows the bottom
 // nav; /auth renders standalone (no nav, nothing to navigate to yet).
@@ -42,6 +43,11 @@ export default function App() {
   return (
     <Routes>
       <Route path="/auth" element={<Auth />} />
+      {/* PROTOTYPE — throwaway, see src/pages/AdminDashboardPrototype. Not
+          part of the real app; standalone (no AppShell/bottom nav), matching
+          issue 15's decision that the real admin dashboard won't use the
+          normal app chrome either. */}
+      <Route path="/prototype/admin-dashboard" element={<AdminDashboardPrototype />} />
       <Route path="/*" element={<AppShell />} />
     </Routes>
   );
