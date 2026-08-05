@@ -6,7 +6,9 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 
 // Section 6 + 15, page 2: photo upload flow.
 // take photo / pick from library -> AI processing -> preview/confirm -> save.
-// The <input capture="environment"> gives the OS camera + gallery picker for free (Section 3, ticket 03).
+// No `capture` attribute here on purpose: setting it makes most mobile
+// browsers jump straight to the camera and skip the OS chooser, which is
+// exactly what hides the "choose from gallery" option (Section 3, ticket 03).
 export default function ReceiptUpload() {
   const { t } = useLanguage();
   const [error, setError] = useState<string | null>(null);
@@ -33,13 +35,7 @@ export default function ReceiptUpload() {
     <div className="page">
       <h1>{t("upload.title")}</h1>
       <label className="upload-control">
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          disabled={uploading}
-        />
+        <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading} />
         {uploading ? t("upload.recognizing") : t("upload.prompt")}
       </label>
       {error && <p role="alert">{error}</p>}

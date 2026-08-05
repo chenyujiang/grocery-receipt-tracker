@@ -28,21 +28,51 @@ function toBase64(dataUrl: string): string {
   return dataUrl.slice(dataUrl.indexOf(",") + 1);
 }
 
+interface DecodedImage {
+  width: number;
+  height: number;
+  source: CanvasImageSource;
+  close?: () => void;
+}
+
+// createImageBitmap decodes straight from the File/Blob, without first
+// building a giant base64 data: URL in memory — which is what made large
+// phone camera photos (12-48MP, tens of MB) unreliable to decode via the
+// <img> fallback below on memory-constrained mobile browsers.
+async function decodeImage(file: File): Promise<DecodedImage> {
+  if (typeof createImageBitmap === "function") {
+    const bitmap = await createImageBitmap(file);
+    return { width: bitmap.width, height: bitmap.height, source: bitmap, close: () => bitmap.close() };
+  }
+  const dataUrl = await readFileAsDataUrl(file);
+  const img = await loadImageElement(dataUrl);
+  return { width: img.naturalWidth, height: img.naturalHeight, source: img };
+}
+
 // Section 6: phone camera photos can be several thousand pixels wide and
 // multiple MB — comfortably over Vercel's request-body limit once base64
-// encoded — and occasionally in a format Claude doesn't accept (e.g. HEIC).
-// Downscaling to a JPEG here fixes both, at a resolution still more than
-// enough for OCR. Thin browser Image/Canvas wrapper — not unit-tested
+// encoded, and sometimes over Claude's own per-image limit too. Downscaling
+// to a JPEG here fixes both, at a resolution still more than enough for OCR.
+// If decoding fails outright (a format the browser can't read), the upload
+// is rejected here with a clear message rather than silently sending the
+// original, oversized/unsupported file through to fail later with a
+// cryptic error. Thin browser Image/Canvas wrapper — not unit-tested
 // directly (jsdom doesn't decode real images); uploadReceipt's tests mock
 // this module at the boundary instead.
 export async function resizeImageForUpload(file: File): Promise<ResizedImage> {
-  const dataUrl = await readFileAsDataUrl(file);
+  let decoded: DecodedImage;
+  try {
+    decoded = await decodeImage(file);
+  } catch {
+    throw new Error(
+      "Couldn't read this photo — try a different one, or set your camera to JPEG instead of HEIC (Settings > Camera > Formats on iPhone)."
+    );
+  }
 
   try {
-    const img = await loadImageElement(dataUrl);
-    const scale = Math.min(1, MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight));
-    const width = Math.round(img.naturalWidth * scale);
-    const height = Math.round(img.naturalHeight * scale);
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(decoded.width, decoded.height));
+    const width = Math.round(decoded.width * scale);
+    const height = Math.round(decoded.height * scale);
 
     const canvas = document.createElement("canvas");
     canvas.width = width;
@@ -51,12 +81,10 @@ export async function resizeImageForUpload(file: File): Promise<ResizedImage> {
     if (!ctx || width === 0 || height === 0) {
       throw new Error("Canvas 2D context unavailable");
     }
-    ctx.drawImage(img, 0, 0, width, height);
+    ctx.drawImage(decoded.source, 0, 0, width, height);
 
     return { base64: toBase64(canvas.toDataURL("image/jpeg", JPEG_QUALITY)), mediaType: "image/jpeg" };
-  } catch {
-    // Decoding/resizing failed (unsupported format, corrupt file) — fall
-    // back to the original, unresized file rather than blocking the upload.
-    return { base64: toBase64(dataUrl), mediaType: file.type };
+  } finally {
+    decoded.close?.();
   }
 }
