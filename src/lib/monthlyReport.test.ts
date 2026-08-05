@@ -109,7 +109,9 @@ describe("fetchMonthlyReport", () => {
       .mockReturnValueOnce(alertsChain as never)
       .mockReturnValueOnce(productsRowsChain as never)
       .mockReturnValueOnce(historyRowsChain as never);
-    vi.mocked(fetchCircleMembers).mockResolvedValue([{ userId: "user-1", displayName: "eason" }]);
+    vi.mocked(fetchCircleMembers).mockResolvedValue([
+      { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
+    ]);
 
     const report = await fetchMonthlyReport(MONTH);
 

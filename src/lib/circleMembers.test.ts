@@ -27,8 +27,8 @@ describe("fetchCircleMembers", () => {
   it("loads circle members ordered by display name, falling back to the user id if unset", async () => {
     const chain = selectOrderChain({
       data: [
-        { user_id: "user-1", display_name: "eason" },
-        { user_id: "user-2", display_name: null },
+        { user_id: "user-1", display_name: "eason", role: "owner", circle_id: "circle-1" },
+        { user_id: "user-2", display_name: null, role: "member", circle_id: "circle-1" },
       ],
       error: null,
     });
@@ -38,8 +38,8 @@ describe("fetchCircleMembers", () => {
 
     expect(chain.order).toHaveBeenCalledWith("display_name");
     expect(members).toEqual([
-      { userId: "user-1", displayName: "eason" },
-      { userId: "user-2", displayName: "user-2" },
+      { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
+      { userId: "user-2", displayName: "user-2", role: "member", circleId: "circle-1" },
     ]);
   });
 

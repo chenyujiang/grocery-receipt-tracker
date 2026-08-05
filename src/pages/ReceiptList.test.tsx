@@ -21,7 +21,7 @@ describe("ReceiptList", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(fetchCircleMembers).mockResolvedValue([
-      { userId: "user-1", displayName: "eason" },
+      { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
     ]);
   });
 
