@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { fetchMonthlyReport, type MonthlyReport as MonthlyReportData } from "@/lib/monthlyReport";
 import { fetchExportRows, rowsToCsv, downloadCsv } from "@/lib/exportCsv";
 import { monthBounds } from "@/lib/dateRange";
@@ -14,6 +14,30 @@ function formatMonthLabel(date: Date, language: Language): string {
     month: "long",
     year: "numeric",
   });
+}
+
+// "YYYY-MM", the format <input type="month"> reads and writes.
+function toMonthInputValue(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function CalendarIcon() {
+  return (
+    <svg
+      width={18}
+      height={18}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="4" y="6" width="16" height="14" rx="2" />
+      <path d="M4 10h16M8 4v4M16 4v4" />
+    </svg>
+  );
 }
 
 // Section 14 + 15, page 5: month-scoped overview — total spend vs last month,
@@ -42,12 +66,21 @@ export default function MonthlyReport() {
     setExportTo(bounds.end);
   }, [month]);
 
+  const currentMonth = startOfMonth(new Date());
+  const isCurrentMonth = month.getTime() === currentMonth.getTime();
+
   function goToPreviousMonth() {
     setMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
   }
 
   function goToNextMonth() {
     setMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
+  }
+
+  function handlePickMonth(event: ChangeEvent<HTMLInputElement>) {
+    const [year, monthIndex] = event.target.value.split("-").map(Number);
+    if (!year || !monthIndex) return;
+    setMonth(new Date(year, monthIndex - 1, 1));
   }
 
   async function handleExport() {
@@ -72,9 +105,23 @@ export default function MonthlyReport() {
           {t("report.previous")}
         </button>
         <strong>{formatMonthLabel(month, language)}</strong>
-        <button type="button" className="btn-secondary" onClick={goToNextMonth}>
-          {t("report.next")}
-        </button>
+        <div className="month-nav-right">
+          {!isCurrentMonth && (
+            <button type="button" className="btn-secondary" onClick={goToNextMonth}>
+              {t("report.next")}
+            </button>
+          )}
+          <label className="month-picker-icon">
+            <CalendarIcon />
+            <input
+              type="month"
+              aria-label={t("report.pickMonth")}
+              value={toMonthInputValue(month)}
+              max={toMonthInputValue(currentMonth)}
+              onChange={handlePickMonth}
+            />
+          </label>
+        </div>
       </div>
 
       {error && <p role="alert">{error}</p>}

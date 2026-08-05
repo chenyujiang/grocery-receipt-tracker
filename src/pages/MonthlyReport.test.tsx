@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // @/lib/monthlyReport and @/lib/exportCsv are the boundary — their own
@@ -62,6 +62,50 @@ describe("MonthlyReport", () => {
     expect(secondCallMonth.getMonth()).toBe(
       (firstCallMonth.getMonth() - 1 + 12) % 12
     );
+  });
+
+  it("hides Next on the current month, and shows it again after going back", async () => {
+    vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
+
+    render(<MonthlyReport />);
+    await screen.findByText("$120.50");
+
+    expect(screen.queryByRole("button", { name: /^next/i })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /previous/i }));
+
+    expect(screen.getByRole("button", { name: /^next/i })).toBeInTheDocument();
+  });
+
+  it("offers a month picker capped at the current month, reflecting the selected month", async () => {
+    vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
+
+    render(<MonthlyReport />);
+    await screen.findByText("$120.50");
+
+    const picker = screen.getByLabelText(/pick a month/i) as HTMLInputElement;
+    const now = new Date();
+    const expectedValue = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+    expect(picker).toHaveAttribute("type", "month");
+    expect(picker.value).toBe(expectedValue);
+    expect(picker.max).toBe(expectedValue);
+  });
+
+  it("re-queries the picked month when a month is chosen from the calendar picker", async () => {
+    vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
+
+    render(<MonthlyReport />);
+    await screen.findByText("$120.50");
+
+    const picker = screen.getByLabelText(/pick a month/i);
+    // jsdom doesn't implement a value setter for type="month" inputs, so the
+    // change event is dispatched directly rather than via fireEvent.change's
+    // (unsupported) native value assignment.
+    Object.defineProperty(picker, "value", { value: "2025-03", configurable: true });
+    fireEvent(picker, new Event("change", { bubbles: true }));
+
+    expect(fetchMonthlyReport).toHaveBeenLastCalledWith(new Date(2025, 2, 1));
   });
 
   it("exports a CSV for the selected date range", async () => {
