@@ -306,7 +306,7 @@ A global-admin identity, separate from the per-circle `owner`/`member` roles in 
 
 **Account disable/enable**: implemented via Supabase Auth's own ban mechanism (`auth.admin.updateUserById` with `ban_duration`), not an app-level flag — a disabled user is rejected at the authentication layer itself, including on session refresh.
 
-**UI placement**: the dashboard never appears in the bottom tab bar or any normal-user menu, and isn't wrapped in the app's normal shell/navigation — it's a standalone console page. A global admin is redirected there once, immediately after login; a visible control lets them switch back into the normal app and navigate freely afterward.
+**UI placement**: the dashboard never appears in the bottom tab bar or any normal-user menu, and isn't wrapped in the app's normal shell/navigation — it's a standalone console page. A global admin is redirected there once, immediately after login; a visible control lets them switch back into the normal app and navigate freely afterward. **Amended**: since the one-time redirect only fires right after sign-in, Circle Settings also shows a persistent "Go to admin dashboard" link (same `isGlobalAdmin` check) for a global admin who already has a live session.
 
 **Migration of existing users**: everyone who already has an account is grandfathered directly into the dollar-cap model (default $1, or set per-user by the admin), skipping the new-user free-trial gate entirely.
 
