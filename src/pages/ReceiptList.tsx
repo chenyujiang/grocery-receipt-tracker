@@ -104,47 +104,60 @@ export default function ReceiptList() {
       {!error && receipts !== null && receipts.length === 0 && <p>{t("receiptList.noneFound")}</p>}
 
       {!error && receipts !== null && receipts.length > 0 && (
-        <ul>
+        <ul className="receipt-list">
           {receipts.map((receipt) => (
-            <li key={receipt.id}>
-              {receipt.purchaseDate} · {pickText(receipt.storeNameEn, receipt.storeNameZh, language)} —
-              ${receipt.totalAmount.toFixed(2)}
-              {receipt.status === "pending_review" && (
-                <>
-                  {" "}
-                  · <Link to={`/receipts/${receipt.id}/review`}>{t("home.needsReview")}</Link>
-                </>
-              )}
-              {" "}
-              {confirmingDeleteId === receipt.id ? (
-                <>
-                  {t("receiptList.confirmDelete")}{" "}
+            <li key={receipt.id} className="receipt-card">
+              <Link
+                to={
+                  receipt.status === "pending_review"
+                    ? `/receipts/${receipt.id}/review`
+                    : `/receipts/${receipt.id}`
+                }
+                className="receipt-card-link"
+              >
+                <div className="receipt-card-info">
+                  <span className="receipt-card-store">
+                    {pickText(receipt.storeNameEn, receipt.storeNameZh, language)}
+                  </span>
+                  <span className="receipt-card-date">{receipt.purchaseDate}</span>
+                </div>
+                <div className="receipt-card-side">
+                  <span className="receipt-card-amount">${receipt.totalAmount.toFixed(2)}</span>
+                  {receipt.status === "pending_review" && (
+                    <span className="receipt-card-badge">{t("home.needsReview")}</span>
+                  )}
+                </div>
+              </Link>
+              <div className="receipt-card-actions">
+                {confirmingDeleteId === receipt.id ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      onClick={() => setConfirmingDeleteId(null)}
+                      disabled={deletingId === receipt.id}
+                    >
+                      {t("common.cancel")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-danger btn-sm"
+                      onClick={() => handleDelete(receipt.id)}
+                      disabled={deletingId === receipt.id}
+                    >
+                      {deletingId === receipt.id ? t("receiptList.deleting") : t("receiptList.confirmDelete")}
+                    </button>
+                  </>
+                ) : (
                   <button
                     type="button"
-                    className="btn-danger"
-                    onClick={() => handleDelete(receipt.id)}
-                    disabled={deletingId === receipt.id}
+                    className="btn-danger btn-sm"
+                    onClick={() => setConfirmingDeleteId(receipt.id)}
                   >
-                    {deletingId === receipt.id ? t("receiptList.deleting") : t("receiptList.delete")}
-                  </button>{" "}
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setConfirmingDeleteId(null)}
-                    disabled={deletingId === receipt.id}
-                  >
-                    {t("common.cancel")}
+                    {t("receiptList.delete")}
                   </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setConfirmingDeleteId(receipt.id)}
-                >
-                  {t("receiptList.delete")}
-                </button>
-              )}
+                )}
+              </div>
             </li>
           ))}
         </ul>

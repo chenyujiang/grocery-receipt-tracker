@@ -273,6 +273,98 @@ ul {
   padding-top: 0;
 }
 
+/* Each receipt is its own white card (not just a text row in a list) — used
+   on the receipts list and its read-only detail view. Overrides the plain
+   `.page li` row styling above since these carry their own card chrome. */
+.receipt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.receipt-list li.receipt-card {
+  padding: 0;
+  border-bottom: none;
+}
+
+.receipt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+}
+
+.receipt-card-link {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.receipt-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.receipt-card-store {
+  font-weight: 700;
+}
+
+.receipt-card-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.receipt-card-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.receipt-card-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.receipt-card-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--warning);
+  background: var(--warning-bg);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.receipt-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.receipt-detail-store {
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.receipt-detail-meta {
+  font-size: 13px;
+  margin-bottom: 0;
+}
+
 form {
   display: flex;
   flex-direction: column;
@@ -395,6 +487,11 @@ button.btn-block {
   display: block;
   width: 100%;
   margin-top: 14px;
+}
+
+button.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
 }
 
 button.btn-danger {

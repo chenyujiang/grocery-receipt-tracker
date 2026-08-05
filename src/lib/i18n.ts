@@ -67,7 +67,9 @@ export const translations = {
     "receiptList.noneFound": "No receipts found.",
     "receiptList.delete": "Delete",
     "receiptList.deleting": "Deleting…",
-    "receiptList.confirmDelete": "Delete this receipt? This can't be undone.",
+    "receiptList.confirmDelete": "Confirm delete",
+
+    "detail.title": "Receipt",
 
     "product.title": "Product Detail",
     "product.notEnoughData": "Not enough data yet.",
@@ -191,7 +193,9 @@ export const translations = {
     "receiptList.noneFound": "没有找到小票。",
     "receiptList.delete": "删除",
     "receiptList.deleting": "删除中…",
-    "receiptList.confirmDelete": "删除这张小票？此操作无法撤销。",
+    "receiptList.confirmDelete": "确认删除",
+
+    "detail.title": "小票详情",
 
     "product.title": "商品详情",
     "product.notEnoughData": "数据还不够。",

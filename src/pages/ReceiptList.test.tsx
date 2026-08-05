@@ -53,6 +53,42 @@ describe("ReceiptList", () => {
     expect(fetchReceipts).toHaveBeenCalledWith({});
   });
 
+  it("links a confirmed receipt to its read-only detail page, and a pending one to review", async () => {
+    vi.mocked(fetchReceipts).mockResolvedValue([
+      {
+        id: "receipt-1",
+        storeNameEn: "Countdown",
+        storeNameZh: "城内城外",
+        purchaseDate: "2026-08-04",
+        totalAmount: 25.5,
+        status: "confirmed",
+        uploadedBy: "user-1",
+      },
+      {
+        id: "receipt-2",
+        storeNameEn: "New World",
+        storeNameZh: "新世界",
+        purchaseDate: "2026-08-03",
+        totalAmount: 12,
+        status: "pending_review",
+        uploadedBy: "user-1",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ReceiptList />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Countdown")).toBeInTheDocument();
+    expect(screen.getByText("Countdown").closest("a")).toHaveAttribute("href", "/receipts/receipt-1");
+    expect(screen.getByText("New World").closest("a")).toHaveAttribute(
+      "href",
+      "/receipts/receipt-2/review"
+    );
+  });
+
   it("re-queries with the entered filters on submit", async () => {
     vi.mocked(fetchReceipts).mockResolvedValue([]);
 
@@ -104,7 +140,7 @@ describe("ReceiptList", () => {
 
     await screen.findByText(/Countdown/);
     await userEvent.click(screen.getByRole("button", { name: /^delete$/i }));
-    await userEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
 
     expect(deleteReceipt).toHaveBeenCalledWith("receipt-1");
     await screen.findByText(/no receipts found/i);
