@@ -25,7 +25,7 @@ export default function CircleSettings() {
       <h1>Circle Settings</h1>
       <p>Member management, invite links, language toggle (Section 7).</p>
       {error && <p role="alert">{error}</p>}
-      <button type="button" onClick={handleSignOut} disabled={signingOut}>
+      <button type="button" className="btn-secondary" onClick={handleSignOut} disabled={signingOut}>
         {signingOut ? "Signing out…" : "Sign out"}
       </button>
     </div>

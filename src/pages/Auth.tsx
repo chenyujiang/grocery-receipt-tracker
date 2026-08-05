@@ -10,14 +10,18 @@ export default function Auth() {
   const navigate = useNavigate();
 
   return (
-    <div className="page">
+    <div className="page auth-page">
       <h1>{mode === "signin" ? "Sign In" : "Sign Up"}</h1>
       {mode === "signin" ? (
         <SignInForm onSuccess={() => navigate("/")} />
       ) : (
         <SignUpForm onSuccess={() => navigate("/")} />
       )}
-      <button type="button" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+      >
         {mode === "signin" ? "Sign up instead" : "Sign in instead"}
       </button>
     </div>
