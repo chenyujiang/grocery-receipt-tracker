@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // @/lib/monthlyReport and @/lib/exportCsv are the boundary — their own
@@ -77,35 +77,54 @@ describe("MonthlyReport", () => {
     expect(screen.getByRole("button", { name: /^next/i })).toBeInTheDocument();
   });
 
-  it("offers a month picker capped at the current month, reflecting the selected month", async () => {
+  it("opens a year-then-month picker and re-queries the picked month", async () => {
     vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
 
     render(<MonthlyReport />);
     await screen.findByText("$120.50");
 
-    const picker = screen.getByLabelText(/pick a month/i) as HTMLInputElement;
-    const now = new Date();
-    const expectedValue = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    await userEvent.click(screen.getByRole("button", { name: /pick a month/i }));
+    await userEvent.click(screen.getByRole("button", { name: /previous year/i }));
 
-    expect(picker).toHaveAttribute("type", "month");
-    expect(picker.value).toBe(expectedValue);
-    expect(picker.max).toBe(expectedValue);
+    const expectedYear = new Date().getFullYear() - 1;
+    expect(screen.getByText(String(expectedYear))).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Jan" }));
+
+    expect(fetchMonthlyReport).toHaveBeenLastCalledWith(new Date(expectedYear, 0, 1));
   });
 
-  it("re-queries the picked month when a month is chosen from the calendar picker", async () => {
+  it("disables months after the current month and the next-year button", async () => {
     vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
 
     render(<MonthlyReport />);
     await screen.findByText("$120.50");
 
-    const picker = screen.getByLabelText(/pick a month/i);
-    // jsdom doesn't implement a value setter for type="month" inputs, so the
-    // change event is dispatched directly rather than via fireEvent.change's
-    // (unsupported) native value assignment.
-    Object.defineProperty(picker, "value", { value: "2025-03", configurable: true });
-    fireEvent(picker, new Event("change", { bubbles: true }));
+    await userEvent.click(screen.getByRole("button", { name: /pick a month/i }));
 
-    expect(fetchMonthlyReport).toHaveBeenLastCalledWith(new Date(2025, 2, 1));
+    expect(screen.getByRole("button", { name: /next year/i })).toBeDisabled();
+
+    const now = new Date();
+    if (now.getMonth() < 11) {
+      expect(screen.getByRole("button", { name: "Dec" })).toBeDisabled();
+    }
+  });
+
+  it("closes the picker without changing the month when the backdrop is clicked", async () => {
+    vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
+
+    render(<MonthlyReport />);
+    await screen.findByText("$120.50");
+    const callsBeforeOpening = vi.mocked(fetchMonthlyReport).mock.calls.length;
+
+    await userEvent.click(screen.getByRole("button", { name: /pick a month/i }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    // eslint-disable-next-line testing-library/no-node-access
+    await userEvent.click(document.querySelector(".month-picker-backdrop") as HTMLElement);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(fetchMonthlyReport).toHaveBeenCalledTimes(callsBeforeOpening);
   });
 
   it("exports a CSV for the selected date range", async () => {

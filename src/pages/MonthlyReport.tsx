@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useState } from "react";
 import { fetchMonthlyReport, type MonthlyReport as MonthlyReportData } from "@/lib/monthlyReport";
 import { fetchExportRows, rowsToCsv, downloadCsv } from "@/lib/exportCsv";
 import { monthBounds } from "@/lib/dateRange";
@@ -16,9 +16,12 @@ function formatMonthLabel(date: Date, language: Language): string {
   });
 }
 
-// "YYYY-MM", the format <input type="month"> reads and writes.
-function toMonthInputValue(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+// Short month names in the current language, for the year-then-month picker.
+function getMonthNames(language: Language): string[] {
+  const formatter = new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en-NZ", {
+    month: "short",
+  });
+  return Array.from({ length: 12 }, (_, monthIndex) => formatter.format(new Date(2000, monthIndex, 1)));
 }
 
 function CalendarIcon() {
@@ -54,6 +57,9 @@ export default function MonthlyReport() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
+
   useEffect(() => {
     setReport(null);
     setError(null);
@@ -77,10 +83,14 @@ export default function MonthlyReport() {
     setMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
   }
 
-  function handlePickMonth(event: ChangeEvent<HTMLInputElement>) {
-    const [year, monthIndex] = event.target.value.split("-").map(Number);
-    if (!year || !monthIndex) return;
-    setMonth(new Date(year, monthIndex - 1, 1));
+  function openPicker() {
+    setPickerYear(month.getFullYear());
+    setPickerOpen(true);
+  }
+
+  function handlePickMonth(monthIndex: number) {
+    setMonth(new Date(pickerYear, monthIndex, 1));
+    setPickerOpen(false);
   }
 
   async function handleExport() {
@@ -111,16 +121,64 @@ export default function MonthlyReport() {
               {t("report.next")}
             </button>
           )}
-          <label className="month-picker-icon">
-            <CalendarIcon />
-            <input
-              type="month"
+          <div className="month-picker">
+            <button
+              type="button"
+              className="month-picker-icon"
               aria-label={t("report.pickMonth")}
-              value={toMonthInputValue(month)}
-              max={toMonthInputValue(currentMonth)}
-              onChange={handlePickMonth}
-            />
-          </label>
+              onClick={openPicker}
+            >
+              <CalendarIcon />
+            </button>
+            {pickerOpen && (
+              <>
+                <div className="month-picker-backdrop" onClick={() => setPickerOpen(false)} />
+                <div className="month-picker-popover" role="dialog" aria-label={t("report.pickMonth")}>
+                  <div className="month-picker-year-row">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      aria-label={t("report.previousYear")}
+                      onClick={() => setPickerYear((year) => year - 1)}
+                    >
+                      ‹
+                    </button>
+                    <strong>{pickerYear}</strong>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      aria-label={t("report.nextYear")}
+                      disabled={pickerYear >= currentMonth.getFullYear()}
+                      onClick={() => setPickerYear((year) => year + 1)}
+                    >
+                      ›
+                    </button>
+                  </div>
+                  <div className="month-picker-grid">
+                    {getMonthNames(language).map((name, monthIndex) => {
+                      const disabled =
+                        pickerYear === currentMonth.getFullYear() && monthIndex > currentMonth.getMonth();
+                      const selected =
+                        pickerYear === month.getFullYear() && monthIndex === month.getMonth();
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          className={
+                            selected ? "month-picker-month active" : "month-picker-month"
+                          }
+                          disabled={disabled}
+                          onClick={() => handlePickMonth(monthIndex)}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
