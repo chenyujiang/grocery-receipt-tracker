@@ -25,6 +25,19 @@ function isAllowedMediaType(value: unknown): value is AllowedMediaType {
   return typeof value === "string" && (ALLOWED_MEDIA_TYPES as readonly string[]).includes(value);
 }
 
+// Supabase's PostgrestError is a plain object (not an Error instance), so a
+// bare `err instanceof Error` check missed it entirely and fell through to
+// a generic message with no way to tell what actually failed.
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (err && typeof err === "object" && "message" in err && typeof err.message === "string") {
+    return err.message;
+  }
+  return "Failed to recognize receipt";
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
@@ -126,6 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.status(200).json({ receiptId });
   } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to recognize receipt" });
+    console.error("[api/receipts/recognize] failed:", err);
+    res.status(500).json({ error: extractErrorMessage(err) });
   }
 }

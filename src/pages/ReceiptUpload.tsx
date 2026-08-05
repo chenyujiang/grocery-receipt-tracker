@@ -2,6 +2,7 @@ import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { uploadReceipt } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 // Section 6 + 15, page 2: photo upload flow.
 // take photo / pick from library -> AI processing -> preview/confirm -> save.
@@ -42,6 +43,7 @@ export default function ReceiptUpload() {
         {uploading ? t("upload.recognizing") : t("upload.prompt")}
       </label>
       {error && <p role="alert">{error}</p>}
+      {uploading && <LoadingOverlay message={t("upload.recognizing")} />}
     </div>
   );
 }

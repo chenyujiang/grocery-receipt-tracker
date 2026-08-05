@@ -43,6 +43,7 @@ export interface RecognizeReceiptParams {
 }
 
 const CATEGORY_NAMES = CATEGORIES.map((category) => category.en);
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const ITEM_SCHEMA = {
   type: "object",
@@ -157,6 +158,17 @@ export async function recognizeReceipt(
   }
 
   const parsed = JSON.parse(textBlock.text) as ParsedReceipt;
+
+  // Claude's JSON schema constrains shape, not content — an unreadable or
+  // non-receipt photo can still satisfy it with an empty/garbage
+  // purchase_date, which then fails at the database layer with a cryptic
+  // "invalid input syntax for type date" instead of a message anyone can
+  // act on. Catch it here instead, before it ever reaches saveDraftReceipt.
+  if (!DATE_PATTERN.test(parsed.purchase_date) || parsed.items.length === 0) {
+    throw new Error(
+      "Couldn't read this as a grocery receipt — no valid date or line items found. Try a clearer photo of the whole receipt."
+    );
+  }
 
   return {
     receipt: {

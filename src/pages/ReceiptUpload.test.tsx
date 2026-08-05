@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitForElementToBeRemoved } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
@@ -44,6 +44,28 @@ describe("ReceiptUpload", () => {
 
     expect(await screen.findByText("Review page")).toBeInTheDocument();
     expect(uploadReceipt).toHaveBeenCalledWith(expect.objectContaining({ name: "receipt.jpg" }));
+  });
+
+  it("shows a full-screen loading overlay while recognizing, and removes it once done", async () => {
+    let resolveUpload: (result: { receiptId: string }) => void = () => {};
+    vi.mocked(uploadReceipt).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUpload = resolve;
+        })
+    );
+
+    renderUploadPage();
+    const input = screen.getByLabelText(/take photo|choose image|拍照|选择图片/i, {
+      selector: "input",
+    });
+    await userEvent.upload(input, makeFile());
+
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+
+    resolveUpload({ receiptId: "receipt-1" });
+
+    await waitForElementToBeRemoved(() => screen.queryByRole("status"));
   });
 
   it("shows an error message when the upload fails", async () => {

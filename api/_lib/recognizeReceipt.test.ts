@@ -99,6 +99,30 @@ describe("recognizeReceipt", () => {
     });
   });
 
+  it("throws a clear error when Claude couldn't find a valid date on the photo", async () => {
+    mockClaudeResponse({ ...SAMPLE_PARSED, purchase_date: "" });
+
+    await expect(
+      recognizeReceipt({
+        imageBase64: "base64-image-data",
+        mediaType: "image/jpeg",
+        existingProducts: [],
+      })
+    ).rejects.toThrow(/couldn't read this as a grocery receipt/i);
+  });
+
+  it("throws a clear error when Claude found no line items", async () => {
+    mockClaudeResponse({ ...SAMPLE_PARSED, items: [] });
+
+    await expect(
+      recognizeReceipt({
+        imageBase64: "base64-image-data",
+        mediaType: "image/jpeg",
+        existingProducts: [],
+      })
+    ).rejects.toThrow(/couldn't read this as a grocery receipt/i);
+  });
+
   it("includes the circle's existing products in the prompt so Claude can suggest a match", async () => {
     mockClaudeResponse(SAMPLE_PARSED);
 
