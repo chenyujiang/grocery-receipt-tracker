@@ -325,12 +325,7 @@ ul {
 .receipt-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.receipt-list li.receipt-card {
-  padding: 0;
-  border-bottom: none;
+  gap: 14px;
 }
 
 .receipt-card {
@@ -342,7 +337,15 @@ ul {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+}
+
+/* `.page li` (class + element = higher specificity than `.receipt-card`
+   alone) sets padding: 10px 0 and a border-bottom — this selector has to
+   match that specificity (2 classes + element) to actually win and apply
+   the card's own padding instead. */
+.receipt-list li.receipt-card {
   padding: 16px 18px;
+  border-bottom: none;
 }
 
 .receipt-card-row {
@@ -377,16 +380,40 @@ ul {
   white-space: nowrap;
 }
 
-.receipt-card-view-link {
-  color: var(--primary);
-  font-weight: 700;
-  font-size: 13px;
+/* Row 3: "view details" and delete each take half the card width, with a
+   gap between — not a text link anymore, a real button (green, like the
+   rest of the app's primary buttons; delete stays red on its own side). */
+.receipt-card-actions-row {
+  display: flex;
+  gap: 8px;
+}
+
+.receipt-card-view-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   text-decoration: none;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  padding: 11px 18px;
+}
+
+.receipt-card-view-btn:hover {
+  background: var(--primary-hover);
 }
 
 .receipt-card-actions {
+  flex: 1;
   display: flex;
   gap: 8px;
+}
+
+.receipt-card-actions button {
+  flex: 1;
 }
 
 /* Receipt detail page: a green "title" header (store + date + total) above

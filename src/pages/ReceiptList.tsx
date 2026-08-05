@@ -129,14 +129,14 @@ export default function ReceiptList() {
                 <span className="receipt-card-date">{receipt.purchaseDate}</span>
                 <span className="receipt-card-amount">${receipt.totalAmount.toFixed(2)}</span>
               </div>
-              <div className="receipt-card-row">
+              <div className="receipt-card-actions-row">
                 <Link
                   to={
                     receipt.status === "pending_review"
                       ? `/receipts/${receipt.id}/review`
                       : `/receipts/${receipt.id}`
                   }
-                  className="receipt-card-view-link"
+                  className="receipt-card-view-btn"
                 >
                   {receipt.status === "pending_review"
                     ? t("home.needsReview")
