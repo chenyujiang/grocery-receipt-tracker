@@ -1,22 +1,10 @@
 import { supabase } from "@/lib/supabaseClient";
 import { detectPriceSpikes, type ProductPriceHistory } from "@/lib/priceSpikeAlerts";
 import { diffReceiptItemFields } from "@/lib/editLog";
+import { resizeImageForUpload } from "@/lib/imageResize";
 
 export interface UploadReceiptResult {
   receiptId: string;
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
-    reader.onload = () => {
-      // reader.result is a data URL: "data:image/jpeg;base64,<data>"
-      const dataUrl = reader.result as string;
-      resolve(dataUrl.slice(dataUrl.indexOf(",") + 1));
-    };
-    reader.readAsDataURL(file);
-  });
 }
 
 // Section 6: photo upload -> backend OCR + translation + product-match call.
@@ -26,7 +14,9 @@ export async function uploadReceipt(file: File): Promise<UploadReceiptResult> {
     throw sessionError ?? new Error("Not signed in");
   }
 
-  const imageBase64 = await fileToBase64(file);
+  // Downscaled to a JPEG here (phone camera photos are often too large for
+  // the request otherwise, and occasionally in a format Claude rejects).
+  const { base64: imageBase64, mediaType } = await resizeImageForUpload(file);
 
   const response = await fetch("/api/receipts/recognize", {
     method: "POST",
@@ -34,7 +24,7 @@ export async function uploadReceipt(file: File): Promise<UploadReceiptResult> {
       "Content-Type": "application/json",
       Authorization: `Bearer ${sessionData.session.access_token}`,
     },
-    body: JSON.stringify({ imageBase64, mediaType: file.type }),
+    body: JSON.stringify({ imageBase64, mediaType }),
   });
 
   if (!response.ok) {

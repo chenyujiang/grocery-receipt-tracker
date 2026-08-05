@@ -1,16 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Supabase (for the access token / reads / writes) and fetch (for the /api
-// call) are the external boundaries — mock them here, not the behavior
-// we're testing (Section 6: photo upload, preview, and confirm).
+// Supabase (for the access token / reads / writes), fetch (for the /api
+// call), and imageResize (a browser Image/Canvas wrapper, not testable
+// under jsdom — see its own file) are the external boundaries — mock them
+// here, not the behavior we're testing (Section 6: photo upload, preview,
+// and confirm).
 vi.mock("@/lib/supabaseClient", () => ({
   supabase: {
     auth: { getSession: vi.fn(), getUser: vi.fn() },
     from: vi.fn(),
   },
 }));
+vi.mock("@/lib/imageResize", () => ({
+  resizeImageForUpload: vi.fn(),
+}));
 
 import { supabase } from "@/lib/supabaseClient";
+import { resizeImageForUpload } from "@/lib/imageResize";
 import { uploadReceipt, fetchReceiptDraft, confirmReceipt, deleteReceipt } from "@/lib/receipts";
 
 function makeFile(content: string, type: string) {
@@ -23,17 +29,21 @@ describe("uploadReceipt", () => {
     vi.stubGlobal("fetch", vi.fn());
   });
 
-  it("sends the image and access token to the backend, and returns the receiptId", async () => {
+  it("sends the resized image and access token to the backend, and returns the receiptId", async () => {
     vi.mocked(supabase.auth.getSession).mockResolvedValue({
       data: { session: { access_token: "tok-1" } },
       error: null,
     } as never);
+    vi.mocked(resizeImageForUpload).mockResolvedValue({
+      base64: "resized-base64-bytes",
+      mediaType: "image/jpeg",
+    });
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ receiptId: "receipt-1" }),
     } as never);
 
-    const result = await uploadReceipt(makeFile("fake-image-bytes", "image/jpeg"));
+    const result = await uploadReceipt(makeFile("fake-image-bytes", "image/heic"));
 
     expect(result).toEqual({ receiptId: "receipt-1" });
     expect(fetch).toHaveBeenCalledWith(
@@ -44,12 +54,9 @@ describe("uploadReceipt", () => {
           "Content-Type": "application/json",
           Authorization: "Bearer tok-1",
         }),
+        body: JSON.stringify({ imageBase64: "resized-base64-bytes", mediaType: "image/jpeg" }),
       })
     );
-    const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string);
-    expect(body.mediaType).toBe("image/jpeg");
-    expect(typeof body.imageBase64).toBe("string");
-    expect(body.imageBase64.length).toBeGreaterThan(0);
   });
 
   it("throws when there is no active session", async () => {
@@ -60,6 +67,7 @@ describe("uploadReceipt", () => {
 
     await expect(uploadReceipt(makeFile("x", "image/jpeg"))).rejects.toThrow("Not signed in");
     expect(fetch).not.toHaveBeenCalled();
+    expect(resizeImageForUpload).not.toHaveBeenCalled();
   });
 
   it("throws with the server's error message when the upload fails", async () => {
@@ -67,6 +75,10 @@ describe("uploadReceipt", () => {
       data: { session: { access_token: "tok-1" } },
       error: null,
     } as never);
+    vi.mocked(resizeImageForUpload).mockResolvedValue({
+      base64: "resized-base64-bytes",
+      mediaType: "image/jpeg",
+    });
     vi.mocked(fetch).mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ error: "AI recognition quota used up" }),

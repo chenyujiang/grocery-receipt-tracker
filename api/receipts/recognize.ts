@@ -79,45 +79,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const extension = mediaType.split("/")[1];
-  const storagePath = `${circleId}/${randomUUID()}.${extension}`;
-  const { error: uploadError } = await supabaseAdmin.storage
-    .from("receipts")
-    .upload(storagePath, Buffer.from(imageBase64, "base64"), { contentType: mediaType });
-  if (uploadError) {
-    res.status(500).json({ error: "Failed to store the receipt image" });
-    return;
+  // Everything past this point can throw (a bad/oversized image, a Claude
+  // API error, an unexpected Supabase failure) — without this, an uncaught
+  // exception here becomes a bodyless platform 500 with no error message
+  // for the client to show.
+  try {
+    const extension = mediaType.split("/")[1];
+    const storagePath = `${circleId}/${randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from("receipts")
+      .upload(storagePath, Buffer.from(imageBase64, "base64"), { contentType: mediaType });
+    if (uploadError) {
+      res.status(500).json({ error: "Failed to store the receipt image" });
+      return;
+    }
+
+    const { data: existingProductRows, error: productsError } = await supabaseAdmin
+      .from("products")
+      .select("id, canonical_name_en")
+      .eq("circle_id", circleId);
+    if (productsError) {
+      res.status(500).json({ error: "Failed to load this circle's existing products" });
+      return;
+    }
+    const existingProducts: ExistingProduct[] = (existingProductRows ?? []).map((row) => ({
+      id: row.id,
+      canonicalNameEn: row.canonical_name_en,
+    }));
+
+    const { receipt, usage } = await recognizeReceipt({ imageBase64, mediaType, existingProducts });
+
+    const cost = calculateHaikuCost({
+      input_tokens: usage.inputTokens,
+      output_tokens: usage.outputTokens,
+    });
+    await recordSpend(cost);
+
+    const { receiptId } = await saveDraftReceipt({
+      circleId,
+      // receipts.uploaded_by is `uuid references auth.users(id)`, not email —
+      // RLS policies compare it against auth.uid() (see migration 000003).
+      uploadedBy: user.id,
+      originalImageUrl: storagePath,
+      receipt,
+    });
+
+    res.status(200).json({ receiptId });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to recognize receipt" });
   }
-
-  const { data: existingProductRows, error: productsError } = await supabaseAdmin
-    .from("products")
-    .select("id, canonical_name_en")
-    .eq("circle_id", circleId);
-  if (productsError) {
-    res.status(500).json({ error: "Failed to load this circle's existing products" });
-    return;
-  }
-  const existingProducts: ExistingProduct[] = (existingProductRows ?? []).map((row) => ({
-    id: row.id,
-    canonicalNameEn: row.canonical_name_en,
-  }));
-
-  const { receipt, usage } = await recognizeReceipt({ imageBase64, mediaType, existingProducts });
-
-  const cost = calculateHaikuCost({
-    input_tokens: usage.inputTokens,
-    output_tokens: usage.outputTokens,
-  });
-  await recordSpend(cost);
-
-  const { receiptId } = await saveDraftReceipt({
-    circleId,
-    // receipts.uploaded_by is `uuid references auth.users(id)`, not email —
-    // RLS policies compare it against auth.uid() (see migration 000003).
-    uploadedBy: user.id,
-    originalImageUrl: storagePath,
-    receipt,
-  });
-
-  res.status(200).json({ receiptId });
 }
