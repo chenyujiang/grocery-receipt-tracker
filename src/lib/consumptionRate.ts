@@ -1,4 +1,4 @@
-import { toBaseQuantity, type BaseQuantityBasis } from "@/lib/units";
+import { toBaseQuantity, type BaseQuantityBasis } from "./units.js";
 
 export interface ConsumptionPurchaseRecord {
   purchaseDate: string; // "YYYY-MM-DD"

@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "./supabaseAdmin";
-import type { RecognizedItem, RecognizedReceipt } from "./recognizeReceipt";
+import { supabaseAdmin } from "./supabaseAdmin.js";
+import type { RecognizedItem, RecognizedReceipt } from "./recognizeReceipt.js";
 
 // Sections 3.2, 5.2, 5.3: writes the pending_review draft. An item with no
 // AI-suggested match gets a new Product row first (category comes from the

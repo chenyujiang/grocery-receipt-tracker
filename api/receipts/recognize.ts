@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "node:crypto";
-import { supabaseAdmin } from "../_lib/supabaseAdmin";
-import { getSpendStatus, recordSpend } from "../_lib/spendLimit";
-import { calculateHaikuCost } from "../_lib/haikuCost";
-import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt";
-import { saveDraftReceipt } from "../_lib/saveDraftReceipt";
+import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { getSpendStatus, recordSpend } from "../_lib/spendLimit.js";
+import { calculateHaikuCost } from "../_lib/haikuCost.js";
+import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt.js";
+import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
 
 // Section 3.2 (End-to-end data flow) + Section 8 (Product Matching):
 // 1. Verify the caller's Supabase session and look up their circle.

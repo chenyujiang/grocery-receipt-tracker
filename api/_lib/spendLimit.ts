@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "./supabaseAdmin";
+import { supabaseAdmin } from "./supabaseAdmin.js";
 
 // Section 3.1: a single, global, hard-dollar cap on Claude API spend — not
 // per-call-count, not per-user (see supabase/migrations/..._ai_spend_limit.sql).

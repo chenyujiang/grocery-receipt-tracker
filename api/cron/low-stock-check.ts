@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../_lib/supabaseAdmin";
-import { detectLowStock, type ProductConsumptionCheck } from "../../src/lib/lowStockAlerts";
+import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { detectLowStock, type ProductConsumptionCheck } from "../../src/lib/lowStockAlerts.js";
 
 // Section 12: unlike price-spike alerts (triggered on receipt confirm), the
 // low-stock check has to run on a schedule, since estimated days remaining

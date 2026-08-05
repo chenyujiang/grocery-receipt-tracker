@@ -1,5 +1,5 @@
-import { anthropicClient } from "./anthropicClient";
-import { CATEGORIES } from "../../src/types";
+import { anthropicClient } from "./anthropicClient.js";
+import { CATEGORIES } from "../../src/types/index.js";
 
 // Sections 6, 8, 9: one Claude call does OCR, English->Chinese translation,
 // category selection, and a product-match suggestion against the circle's

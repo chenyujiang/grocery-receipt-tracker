@@ -1,4 +1,4 @@
-import { calculateConsumption, type ConsumptionPurchaseRecord } from "@/lib/consumptionRate";
+import { calculateConsumption, type ConsumptionPurchaseRecord } from "./consumptionRate.js";
 
 // Section 12: reminder triggers when estimated days remaining drops below 5
 // (not "reaches" — 5.0 itself doesn't trigger). low_stock_alert_active
