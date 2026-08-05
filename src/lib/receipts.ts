@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { detectPriceSpikes, type ProductPriceHistory } from "@/lib/priceSpikeAlerts";
+import { diffReceiptItemFields } from "@/lib/editLog";
 
 export interface UploadReceiptResult {
   receiptId: string;
@@ -153,14 +154,73 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
   };
 }
 
-// Section 6: user reviews/corrects each field, then confirms. Field-level
-// EditLog history (spec.md Section 5.4) is deferred to a later pass — this
-// writes the corrected values and flips status, no audit trail yet.
+// Section 6: user reviews/corrects each field, then confirms. Every changed
+// field is logged to EditLog (Section 5.4) before the update is applied,
+// diffed against whatever Supabase currently holds for that item.
 export async function confirmReceipt(
   receiptId: string,
   items: ConfirmReceiptItemUpdate[]
 ): Promise<void> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
+    throw userError ?? new Error("Not signed in");
+  }
+
   for (const item of items) {
+    const { data: existingRow, error: fetchError } = await supabase
+      .from("receipt_items")
+      .select(
+        "raw_name_en, raw_name_zh, quantity, unit_spec_value, unit_spec_unit, unit_price, original_price, is_promotion, subtotal"
+      )
+      .eq("id", item.id)
+      .single();
+    if (fetchError || !existingRow) {
+      throw fetchError ?? new Error("Receipt item not found");
+    }
+
+    const changes = diffReceiptItemFields(
+      {
+        rawNameEn: existingRow.raw_name_en,
+        rawNameZh: existingRow.raw_name_zh,
+        quantity: existingRow.quantity,
+        unitSpecValue: existingRow.unit_spec_value,
+        unitSpecUnit: existingRow.unit_spec_unit,
+        unitPrice: existingRow.unit_price,
+        originalPrice: existingRow.original_price,
+        isPromotion: existingRow.is_promotion,
+        subtotal: existingRow.subtotal,
+      },
+      {
+        rawNameEn: item.rawNameEn,
+        rawNameZh: item.rawNameZh,
+        quantity: item.quantity,
+        unitSpecValue: item.unitSpecValue,
+        unitSpecUnit: item.unitSpecUnit,
+        unitPrice: item.unitPrice,
+        originalPrice: item.originalPrice,
+        isPromotion: item.isPromotion,
+        subtotal: item.subtotal,
+      }
+    );
+
+    if (changes.length > 0) {
+      const { error: logError } = await supabase.from("edit_logs").insert(
+        changes.map((change) => ({
+          receipt_item_id: item.id,
+          field_name: change.fieldName,
+          old_value: change.oldValue,
+          new_value: change.newValue,
+          edited_by: user.id,
+        }))
+      );
+      if (logError) {
+        throw logError;
+      }
+    }
+
     const { error } = await supabase
       .from("receipt_items")
       .update({
