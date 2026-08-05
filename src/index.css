@@ -120,10 +120,6 @@ a {
   justify-content: center;
 }
 
-.auth-page > button.btn-secondary {
-  margin-top: 14px;
-}
-
 /* Sections (Home's dashboard blocks) and fieldsets (receipt-review line
    items) share the same card treatment via plain element selectors, so
    individual pages don't need styling classNames wired through. */
@@ -393,6 +389,21 @@ button:hover:not(:disabled) {
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+button.btn-block {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+}
+
+button.btn-danger {
+  background: var(--danger);
+  color: var(--primary-contrast);
+}
+
+button.btn-danger:hover:not(:disabled) {
+  filter: brightness(0.9);
 }
 
 button.btn-secondary {

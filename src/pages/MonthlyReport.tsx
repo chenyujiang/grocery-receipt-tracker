@@ -264,7 +264,7 @@ export default function MonthlyReport() {
               <input type="date" value={exportTo} onChange={(event) => setExportTo(event.target.value)} />
             </label>
             {exportError && <p role="alert">{exportError}</p>}
-            <button type="button" onClick={handleExport} disabled={exporting}>
+            <button type="button" className="btn-block" onClick={handleExport} disabled={exporting}>
               {exporting ? t("report.exporting") : t("report.exportCsv")}
             </button>
           </section>

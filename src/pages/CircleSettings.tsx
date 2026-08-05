@@ -184,6 +184,7 @@ export default function CircleSettings() {
               </label>
               <button
                 type="button"
+                className="btn-block btn-danger"
                 onClick={handleDissolveCircle}
                 disabled={dissolveConfirmInput !== DISSOLVE_CONFIRM_TEXT || dissolving}
               >
@@ -192,7 +193,12 @@ export default function CircleSettings() {
             </section>
           )}
 
-          <button type="button" className="btn-secondary" onClick={handleSignOut} disabled={signingOut}>
+          <button
+            type="button"
+            className="btn-secondary btn-block"
+            onClick={handleSignOut}
+            disabled={signingOut}
+          >
             {signingOut ? t("settings.signingOut") : t("settings.signOut")}
           </button>
         </>

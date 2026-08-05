@@ -176,7 +176,7 @@ export default function ReceiptReview() {
         </fieldset>
       ))}
 
-      <button type="button" onClick={handleConfirm} disabled={confirming}>
+      <button type="button" className="btn-block" onClick={handleConfirm} disabled={confirming}>
         {confirming ? t("review.confirming") : t("review.confirm")}
       </button>
     </div>

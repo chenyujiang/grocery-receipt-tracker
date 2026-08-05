@@ -21,7 +21,7 @@ export default function Auth() {
       )}
       <button
         type="button"
-        className="btn-secondary"
+        className="btn-secondary btn-block"
         onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
       >
         {mode === "signin" ? t("auth.signUpInstead") : t("auth.signInInstead")}
