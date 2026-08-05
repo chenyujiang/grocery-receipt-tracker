@@ -25,3 +25,9 @@ export function nextMonthStart(date: Date): string {
   const next = new Date(year, month + 1, 1);
   return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-01`;
 }
+
+// The calendar month a date falls in, as a Date on its 1st — the unit every
+// year-then-month picker (MonthPickerField, MonthlyReport's own nav) selects.
+export function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}

@@ -20,6 +20,8 @@ export const translations = {
     "common.loading": "Loading…",
     "common.category": "Category",
     "common.cancel": "Cancel",
+    "common.any": "Any",
+    "common.clear": "Clear",
 
     "nav.home": "Home",
     "nav.receipts": "Receipts",
@@ -146,6 +148,8 @@ export const translations = {
     "common.loading": "加载中…",
     "common.category": "分类",
     "common.cancel": "取消",
+    "common.any": "不限",
+    "common.clear": "清除",
 
     "nav.home": "首页",
     "nav.receipts": "小票",

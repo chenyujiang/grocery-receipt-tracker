@@ -160,6 +160,52 @@ legend {
   position: relative;
 }
 
+/* MonthPickerField: the same popover as the report's own nav, but presented
+   as a labeled form field (trigger button + optional clear) instead of a
+   bare icon button. */
+.month-picker-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.month-picker-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.month-picker-field .month-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.month-picker-trigger {
+  flex: 1;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+}
+
+.month-picker-clear {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  line-height: 1;
+}
+
+.month-picker-clear:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+
 .month-picker-icon {
   display: flex;
   align-items: center;

@@ -141,4 +141,28 @@ describe("MonthlyReport", () => {
       expect(downloadCsv).toHaveBeenCalledWith(expect.stringContaining(".csv"), "csv-content")
     );
   });
+
+  it("exports from a year-then-month-picked range when the export From month is changed", async () => {
+    vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
+    vi.mocked(fetchExportRows).mockResolvedValue([]);
+
+    render(<MonthlyReport />);
+    await screen.findByText("$120.50");
+
+    const currentMonthLabel = new Date().toLocaleDateString("en-NZ", { month: "long", year: "numeric" });
+    const [exportFromTrigger] = screen.getAllByRole("button", { name: currentMonthLabel });
+    await userEvent.click(exportFromTrigger);
+    await userEvent.click(screen.getByRole("button", { name: /previous year/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Jan" }));
+
+    await userEvent.click(screen.getByRole("button", { name: /export csv/i }));
+
+    const expectedYear = new Date().getFullYear() - 1;
+    await vi.waitFor(() =>
+      expect(downloadCsv).toHaveBeenCalledWith(
+        expect.stringContaining(`receipts_${expectedYear}-01-01_to_`),
+        "csv-content"
+      )
+    );
+  });
 });

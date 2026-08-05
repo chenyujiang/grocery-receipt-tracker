@@ -106,6 +106,29 @@ describe("ReceiptList", () => {
     expect(fetchReceipts).toHaveBeenLastCalledWith({ storeQuery: "Countdown" });
   });
 
+  it("re-queries with a month-picked date range on submit", async () => {
+    vi.mocked(fetchReceipts).mockResolvedValue([]);
+
+    render(
+      <MemoryRouter>
+        <ReceiptList />
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/no receipts found/i);
+
+    const [fromTrigger] = screen.getAllByRole("button", { name: "Any" });
+    await userEvent.click(fromTrigger);
+    await userEvent.click(screen.getByRole("button", { name: "Jan" }));
+    await userEvent.click(screen.getByRole("button", { name: /filter/i }));
+
+    const currentYear = new Date().getFullYear();
+    expect(fetchReceipts).toHaveBeenLastCalledWith({
+      dateFrom: `${currentYear}-01-01`,
+      dateTo: undefined,
+    });
+  });
+
   it("shows an error message when loading fails", async () => {
     vi.mocked(fetchReceipts).mockRejectedValue(new Error("network error"));
 

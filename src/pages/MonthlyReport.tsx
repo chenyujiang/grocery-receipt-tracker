@@ -1,28 +1,11 @@
 import { useEffect, useState } from "react";
 import { fetchMonthlyReport, type MonthlyReport as MonthlyReportData } from "@/lib/monthlyReport";
 import { fetchExportRows, rowsToCsv, downloadCsv } from "@/lib/exportCsv";
-import { monthBounds } from "@/lib/dateRange";
+import { monthBounds, startOfMonth } from "@/lib/dateRange";
+import { formatMonthLabel, getMonthNames } from "@/lib/monthFormat";
+import MonthPickerField from "@/components/MonthPickerField";
 import { useLanguage } from "@/lib/LanguageProvider";
-import { pickText, categoryLabel, type Language } from "@/lib/bilingual";
-
-function startOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function formatMonthLabel(date: Date, language: Language): string {
-  return date.toLocaleDateString(language === "zh" ? "zh-CN" : "en-NZ", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
-// Short month names in the current language, for the year-then-month picker.
-function getMonthNames(language: Language): string[] {
-  const formatter = new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en-NZ", {
-    month: "short",
-  });
-  return Array.from({ length: 12 }, (_, monthIndex) => formatter.format(new Date(2000, monthIndex, 1)));
-}
+import { pickText, categoryLabel } from "@/lib/bilingual";
 
 function CalendarIcon() {
   return (
@@ -52,8 +35,8 @@ export default function MonthlyReport() {
   const [report, setReport] = useState<MonthlyReportData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [exportFrom, setExportFrom] = useState("");
-  const [exportTo, setExportTo] = useState("");
+  const [exportFromMonth, setExportFromMonth] = useState<Date | null>(null);
+  const [exportToMonth, setExportToMonth] = useState<Date | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -67,9 +50,8 @@ export default function MonthlyReport() {
       .then(setReport)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load report"));
 
-    const bounds = monthBounds(month);
-    setExportFrom(bounds.start);
-    setExportTo(bounds.end);
+    setExportFromMonth(month);
+    setExportToMonth(month);
   }, [month]);
 
   const currentMonth = startOfMonth(new Date());
@@ -94,11 +76,14 @@ export default function MonthlyReport() {
   }
 
   async function handleExport() {
+    if (!exportFromMonth || !exportToMonth) return;
     setExportError(null);
     setExporting(true);
     try {
-      const rows = await fetchExportRows({ from: exportFrom, to: exportTo });
-      downloadCsv(`receipts_${exportFrom}_to_${exportTo}.csv`, rowsToCsv(rows));
+      const from = monthBounds(exportFromMonth).start;
+      const to = monthBounds(exportToMonth).end;
+      const rows = await fetchExportRows({ from, to });
+      downloadCsv(`receipts_${from}_to_${to}.csv`, rowsToCsv(rows));
     } catch (err) {
       setExportError(err instanceof Error ? err.message : "Export failed");
     } finally {
@@ -255,14 +240,18 @@ export default function MonthlyReport() {
 
           <section>
             <h2>{t("report.exportCsv")}</h2>
-            <label>
-              {t("receiptList.from")}
-              <input type="date" value={exportFrom} onChange={(event) => setExportFrom(event.target.value)} />
-            </label>
-            <label>
-              {t("receiptList.to")}
-              <input type="date" value={exportTo} onChange={(event) => setExportTo(event.target.value)} />
-            </label>
+            <MonthPickerField
+              label={t("receiptList.from")}
+              value={exportFromMonth}
+              onChange={setExportFromMonth}
+              maxMonth={currentMonth}
+            />
+            <MonthPickerField
+              label={t("receiptList.to")}
+              value={exportToMonth}
+              onChange={setExportToMonth}
+              maxMonth={currentMonth}
+            />
             {exportError && <p role="alert">{exportError}</p>}
             <button type="button" className="btn-block" onClick={handleExport} disabled={exporting}>
               {exporting ? t("report.exporting") : t("report.exportCsv")}

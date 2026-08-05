@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { monthBounds, nextMonthStart } from "@/lib/dateRange";
+import { monthBounds, nextMonthStart, startOfMonth } from "@/lib/dateRange";
 
 describe("monthBounds", () => {
   it("returns the first and last calendar day of the given date's month", () => {
@@ -18,5 +18,11 @@ describe("nextMonthStart", () => {
 
   it("rolls over into the next year at December", () => {
     expect(nextMonthStart(new Date("2026-12-15"))).toBe("2027-01-01");
+  });
+});
+
+describe("startOfMonth", () => {
+  it("returns the 1st of the given date's month", () => {
+    expect(startOfMonth(new Date(2026, 7, 15))).toEqual(new Date(2026, 7, 1));
   });
 });
