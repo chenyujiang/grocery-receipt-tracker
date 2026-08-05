@@ -50,7 +50,11 @@ Pick the modifier by what the action *does*, not by where it sits: destructive �
 The app's own backend (`api/receipts/recognize.ts`) calls the Anthropic API server-side to OCR + translate + suggest product matches in one call. Two constraints that must not be relaxed without the user's explicit say-so:
 
 - Model is pinned to **Claude Haiku 4.5** (`claude-haiku-4-5`) for cost reasons.
-- Spend is capped by `ai_spend_limit`, a **global, hard, dollar-denominated cap (default $1)** — not per-user, not per-call-count. Once hit, calls must be refused outright. **No automatic reset or increase** — only a circle owner manually raising `cap_usd` lifts it. Don't build auto-reset/auto-raise logic even if it seems convenient.
+- Spend is capped **per user** via `user_ai_access` (`api/_lib/userAiAccess.ts`), not a global cap — see spec.md Section 16 / issue 15 for the full model. A brand-new user gets exactly **one free successful recognition call** (count-based); once consumed, further calls are refused until a global admin grants them a real dollar-based credit (default $1, or a custom amount) via the admin dashboard. Granting credit is always a **reset** (zeroes spend, sets a fresh cap), never a top-up. **No automatic reset or increase** — only a global admin's manual grant lifts a block. Don't build auto-reset/auto-raise logic even if it seems convenient. The old singleton `ai_spend_limit` table/global cap is superseded and unused, left in place only for a possible later cleanup migration.
+
+## Admin dashboard (issue 15)
+
+A single global admin (flagged via the `global_admins` table, currently just `nz.eason.chen@gmail.com`) can view every user across every circle, ban/unban accounts (Supabase Auth's own ban mechanism, not an app-level flag), and grant AI credit — at `src/pages/AdminDashboard.tsx`, served from the non-obvious path in `ADMIN_DASHBOARD_PATH` (`src/lib/adminApi.ts`), guarded by `RequireGlobalAdmin` (404s for non-admins rather than redirecting to `/auth`, so the route's existence isn't revealed). A global admin is redirected there once, immediately after login. Backend routes live under `api/admin/`, each re-checking `global_admins` server-side via `requireGlobalAdmin.ts` — never trust the frontend's own admin check for anything privileged.
 
 ## Supabase
 

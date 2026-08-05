@@ -42,7 +42,7 @@ The user is based in New Zealand, so receipts are originally in English (from su
 ### 3.1 Security & cost control
 
 - AI calls must be proxied through a backend Serverless Function; the Claude API key lives only in backend environment variables and never appears in frontend code or browser network requests.
-- **The call quota is a single, global, hard dollar cap (default $1), not per-call-count or per-user**: the backend accumulates actual spend from each call's `usage.input_tokens`/`usage.output_tokens` × Haiku 4.5 pricing, and once the cap is reached, new recognition requests are refused outright — **no automatic reset, no automatic increase** — a circle owner must manually raise the cap on the backend to continue. This guards more directly against accidental overspend than a call-count limit.
+- **Call quota is per-user, not a single global cap** (**amended, see Section 16**): each user has their own dollar cap and spend counter, accumulated from each call's `usage.input_tokens`/`usage.output_tokens` × Haiku 4.5 pricing; once a user's cap is reached, their recognition requests are refused outright, with no effect on any other user. There is no overarching global ceiling. New, never-reviewed users get a one-time free trial capped by *count* (one successful call), not by dollar amount — see Section 16 for the full admin/credit model.
 - Original receipt images are stored in a private Supabase Storage bucket with no public URL; when the frontend needs to display an image, the backend generates a short-lived signed URL, obtainable only by circle members.
 
 ### 3.2 End-to-end data flow
@@ -291,3 +291,47 @@ Exact subcategories are left for development to fine-tune; the English names are
 **Bilingual toggle**: a language toggle on the circle settings page controls both dynamic data content and fixed UI chrome together (Section 7) — **amended from** data-content-only.
 
 Visual styling (fonts, spacing, component design beyond color coding) is outside this document's scope, left for implementation or a later `/prototype` pass.
+
+## 16. Admin Dashboard & Per-User AI Credits
+
+A global-admin identity, separate from the per-circle `owner`/`member` roles in Section 4 — it spans every circle, not just one. In practice there is a single global admin (the app's owner).
+
+**Access security (two layers)**: authorization is authoritative — both the frontend route and every admin API endpoint check the caller's global-admin status, and non-admins are refused regardless of URL. On top of that, the dashboard is served from a non-obvious, unguessable path (not `/admin`), and a non-admin hitting it gets a 404 rather than a login redirect, so the route's existence isn't revealed. Stronger verification (2FA, IP allowlisting) is deferred to a future round.
+
+**Per-user credit model** (replaces Section 3.1's old global cap): each user has an independent dollar cap and spend counter. "Granting credit" is a **reset**, not a top-up — it zeroes the user's spend counter and sets a fresh cap, defaulting to $1 on a single click, or any custom admin-entered amount. It has no relationship to what the user had before.
+
+**New-user free trial**: a brand-new user gets exactly **one free successful recognition call** (count-based, not dollar-based — a single Haiku 4.5 call costs far less than $1, so a dollar allowance wouldn't actually cap them at one use). Only a successful call consumes it; failed/errored attempts don't. Once consumed, further attempts are refused until an admin grants a real (dollar-based) credit.
+
+**Blocked-user messaging**: when refused (free trial spent, or dollar cap hit), the user sees a message with a `mailto:` link to the admin's email address, opening their own email client with a pre-filled draft. No backend transactional-email service is introduced.
+
+**Account disable/enable**: implemented via Supabase Auth's own ban mechanism (`auth.admin.updateUserById` with `ban_duration`), not an app-level flag — a disabled user is rejected at the authentication layer itself, including on session refresh.
+
+**UI placement**: the dashboard never appears in the bottom tab bar or any normal-user menu, and isn't wrapped in the app's normal shell/navigation — it's a standalone console page. A global admin is redirected there once, immediately after login; a visible control lets them switch back into the normal app and navigate freely afterward.
+
+**Migration of existing users**: everyone who already has an account is grandfathered directly into the dollar-cap model (default $1, or set per-user by the admin), skipping the new-user free-trial gate entirely.
+
+**UI direction**: settled via `/prototype` — a "needs attention" queue surfacing exactly who is blocked and why, followed by the full roster grouped by circle in collapsible sections, each user shown as a card (not a plain table row) with their credit state and actions (Grant $1 / custom amount / ban-unban) always visible.
+
+### 16.1 Data model
+
+Two new tables, neither writable by `authenticated` (every write goes through the backend's service-role client, mirroring `ai_spend_limit`'s existing pattern) — deliberately not columns added to `profiles`, since its existing update policy is scoped to *rows*, not *columns*, and would let a user overwrite any column on their own row, including a hypothetical admin flag.
+
+**`global_admins`**
+
+| Field | Description |
+|---|---|
+| `user_id` | Primary key, references `auth.users.id` |
+
+Presence of a row = is a global admin. Added by hand via the Supabase SQL editor — there's exactly one admin and no self-serve promotion flow.
+
+**`user_ai_access`** (replaces `ai_spend_limit`)
+
+| Field | Description |
+|---|---|
+| `user_id` | Primary key, references `auth.users.id` |
+| `free_trial_used` | Whether the one free recognition call has been consumed |
+| `cap_usd` | Dollar cap; `null` means still in free-trial mode, not yet granted real credit |
+| `spent_usd` | Accumulated spend against `cap_usd`, default 0 |
+| `updated_at` | Last-write timestamp |
+
+Mode is derived from `cap_usd`, not a separate enum: `null` → free-trial mode (refuse if `free_trial_used`); non-null → dollar-cap mode (refuse if `spent_usd >= cap_usd`). The **absence** of a row for a `user_id` is itself meaningful — a fresh signup that's never consumed its free call. Migrating existing users inserts a row per current `profiles.user_id` with `free_trial_used = true, cap_usd = 1.00, spent_usd = 0`.

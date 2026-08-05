@@ -30,12 +30,13 @@
 - [商品匹配策略（05-product-matching-strategy）](issues/05-product-matching-strategy_zh.md) — AI 建议匹配候选，用户在预览确认流程里确认/改；不处理条码；规格变化仍算同一商品，规格是购买记录的属性；新增 Product 表（`product_id`），06/07 号 ticket 按 `product_id` 分组统计，分类记忆的 key 也迁移到 `product_id`。
 - [涨幅计算逻辑（06-price-change-calculation）](issues/06-price-change-calculation_zh.md) — 和上一次购买价对比，排除促销行；按重量/体积统一换算成每 100g/100ml 比较，计数类不换算；页面展示涨幅榜单+单品趋势图+红涨绿跌配色。
 - [消耗速度计算（07-consumption-rate-calculation）](issues/07-consumption-rate-calculation_zh.md) — 近 5 次购买滑动窗口（总量÷总天数）算日均消耗；不足 3 次购买不估算；预计剩余天数 < 5 天触发提醒；完全自动推算，不需要用户手动标记用完/没用完。
-- [技术栈与数据存储（08-tech-stack-storage）](issues/08-tech-stack-storage_zh.md) — OCR+翻译用 Anthropic Claude API 的 **Claude Haiku 4.5**；调用必须经 Vercel Serverless Function 后端中转，API Key 不进前端；限额是**全局硬性 $1 上限**（不是按次数/按用户），触达后拒绝调用，需人工手动调高；小票图片存私有 Supabase Storage bucket，靠签名 URL 访问。
+- [技术栈与数据存储（08-tech-stack-storage）](issues/08-tech-stack-storage_zh.md) — OCR+翻译用 Anthropic Claude API 的 **Claude Haiku 4.5**；调用必须经 Vercel Serverless Function 后端中转，API Key 不进前端；小票图片存私有 Supabase Storage bucket，靠签名 URL 访问。**已被取代**：这里的全局硬性 $1 上限被 15 号 ticket 的按用户额度模型取代，见下文。
 - [价格异常提醒规则（10-price-spike-alert-rules）](issues/10-price-spike-alert-rules_zh.md) — 固定阈值涨幅 > 15% 触发；每次确认小票立刻检查；圈子全员可见；应用内通知列表 + 按小票汇总的单封邮件；暂不做按商品静音。
 - [库存提醒规则（11-low-stock-alert-rules）](issues/11-low-stock-alert-rules_zh.md) — 每天定时任务扫描所有商品；用 `low_stock_alert_active` 标记只提醒一次，直到回升到阈值以上才重置；复用 10 号的应用内列表和邮件模板，同样全员可见。
 - [多店铺比价（13-multi-store-price-comparison）](issues/13-multi-store-price-comparison_zh.md) — 确认纳入范围；复用 06 号的促销过滤和单位换算规则，比每家店最新正常价；作为单品页面里紧挨价格趋势图的一个模块，而不是独立页面；只在一家店买过时不显示对比。
 - [UI 结构与双语切换（14-ui-structure-and-language-toggle）](issues/14-ui-structure-and-language-toggle_zh.md) — 页面清单（首页/拍照上传/小票列表/商品详情/月度报告/通知中心/圈子设置）；底部 Tab Bar 导航 + 悬浮拍照按钮；双语内容靠一个语言切换开关显示单一语言；像素级视觉设计留给实现/原型阶段。**上线后修订**：拍照上传改成普通的第五个 tab（五个等宽项），通知搬到页面右上角的固定图标，小票列表加了逐条删除和已确认小票的只读详情页，所有日期范围选择器统一成"先选年再选月"的弹出选择器（精确到月，不精确到日）。
 - [数据导出/报告格式（12-data-export-report-format）](issues/12-data-export-report-format_zh.md) — CSV 逐条明细导出，整个圈子数据可选时间范围；独立的月度报告页汇总总支出环比、分类占比、涨幅榜单（复用 06 号）、提醒次数、按人支出分布，导出按钮就放在报告页上。**上线后修订**：可导出的时间范围改成起始月/结束月选择器，不再是自定义起止日期。
+- [管理后台与按用户 AI 额度（15-admin-dashboard-and-per-user-credits）](issues/15-admin-dashboard-and-per-user-credits_zh.md) — 新增独立于 circle owner 的全局管理员身份，走隐藏/不规律路径访问（真正权限校验 + 非管理员 404，隐蔽性只是锦上添花）；用按用户的美元额度取代 08 号的全局总闸门，管理员"给额度"是重置成一份新额度（默认 $1，或自定义）；禁用/启用走 Supabase Auth 自带的封禁机制；全新用户先拿到硬性"1 次成功识别免费"（按次数而非金额），用完后才需要管理员分配额度；被卡住的用户看到联系管理员的 `mailto:` 链接，不走后端发信；管理员登录后一次性自动跳到后台，可手动切回普通 App；老用户直接迁移进按金额算的模型，跳过免费试用限制。UI 方向已通过 `/prototype` 定下来（"需要处理"队列 + 按圈子分组的名单，用卡片展示）。Schema 画好之后**已经实现并上线**：`global_admins` + `user_ai_access` 两张表/RLS 已经应用到线上项目，`api/_lib/userAiAccess.ts` 取代了 `spendLimit.ts`（已删除），加上 `api/admin/*` 接口、`src/pages/AdminDashboard.tsx`、`RequireGlobalAdmin` 路由守卫、登录后自动跳转——全部 TDD，全部通过（48 个测试文件/199 个测试）。CLAUDE.md 也已同步更新为新模型的描述。
 
 ## Not yet specified
 

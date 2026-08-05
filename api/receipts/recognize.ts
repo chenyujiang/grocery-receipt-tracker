@@ -1,18 +1,20 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { getSpendStatus, recordSpend } from "../_lib/spendLimit.js";
+import { getAccessStatus, recordSuccess } from "../_lib/userAiAccess.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt.js";
 import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
 
 // Section 3.2 (End-to-end data flow) + Section 8 (Product Matching):
 // 1. Verify the caller's Supabase session and look up their circle.
-// 2. Refuse if the circle's ai_spend_limit is already at/over cap.
+// 2. Refuse if this caller's user_ai_access says they're out of allowance
+//    (Section 16: one free call for a brand-new user, then a dollar cap
+//    an admin grants — per-user, not the old circle-wide cap).
 // 3. Store the uploaded image in a private Supabase Storage bucket.
 // 4. Call Claude (claude-haiku-4-5) to OCR the receipt, translate
 //    English -> Chinese, and suggest a product match, all in one call.
-// 5. Add the call's actual cost onto ai_spend_limit.spent_usd.
+// 5. Record the call's actual cost against this caller's user_ai_access row.
 // 6. Write the draft (status = "pending_review") to Supabase.
 //
 // Thin orchestration only — the actual logic lives in api/_lib/*, each
@@ -82,12 +84,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // Section 3.1: global hard-dollar cap, checked before every Claude call —
-  // no auto-reset, a circle owner raises ai_spend_limit.cap_usd by hand.
-  const spendStatus = await getSpendStatus();
-  if (spendStatus.overCap) {
+  // Issue 15: per-user access, checked before every Claude call — a brand
+  // new user gets exactly one free successful call, then needs an admin to
+  // grant them a real dollar-based credit; no auto-reset either way.
+  const accessStatus = await getAccessStatus(user.id);
+  if (!accessStatus.allowed) {
+    const reason =
+      accessStatus.mode === "trial"
+        ? "You've already used your one free AI recognition."
+        : `AI recognition quota used up ($${accessStatus.spentUsd} of $${accessStatus.capUsd}).`;
     res.status(402).json({
-      error: `AI recognition quota used up ($${spendStatus.spentUsd} of $${spendStatus.capUsd}). Ask a circle owner to raise the cap.`,
+      error: `${reason} Email nz.eason.chen@gmail.com to get credit assigned.`,
     });
     return;
   }
@@ -126,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       input_tokens: usage.inputTokens,
       output_tokens: usage.outputTokens,
     });
-    await recordSpend(cost);
+    await recordSuccess(user.id, cost);
 
     const { receiptId } = await saveDraftReceipt({
       circleId,
