@@ -19,6 +19,7 @@ export const translations = {
 
     "common.loading": "Loading…",
     "common.category": "Category",
+    "common.cancel": "Cancel",
 
     "nav.home": "Home",
     "nav.receipts": "Receipts",
@@ -64,6 +65,9 @@ export const translations = {
     "receiptList.all": "All",
     "receiptList.filter": "Filter",
     "receiptList.noneFound": "No receipts found.",
+    "receiptList.delete": "Delete",
+    "receiptList.deleting": "Deleting…",
+    "receiptList.confirmDelete": "Delete this receipt? This can't be undone.",
 
     "product.title": "Product Detail",
     "product.notEnoughData": "Not enough data yet.",
@@ -139,6 +143,7 @@ export const translations = {
 
     "common.loading": "加载中…",
     "common.category": "分类",
+    "common.cancel": "取消",
 
     "nav.home": "首页",
     "nav.receipts": "小票",
@@ -184,6 +189,9 @@ export const translations = {
     "receiptList.all": "全部",
     "receiptList.filter": "筛选",
     "receiptList.noneFound": "没有找到小票。",
+    "receiptList.delete": "删除",
+    "receiptList.deleting": "删除中…",
+    "receiptList.confirmDelete": "删除这张小票？此操作无法撤销。",
 
     "product.title": "商品详情",
     "product.notEnoughData": "数据还不够。",

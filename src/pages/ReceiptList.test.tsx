@@ -3,18 +3,23 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
-// @/lib/receiptList and @/lib/circleMembers are the boundary — their own
-// Supabase behavior is already covered by their own test files; this only
-// checks the page's UI behavior (loading, filtering, empty/error states).
+// @/lib/receiptList, @/lib/circleMembers, and @/lib/receipts are the
+// boundary — their own Supabase behavior is already covered by their own
+// test files; this only checks the page's UI behavior (loading, filtering,
+// empty/error states, delete).
 vi.mock("@/lib/receiptList", () => ({
   fetchReceipts: vi.fn(),
 }));
 vi.mock("@/lib/circleMembers", () => ({
   fetchCircleMembers: vi.fn(),
 }));
+vi.mock("@/lib/receipts", () => ({
+  deleteReceipt: vi.fn(),
+}));
 
 import { fetchReceipts } from "@/lib/receiptList";
 import { fetchCircleMembers } from "@/lib/circleMembers";
+import { deleteReceipt } from "@/lib/receipts";
 import ReceiptList from "@/pages/ReceiptList";
 
 describe("ReceiptList", () => {
@@ -75,5 +80,60 @@ describe("ReceiptList", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("network error");
+  });
+
+  it("deletes a receipt after the user confirms", async () => {
+    vi.mocked(fetchReceipts).mockResolvedValue([
+      {
+        id: "receipt-1",
+        storeNameEn: "Countdown",
+        storeNameZh: "城内城外",
+        purchaseDate: "2026-08-04",
+        totalAmount: 25.5,
+        status: "confirmed",
+        uploadedBy: "user-1",
+      },
+    ]);
+    vi.mocked(deleteReceipt).mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter>
+        <ReceiptList />
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/Countdown/);
+    await userEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    expect(deleteReceipt).toHaveBeenCalledWith("receipt-1");
+    await screen.findByText(/no receipts found/i);
+  });
+
+  it("keeps the receipt if the user cancels the delete", async () => {
+    vi.mocked(fetchReceipts).mockResolvedValue([
+      {
+        id: "receipt-1",
+        storeNameEn: "Countdown",
+        storeNameZh: "城内城外",
+        purchaseDate: "2026-08-04",
+        totalAmount: 25.5,
+        status: "confirmed",
+        uploadedBy: "user-1",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ReceiptList />
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/Countdown/);
+    await userEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(deleteReceipt).not.toHaveBeenCalled();
+    expect(screen.getByText(/Countdown/)).toBeInTheDocument();
   });
 });

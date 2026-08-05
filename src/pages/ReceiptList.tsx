@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { fetchReceipts, type ReceiptListItem, type ReceiptFilters } from "@/lib/receiptList";
 import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
+import { deleteReceipt } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText } from "@/lib/bilingual";
 
@@ -16,6 +17,9 @@ export default function ReceiptList() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [uploadedBy, setUploadedBy] = useState("");
+
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function load(filters: ReceiptFilters) {
     setError(null);
@@ -41,6 +45,20 @@ export default function ReceiptList() {
       dateTo: dateTo || undefined,
       uploadedBy: uploadedBy || undefined,
     });
+  }
+
+  async function handleDelete(receiptId: string) {
+    setError(null);
+    setDeletingId(receiptId);
+    try {
+      await deleteReceipt(receiptId);
+      setReceipts((current) => (current ?? []).filter((receipt) => receipt.id !== receiptId));
+      setConfirmingDeleteId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete receipt");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -96,6 +114,36 @@ export default function ReceiptList() {
                   {" "}
                   · <Link to={`/receipts/${receipt.id}/review`}>{t("home.needsReview")}</Link>
                 </>
+              )}
+              {" "}
+              {confirmingDeleteId === receipt.id ? (
+                <>
+                  {t("receiptList.confirmDelete")}{" "}
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    onClick={() => handleDelete(receipt.id)}
+                    disabled={deletingId === receipt.id}
+                  >
+                    {deletingId === receipt.id ? t("receiptList.deleting") : t("receiptList.delete")}
+                  </button>{" "}
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setConfirmingDeleteId(null)}
+                    disabled={deletingId === receipt.id}
+                  >
+                    {t("common.cancel")}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setConfirmingDeleteId(receipt.id)}
+                >
+                  {t("receiptList.delete")}
+                </button>
               )}
             </li>
           ))}
