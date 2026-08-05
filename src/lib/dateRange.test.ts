@@ -1,0 +1,22 @@
+import { describe, it, expect } from "vitest";
+import { monthBounds, nextMonthStart } from "@/lib/dateRange";
+
+describe("monthBounds", () => {
+  it("returns the first and last calendar day of the given date's month", () => {
+    expect(monthBounds(new Date("2026-08-05"))).toEqual({ start: "2026-08-01", end: "2026-08-31" });
+  });
+
+  it("handles a leap-year February", () => {
+    expect(monthBounds(new Date("2028-02-10"))).toEqual({ start: "2028-02-01", end: "2028-02-29" });
+  });
+});
+
+describe("nextMonthStart", () => {
+  it("returns the first day of the following month", () => {
+    expect(nextMonthStart(new Date("2026-08-05"))).toBe("2026-09-01");
+  });
+
+  it("rolls over into the next year at December", () => {
+    expect(nextMonthStart(new Date("2026-12-15"))).toBe("2027-01-01");
+  });
+});

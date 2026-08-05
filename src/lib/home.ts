@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { monthBounds } from "@/lib/dateRange";
 
 export interface CategoryBreakdownItem {
   category: string;
@@ -22,17 +23,6 @@ export interface HomeSummary {
 }
 
 const RECENT_RECEIPTS_LIMIT = 5;
-
-function monthBounds(today: Date): { start: string; end: string } {
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  return {
-    start: `${year}-${pad(month + 1)}-01`,
-    end: `${year}-${pad(month + 1)}-${pad(lastDay)}`,
-  };
-}
 
 // Section 15, page 1: Home/Dashboard — this month's total spend, category
 // breakdown, a pending-alerts summary, and recent receipts.
