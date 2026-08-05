@@ -121,6 +121,7 @@ describe("signInWithEmail", () => {
       user_id: "user-2",
       circle_id: "circle-9",
       role: "owner",
+      display_name: "confirmed-late",
     });
   });
 

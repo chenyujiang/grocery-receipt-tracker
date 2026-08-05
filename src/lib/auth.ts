@@ -7,6 +7,13 @@ interface SignUpResult {
   role: Role;
 }
 
+// Section 4: no display-name field is collected at sign-up, so default to
+// the email's local part — a circle owner can rename members later from
+// Circle Settings.
+function deriveDisplayName(email: string): string {
+  return email.split("@")[0];
+}
+
 // Section 4: signing up creates a new circle and makes the signer its owner.
 // (Joining an existing circle via invite link is a separate, not-yet-built
 // path — see README.md's Supabase section.)
@@ -28,7 +35,12 @@ export async function signUpWithEmail(email: string, password: string): Promise<
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .insert({ user_id: userId, circle_id: circle.id, role: "owner" })
+    .insert({
+      user_id: userId,
+      circle_id: circle.id,
+      role: "owner",
+      display_name: deriveDisplayName(email),
+    })
     .select()
     .single();
   if (profileError || !profile) {
@@ -50,7 +62,7 @@ interface SignInResult {
 // happens, and the user ends up with a confirmed login but no profile. This
 // repairs that gap on sign-in instead of requiring email confirmation to be
 // disabled.
-async function ensureProfile(userId: string): Promise<void> {
+async function ensureProfile(userId: string, email: string): Promise<void> {
   const { data: existing, error: lookupError } = await supabase
     .from("profiles")
     .select("user_id")
@@ -72,9 +84,12 @@ async function ensureProfile(userId: string): Promise<void> {
     throw circleError ?? new Error("Failed to create circle");
   }
 
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .insert({ user_id: userId, circle_id: circle.id, role: "owner" });
+  const { error: profileError } = await supabase.from("profiles").insert({
+    user_id: userId,
+    circle_id: circle.id,
+    role: "owner",
+    display_name: deriveDisplayName(email),
+  });
   if (profileError) {
     throw profileError;
   }
@@ -85,7 +100,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
   if (error || !data.user || !data.session) {
     throw error ?? new Error("Sign-in did not return a session");
   }
-  await ensureProfile(data.user.id);
+  await ensureProfile(data.user.id, email);
   return { userId: data.user.id, accessToken: data.session.access_token };
 }
 

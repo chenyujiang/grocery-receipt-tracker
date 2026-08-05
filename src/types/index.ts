@@ -14,6 +14,7 @@ export interface Profile {
   user_id: string;
   circle_id: string;
   role: Role;
+  display_name: string | null;
 }
 
 export type ReceiptStatus = "pending_review" | "confirmed";
