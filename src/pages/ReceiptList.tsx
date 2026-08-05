@@ -5,6 +5,7 @@ import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
 import { deleteReceipt } from "@/lib/receipts";
 import { monthBounds, startOfMonth } from "@/lib/dateRange";
 import MonthPickerField from "@/components/MonthPickerField";
+import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText } from "@/lib/bilingual";
 
@@ -13,6 +14,7 @@ const currentMonth = startOfMonth(new Date());
 // Section 15, page 3: historical receipts, filterable by store/date/uploader.
 export default function ReceiptList() {
   const { language, t } = useLanguage();
+  const { session } = useAuth();
   const [receipts, setReceipts] = useState<ReceiptListItem[] | null>(null);
   const [members, setMembers] = useState<CircleMember[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -142,36 +144,40 @@ export default function ReceiptList() {
                     ? t("home.needsReview")
                     : t("receiptList.viewDetail")}
                 </Link>
-                <div className="receipt-card-actions">
-                  {confirmingDeleteId === receipt.id ? (
-                    <>
-                      <button
-                        type="button"
-                        className="btn-secondary btn-sm"
-                        onClick={() => setConfirmingDeleteId(null)}
-                        disabled={deletingId === receipt.id}
-                      >
-                        {t("common.cancel")}
-                      </button>
+                {receipt.uploadedBy === session?.userId && (
+                  <div className="receipt-card-actions">
+                    {confirmingDeleteId === receipt.id ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onClick={() => setConfirmingDeleteId(null)}
+                          disabled={deletingId === receipt.id}
+                        >
+                          {t("common.cancel")}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-danger btn-sm"
+                          onClick={() => handleDelete(receipt.id)}
+                          disabled={deletingId === receipt.id}
+                        >
+                          {deletingId === receipt.id
+                            ? t("receiptList.deleting")
+                            : t("receiptList.confirmDelete")}
+                        </button>
+                      </>
+                    ) : (
                       <button
                         type="button"
                         className="btn-danger btn-sm"
-                        onClick={() => handleDelete(receipt.id)}
-                        disabled={deletingId === receipt.id}
+                        onClick={() => setConfirmingDeleteId(receipt.id)}
                       >
-                        {deletingId === receipt.id ? t("receiptList.deleting") : t("receiptList.confirmDelete")}
+                        {t("receiptList.delete")}
                       </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn-danger btn-sm"
-                      onClick={() => setConfirmingDeleteId(receipt.id)}
-                    >
-                      {t("receiptList.delete")}
-                    </button>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             </li>
           ))}

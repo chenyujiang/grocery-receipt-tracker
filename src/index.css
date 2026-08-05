@@ -100,7 +100,8 @@ a {
 
 .app-content {
   flex: 1;
-  padding-bottom: 88px; /* clears the bottom nav */
+  padding-bottom: 88px;
+  /* clears the bottom nav */
 }
 
 .page {
@@ -109,7 +110,7 @@ a {
   padding: 28px 20px;
 }
 
-.page > h1 {
+.page>h1 {
   margin-bottom: 20px;
 }
 
@@ -326,6 +327,7 @@ ul {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  margin-top: 14px;
 }
 
 .receipt-card {
@@ -483,7 +485,7 @@ fieldset label {
   margin-bottom: 10px;
 }
 
-fieldset > label:last-of-type {
+fieldset>label:last-of-type {
   margin-bottom: 0;
 }
 
@@ -764,6 +766,7 @@ p[role="alert"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   button,
   .lang-switch input[type="checkbox"],
   .lang-switch input[type="checkbox"]::after {

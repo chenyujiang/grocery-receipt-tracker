@@ -16,10 +16,14 @@ vi.mock("@/lib/circleMembers", () => ({
 vi.mock("@/lib/receipts", () => ({
   deleteReceipt: vi.fn(),
 }));
+vi.mock("@/lib/AuthProvider", () => ({
+  useAuth: vi.fn(),
+}));
 
 import { fetchReceipts } from "@/lib/receiptList";
 import { fetchCircleMembers } from "@/lib/circleMembers";
 import { deleteReceipt } from "@/lib/receipts";
+import { useAuth } from "@/lib/AuthProvider";
 import ReceiptList from "@/pages/ReceiptList";
 
 describe("ReceiptList", () => {
@@ -28,6 +32,10 @@ describe("ReceiptList", () => {
     vi.mocked(fetchCircleMembers).mockResolvedValue([
       { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
     ]);
+    vi.mocked(useAuth).mockReturnValue({
+      session: { userId: "user-1", accessToken: "tok" },
+      loading: false,
+    });
   });
 
   it("loads and displays receipts on mount", async () => {
@@ -170,6 +178,31 @@ describe("ReceiptList", () => {
 
     expect(deleteReceipt).toHaveBeenCalledWith("receipt-1");
     await screen.findByText(/no receipts found/i);
+  });
+
+  it("hides the delete action for a receipt uploaded by someone else", async () => {
+    vi.mocked(fetchReceipts).mockResolvedValue([
+      {
+        id: "receipt-1",
+        storeNameEn: "Countdown",
+        storeNameZh: "城内城外",
+        purchaseDate: "2026-08-04",
+        totalAmount: 25.5,
+        status: "confirmed",
+        uploadedBy: "user-2",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ReceiptList />
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/Countdown/);
+
+    expect(screen.queryByRole("button", { name: /^delete$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /view details/i })).toBeInTheDocument();
   });
 
   it("keeps the receipt if the user cancels the delete", async () => {
