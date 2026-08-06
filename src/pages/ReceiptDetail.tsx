@@ -132,14 +132,16 @@ export default function ReceiptDetail() {
 
       {editing ? (
         <>
-          <MonthPickerField
-            label={t("detail.purchaseDate")}
-            value={purchaseDate}
-            onChange={(newMonth) => {
-              if (!newMonth || !purchaseDate) return;
-              setPurchaseDate(withMonthKeepingDay(newMonth, purchaseDate));
-            }}
-          />
+          <div style={{ marginBottom: 14 }}>
+            <MonthPickerField
+              label={t("detail.purchaseDate")}
+              value={purchaseDate}
+              onChange={(newMonth) => {
+                if (!newMonth || !purchaseDate) return;
+                setPurchaseDate(withMonthKeepingDay(newMonth, purchaseDate));
+              }}
+            />
+          </div>
 
           {items.map((item, index) => (
             <fieldset key={item.id}>
@@ -211,11 +213,17 @@ export default function ReceiptDetail() {
             </fieldset>
           ))}
 
-          <div className="receipt-card-actions-row">
-            <button type="button" onClick={handleSave} disabled={saving}>
+          <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
+            <button type="button" style={{ flex: 1 }} onClick={handleSave} disabled={saving}>
               {saving ? t("detail.saving") : t("detail.save")}
             </button>
-            <button type="button" className="btn-secondary" onClick={() => setEditing(false)} disabled={saving}>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ flex: 1 }}
+              onClick={() => setEditing(false)}
+              disabled={saving}
+            >
               {t("detail.cancel")}
             </button>
           </div>
