@@ -73,6 +73,13 @@ export const translations = {
     "receiptList.confirmDelete": "Confirm delete",
 
     "detail.title": "Receipt",
+    "detail.edit": "Edit",
+    "detail.save": "Save",
+    "detail.saving": "Saving…",
+    "detail.cancel": "Cancel",
+    "detail.purchaseDate": "Purchase month",
+    "detail.specValue": "Spec value",
+    "detail.specUnit": "Spec unit",
 
     "product.title": "Product Detail",
     "product.notEnoughData": "Not enough data yet.",
@@ -203,6 +210,13 @@ export const translations = {
     "receiptList.confirmDelete": "确认删除",
 
     "detail.title": "小票详情",
+    "detail.edit": "编辑",
+    "detail.save": "保存",
+    "detail.saving": "保存中…",
+    "detail.cancel": "取消",
+    "detail.purchaseDate": "购买月份",
+    "detail.specValue": "规格数值",
+    "detail.specUnit": "规格单位",
 
     "product.title": "商品详情",
     "product.notEnoughData": "数据还不够。",

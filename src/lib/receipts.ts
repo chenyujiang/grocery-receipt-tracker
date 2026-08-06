@@ -66,6 +66,7 @@ export interface ConfirmReceiptItemUpdate {
 
 export interface ReceiptDraft {
   id: string;
+  uploadedBy: string;
   storeNameEn: string;
   storeNameZh: string;
   purchaseDate: string;
@@ -77,12 +78,13 @@ export interface ReceiptDraft {
 
 // Section 6: the preview/confirm screen reads the AI-generated draft —
 // category comes from the matched Product, not from ReceiptItem itself
-// (spec.md Section 5.2).
+// (spec.md Section 5.2). `uploadedBy` drives issue 16's edit-permission
+// check (only the uploader may edit a confirmed receipt).
 export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft> {
   const { data: receiptRow, error: receiptError } = await supabase
     .from("receipts")
     .select(
-      "id, store_name_en, store_name_zh, purchase_date, total_amount, status, original_image_url"
+      "id, uploaded_by, store_name_en, store_name_zh, purchase_date, total_amount, status, original_image_url"
     )
     .eq("id", receiptId)
     .single();
@@ -121,6 +123,7 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
 
   return {
     id: receiptRow.id,
+    uploadedBy: receiptRow.uploaded_by,
     storeNameEn: receiptRow.store_name_en,
     storeNameZh: receiptRow.store_name_zh,
     purchaseDate: receiptRow.purchase_date,
@@ -144,21 +147,14 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
   };
 }
 
-// Section 6: user reviews/corrects each field, then confirms. Every changed
-// field is logged to EditLog (Section 5.4) before the update is applied,
-// diffed against whatever Supabase currently holds for that item.
-export async function confirmReceipt(
-  receiptId: string,
-  items: ConfirmReceiptItemUpdate[]
+// Shared by confirmReceipt and editConfirmedReceipt (issue 16): diff each
+// item against whatever Supabase currently holds, log every changed field
+// to EditLog, then write the update — status and price-spike alerts are
+// each caller's own concern, not this loop's.
+async function updateReceiptItemsWithLog(
+  items: ConfirmReceiptItemUpdate[],
+  editedBy: string
 ): Promise<void> {
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-  if (userError || !user) {
-    throw userError ?? new Error("Not signed in");
-  }
-
   for (const item of items) {
     const { data: existingRow, error: fetchError } = await supabase
       .from("receipt_items")
@@ -203,7 +199,7 @@ export async function confirmReceipt(
           field_name: change.fieldName,
           old_value: change.oldValue,
           new_value: change.newValue,
-          edited_by: user.id,
+          edited_by: editedBy,
         }))
       );
       if (logError) {
@@ -229,6 +225,24 @@ export async function confirmReceipt(
       throw error;
     }
   }
+}
+
+// Section 6: user reviews/corrects each field, then confirms. Every changed
+// field is logged to EditLog (Section 5.4) before the update is applied,
+// diffed against whatever Supabase currently holds for that item.
+export async function confirmReceipt(
+  receiptId: string,
+  items: ConfirmReceiptItemUpdate[]
+): Promise<void> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
+    throw userError ?? new Error("Not signed in");
+  }
+
+  await updateReceiptItemsWithLog(items, user.id);
 
   const { data: receiptRow, error: statusError } = await supabase
     .from("receipts")
@@ -241,6 +255,60 @@ export async function confirmReceipt(
   }
 
   await recordPriceSpikeAlerts(receiptRow.circle_id, receiptId, items);
+}
+
+// Issue 16: fixing a mistake on an already-confirmed receipt — the uploader
+// only (enforced by the existing RLS policies, unchanged). Reuses the same
+// per-item diff-then-log-then-update as confirmReceipt, plus the same
+// treatment for the receipt-level purchase date. Deliberately does not
+// touch status or re-run price-spike detection (issue 16, decision 4) —
+// alerts already recorded at confirm-time stand as they are.
+export async function editConfirmedReceipt(
+  receiptId: string,
+  purchaseDate: string,
+  items: ConfirmReceiptItemUpdate[]
+): Promise<void> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
+    throw userError ?? new Error("Not signed in");
+  }
+
+  await updateReceiptItemsWithLog(items, user.id);
+
+  const { data: existingReceipt, error: fetchError } = await supabase
+    .from("receipts")
+    .select("purchase_date")
+    .eq("id", receiptId)
+    .single();
+  if (fetchError || !existingReceipt) {
+    throw fetchError ?? new Error("Receipt not found");
+  }
+
+  if (existingReceipt.purchase_date === purchaseDate) {
+    return;
+  }
+
+  const { error: logError } = await supabase.from("edit_logs").insert({
+    receipt_id: receiptId,
+    field_name: "purchase_date",
+    old_value: existingReceipt.purchase_date,
+    new_value: purchaseDate,
+    edited_by: user.id,
+  });
+  if (logError) {
+    throw logError;
+  }
+
+  const { error: updateError } = await supabase
+    .from("receipts")
+    .update({ purchase_date: purchaseDate })
+    .eq("id", receiptId);
+  if (updateError) {
+    throw updateError;
+  }
 }
 
 // Section 13: after confirming, check each item's product for a >15% price

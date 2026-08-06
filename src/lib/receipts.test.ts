@@ -18,7 +18,7 @@ vi.mock("@/lib/imageResize", () => ({
 
 import { supabase } from "@/lib/supabaseClient";
 import { resizeImageForUpload } from "@/lib/imageResize";
-import { uploadReceipt, fetchReceiptDraft, confirmReceipt, deleteReceipt } from "@/lib/receipts";
+import { uploadReceipt, fetchReceiptDraft, confirmReceipt, editConfirmedReceipt, deleteReceipt } from "@/lib/receipts";
 
 function makeFile(content: string, type: string) {
   return new File([content], "receipt.jpg", { type });
@@ -414,6 +414,125 @@ describe("confirmReceipt", () => {
     ]);
 
     expect(alertsInsert).not.toHaveBeenCalled();
+  });
+});
+
+// Issue 16: editing a confirmed receipt reuses the same per-item
+// diff-then-log-then-update logic as confirmReceipt, plus its own
+// diff-then-log-then-update for the receipt-level purchase_date — but never
+// touches status or price-spike alerts.
+function receiptDateChainMock(
+  options: { existingRow?: { data: unknown; error: unknown }; updateError?: unknown } = {}
+) {
+  const existingRow = options.existingRow ?? { data: { purchase_date: "2026-08-05" }, error: null };
+  const single = vi.fn().mockResolvedValue(existingRow);
+  const selectEq = vi.fn(() => ({ single }));
+  const select = vi.fn(() => ({ eq: selectEq }));
+  const updateEq = vi.fn().mockResolvedValue({ error: options.updateError ?? null });
+  const update = vi.fn(() => ({ eq: updateEq }));
+  return { select, selectEq, single, update, updateEq };
+}
+
+describe("editConfirmedReceipt", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(supabase.auth.getUser).mockResolvedValue({
+      data: { user: { id: "user-1" } },
+      error: null,
+    } as never);
+  });
+
+  it("writes each item's edited fields without touching status or alerts", async () => {
+    const itemsChain = confirmReceiptItemsMock();
+    const receiptsChain = receiptDateChainMock();
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "receipt_items") return itemsChain as never;
+      if (table === "receipts") return receiptsChain as never;
+      if (table === "edit_logs") return { insert: vi.fn().mockResolvedValue({ error: null }) } as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE]);
+
+    expect(itemsChain.update).toHaveBeenCalledWith({
+      raw_name_en: "Anchor Blue Milk 2L",
+      raw_name_zh: "安科蓝带牛奶 2升",
+      quantity: 1,
+      unit_spec_value: 2,
+      unit_spec_unit: "L",
+      unit_price: 4.2,
+      original_price: null,
+      is_promotion: false,
+      subtotal: 4.2,
+    });
+    expect(receiptsChain.update).not.toHaveBeenCalled();
+  });
+
+  it("logs each changed item field to EditLog, same as confirmReceipt", async () => {
+    const itemsChain = confirmReceiptItemsMock({
+      existingRow: { data: { ...EXISTING_ITEM_ROW, quantity: 2 }, error: null },
+    });
+    const receiptsChain = receiptDateChainMock();
+    const editLogsInsert = vi.fn().mockResolvedValue({ error: null });
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "receipt_items") return itemsChain as never;
+      if (table === "receipts") return receiptsChain as never;
+      if (table === "edit_logs") return { insert: editLogsInsert } as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE]);
+
+    expect(editLogsInsert).toHaveBeenCalledWith([
+      { receipt_item_id: "item-1", field_name: "quantity", old_value: "2", new_value: "1", edited_by: "user-1" },
+    ]);
+  });
+
+  it("updates and logs the purchase date when it changed", async () => {
+    const itemsChain = confirmReceiptItemsMock();
+    const receiptsChain = receiptDateChainMock({
+      existingRow: { data: { purchase_date: "2026-06-05" }, error: null },
+    });
+    const editLogsInsert = vi.fn().mockResolvedValue({ error: null });
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "receipt_items") return itemsChain as never;
+      if (table === "receipts") return receiptsChain as never;
+      if (table === "edit_logs") return { insert: editLogsInsert } as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE]);
+
+    expect(receiptsChain.update).toHaveBeenCalledWith({ purchase_date: "2026-08-05" });
+    expect(receiptsChain.updateEq).toHaveBeenCalledWith("id", "receipt-1");
+    expect(editLogsInsert).toHaveBeenCalledWith({
+      receipt_id: "receipt-1",
+      field_name: "purchase_date",
+      old_value: "2026-06-05",
+      new_value: "2026-08-05",
+      edited_by: "user-1",
+    });
+  });
+
+  it("does not touch the receipt row when the purchase date is unchanged", async () => {
+    const itemsChain = confirmReceiptItemsMock();
+    const receiptsChain = receiptDateChainMock({
+      existingRow: { data: { purchase_date: "2026-08-05" }, error: null },
+    });
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "receipt_items") return itemsChain as never;
+      if (table === "receipts") return receiptsChain as never;
+      if (table === "edit_logs") return { insert: vi.fn().mockResolvedValue({ error: null }) } as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE]);
+
+    expect(receiptsChain.update).not.toHaveBeenCalled();
   });
 });
 

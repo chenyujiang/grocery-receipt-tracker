@@ -22,6 +22,7 @@ import ReceiptReview from "@/pages/ReceiptReview";
 
 const SAMPLE_DRAFT = {
   id: "receipt-1",
+  uploadedBy: "user-1",
   storeNameEn: "Countdown Newmarket",
   storeNameZh: "倒数超市 Newmarket 店",
   purchaseDate: "2026-08-01",
