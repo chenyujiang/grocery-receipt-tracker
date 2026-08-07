@@ -4,6 +4,7 @@ import {
   fetchAdminUsers,
   grantAdminCredit,
   setAdminUserBanned,
+  mergeUsersIntoCircle,
   type AdminUserRow,
 } from "@/lib/adminApi";
 
@@ -22,9 +23,11 @@ function needsAttention(user: AdminUserRow): boolean {
 interface UserCardProps {
   user: AdminUserRow;
   onChange: () => void;
+  selected: boolean;
+  onToggleSelect: () => void;
 }
 
-function UserCard({ user, onChange }: UserCardProps) {
+function UserCard({ user, onChange, selected, onToggleSelect }: UserCardProps) {
   const [showCustom, setShowCustom] = useState(false);
   const [customAmount, setCustomAmount] = useState("");
   const [busy, setBusy] = useState(false);
@@ -46,9 +49,17 @@ function UserCard({ user, onChange }: UserCardProps) {
       style={{ border: flagged ? "1px solid var(--warning)" : "1px solid var(--border)" }}
     >
       <div className="receipt-card-row">
-        <div>
-          <div className="receipt-card-store">{user.displayName}</div>
-          <div className="receipt-card-date">{user.email}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <input
+            type="checkbox"
+            aria-label={`Select ${user.displayName}`}
+            checked={selected}
+            onChange={onToggleSelect}
+          />
+          <div>
+            <div className="receipt-card-store">{user.displayName}</div>
+            <div className="receipt-card-date">{user.email}</div>
+          </div>
         </div>
         {flagged && <span className="receipt-card-badge">Needs credit</span>}
         {user.banned && (
@@ -148,6 +159,8 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<AdminUserRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedCircles, setExpandedCircles] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [merging, setMerging] = useState(false);
 
   function load() {
     setError(null);
@@ -165,6 +178,26 @@ export default function AdminDashboard() {
       else next.add(name);
       return next;
     });
+  }
+
+  function toggleSelected(userId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }
+
+  async function mergeSelected() {
+    setMerging(true);
+    try {
+      await mergeUsersIntoCircle([...selected]);
+      setSelected(new Set());
+      load();
+    } finally {
+      setMerging(false);
+    }
   }
 
   const attention = (users ?? []).filter(needsAttention);
@@ -200,11 +233,33 @@ export default function AdminDashboard() {
             {attention.length > 0 && (
               <ul className="receipt-list">
                 {attention.map((user) => (
-                  <UserCard key={user.userId} user={user} onChange={load} />
+                  <UserCard
+                    key={user.userId}
+                    user={user}
+                    onChange={load}
+                    selected={selected.has(user.userId)}
+                    onToggleSelect={() => toggleSelected(user.userId)}
+                  />
                 ))}
               </ul>
             )}
           </section>
+
+          {selected.size >= 2 && (
+            <div className="receipt-card-actions-row" style={{ marginBottom: 14 }}>
+              <button type="button" disabled={merging} onClick={() => void mergeSelected()}>
+                Merge {selected.size} users into a circle
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={merging}
+                onClick={() => setSelected(new Set())}
+              >
+                Clear selection
+              </button>
+            </div>
+          )}
 
           <section>
             <h2>All users, by circle</h2>
@@ -223,7 +278,13 @@ export default function AdminDashboard() {
                   {isOpen && (
                     <ul className="receipt-list" style={{ marginTop: 8 }}>
                       {members.map((user) => (
-                        <UserCard key={user.userId} user={user} onChange={load} />
+                        <UserCard
+                          key={user.userId}
+                          user={user}
+                          onChange={load}
+                          selected={selected.has(user.userId)}
+                          onToggleSelect={() => toggleSelected(user.userId)}
+                        />
                       ))}
                     </ul>
                   )}

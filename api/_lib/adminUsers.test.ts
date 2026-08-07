@@ -6,12 +6,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("./supabaseAdmin", () => ({
   supabaseAdmin: {
     from: vi.fn(),
+    rpc: vi.fn(),
     auth: { admin: { listUsers: vi.fn(), updateUserById: vi.fn() } },
   },
 }));
 
 import { supabaseAdmin } from "./supabaseAdmin";
-import { listAdminUsers, grantCredit, setUserBanned } from "./adminUsers";
+import { listAdminUsers, grantCredit, setUserBanned, mergeUsersIntoNewCircle } from "./adminUsers";
 
 function selectChain(result: { data: unknown; error: unknown }) {
   const select = vi.fn(() => Promise.resolve(result));
@@ -151,5 +152,33 @@ describe("setUserBanned", () => {
     await setUserBanned("u1", false);
 
     expect(supabaseAdmin.auth.admin.updateUserById).toHaveBeenCalledWith("u1", { ban_duration: "none" });
+  });
+});
+
+describe("mergeUsersIntoNewCircle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls the merge RPC with the given user ids and returns the new circle id", async () => {
+    vi.mocked(supabaseAdmin.rpc).mockResolvedValue({ data: "new-circle-1", error: null } as never);
+
+    const circleId = await mergeUsersIntoNewCircle(["u1", "u2", "u3"]);
+
+    expect(supabaseAdmin.rpc).toHaveBeenCalledWith("merge_users_into_new_circle", {
+      p_user_ids: ["u1", "u2", "u3"],
+    });
+    expect(circleId).toBe("new-circle-1");
+  });
+
+  it("rejects fewer than 2 users without calling the RPC", async () => {
+    await expect(mergeUsersIntoNewCircle(["u1"])).rejects.toThrow(/at least 2/i);
+    expect(supabaseAdmin.rpc).not.toHaveBeenCalled();
+  });
+
+  it("throws when the RPC errors", async () => {
+    vi.mocked(supabaseAdmin.rpc).mockResolvedValue({ data: null, error: new Error("db error") } as never);
+
+    await expect(mergeUsersIntoNewCircle(["u1", "u2"])).rejects.toThrow("db error");
   });
 });

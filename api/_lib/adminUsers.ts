@@ -102,3 +102,21 @@ export async function setUserBanned(userId: string, banned: boolean): Promise<vo
     throw error;
   }
 }
+
+// No invite-link flow exists (self-service signup always creates a
+// brand-new circle), so an admin merges standalone circles by hand: pick
+// several users, they all land in one new circle. Delegates to a single
+// Postgres function (merge_users_into_new_circle) so the reassignment of
+// products/receipts/alerts plus the profile updates happen atomically.
+export async function mergeUsersIntoNewCircle(userIds: string[]): Promise<string> {
+  if (userIds.length < 2) {
+    throw new Error("mergeUsersIntoNewCircle requires at least 2 users");
+  }
+  const { data, error } = await supabaseAdmin.rpc("merge_users_into_new_circle", {
+    p_user_ids: userIds,
+  });
+  if (error) {
+    throw error;
+  }
+  return data as string;
+}

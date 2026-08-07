@@ -9,9 +9,10 @@ vi.mock("@/lib/adminApi", () => ({
   fetchAdminUsers: vi.fn(),
   grantAdminCredit: vi.fn(),
   setAdminUserBanned: vi.fn(),
+  mergeUsersIntoCircle: vi.fn(),
 }));
 
-import { fetchAdminUsers, grantAdminCredit, setAdminUserBanned } from "@/lib/adminApi";
+import { fetchAdminUsers, grantAdminCredit, setAdminUserBanned, mergeUsersIntoCircle } from "@/lib/adminApi";
 import AdminDashboard from "@/pages/AdminDashboard";
 
 const ALICE = {
@@ -34,6 +35,17 @@ const BEN_BLOCKED = {
   joinedAt: "2026-02-10T00:00:00Z",
   banned: false,
   credit: { mode: "trial" as const, trialUsed: true },
+};
+
+const CARL = {
+  userId: "u3",
+  displayName: "Carl Wu",
+  email: "carl@example.com",
+  circleName: "Chen Family",
+  role: "member",
+  joinedAt: "2026-03-01T00:00:00Z",
+  banned: false,
+  credit: { mode: "trial" as const, trialUsed: false },
 };
 
 function renderPage() {
@@ -103,5 +115,38 @@ describe("AdminDashboard", () => {
     renderPage();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("network error");
+  });
+
+  it("does not show the merge button until at least 2 users are selected", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([ALICE, CARL]);
+
+    renderPage();
+    fireEvent.click(await screen.findByText(/Chen Family \(2\)/));
+    await screen.findByText("Alice Chen");
+
+    expect(screen.queryByRole("button", { name: /merge/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /select alice chen/i }));
+    expect(screen.queryByRole("button", { name: /merge/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /select carl wu/i }));
+    expect(screen.getByRole("button", { name: /merge 2 users into a circle/i })).toBeInTheDocument();
+  });
+
+  it("merges the selected users, clears the selection, and reloads", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([ALICE, CARL]);
+    vi.mocked(mergeUsersIntoCircle).mockResolvedValue("new-circle-1");
+
+    renderPage();
+    fireEvent.click(await screen.findByText(/Chen Family \(2\)/));
+    await screen.findByText("Alice Chen");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /select alice chen/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /select carl wu/i }));
+    fireEvent.click(screen.getByRole("button", { name: /merge 2 users into a circle/i }));
+
+    expect(mergeUsersIntoCircle).toHaveBeenCalledWith(["u1", "u3"]);
+    await waitFor(() => expect(fetchAdminUsers).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("button", { name: /merge/i })).not.toBeInTheDocument();
   });
 });

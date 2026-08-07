@@ -11,7 +11,13 @@ vi.mock("@/lib/supabaseClient", () => ({
 }));
 
 import { supabase } from "@/lib/supabaseClient";
-import { fetchAdminUsers, grantAdminCredit, setAdminUserBanned, isGlobalAdmin } from "@/lib/adminApi";
+import {
+  fetchAdminUsers,
+  grantAdminCredit,
+  setAdminUserBanned,
+  isGlobalAdmin,
+  mergeUsersIntoCircle,
+} from "@/lib/adminApi";
 
 function globalAdminsChain(result: { data: unknown; error: unknown }) {
   const maybeSingle = vi.fn().mockResolvedValue(result);
@@ -78,6 +84,21 @@ describe("adminApi", () => {
       "/api/admin/users/u1/ban",
       expect.objectContaining({ method: "POST", body: JSON.stringify({ banned: true }) })
     );
+  });
+
+  it("mergeUsersIntoCircle posts the selected user ids and returns the new circle id", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ circleId: "new-circle-1" }),
+    } as never);
+
+    const circleId = await mergeUsersIntoCircle(["u1", "u2"]);
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/admin/circles/merge",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ userIds: ["u1", "u2"] }) })
+    );
+    expect(circleId).toBe("new-circle-1");
   });
 
   it("isGlobalAdmin returns true when the user has a global_admins row", async () => {

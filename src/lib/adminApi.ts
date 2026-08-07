@@ -81,3 +81,15 @@ export async function setAdminUserBanned(userId: string, banned: boolean): Promi
     body: JSON.stringify({ banned }),
   });
 }
+
+// No invite-link flow exists, so this is how an admin puts several
+// standalone-circle users into one shared circle: pick users, merge into a
+// brand-new circle.
+export async function mergeUsersIntoCircle(userIds: string[]): Promise<string> {
+  const response = await authorizedFetch("/api/admin/circles/merge", {
+    method: "POST",
+    body: JSON.stringify({ userIds }),
+  });
+  const body = (await response.json()) as { circleId: string };
+  return body.circleId;
+}
