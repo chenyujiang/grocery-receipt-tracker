@@ -171,7 +171,10 @@ describe("CircleSettings", () => {
     expect(screen.queryByText(/dissolve circle/i)).not.toBeInTheDocument();
   });
 
-  it("only allows dissolving the circle after typing the confirmation text", async () => {
+  // Dissolve circle is temporarily hidden (SHOW_DISSOLVE_CIRCLE = false in
+  // CircleSettings.tsx) — skipped rather than deleted so re-enabling the
+  // flag brings this coverage straight back.
+  it.skip("only allows dissolving the circle after typing the confirmation text", async () => {
     vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER, MEMBER]);
     vi.mocked(dissolveCircle).mockResolvedValue(undefined);
     vi.mocked(signOut).mockResolvedValue(undefined);

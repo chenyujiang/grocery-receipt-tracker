@@ -9,6 +9,12 @@ import { isGlobalAdmin, ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
 
 const DISSOLVE_CONFIRM_TEXT = "DISSOLVE";
 
+// Hidden per product decision — circle consolidation is now an admin-only
+// action (the admin dashboard's merge-users-into-a-circle flow), so letting
+// an owner unilaterally dissolve their own circle no longer fits the model.
+// Code and tests kept intact so it's a one-line flip to bring back.
+const SHOW_DISSOLVE_CIRCLE = false;
+
 // Section 4 + 15, page 7: member management. Invite links need an
 // email-sending service the app doesn't have yet (spec.md Section 4), so
 // joining a circle is still owner-at-signup only — see README.
@@ -196,7 +202,7 @@ export default function CircleSettings() {
             </ul>
           </section>
 
-          {isOwner && self && (
+          {SHOW_DISSOLVE_CIRCLE && isOwner && self && (
             <section>
               <h2>{t("settings.dissolveTitle")}</h2>
               <p>{t("settings.dissolveBody", { word: DISSOLVE_CONFIRM_TEXT })}</p>

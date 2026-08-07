@@ -12,8 +12,9 @@ interface DatePickerFieldProps {
 
 // A labeled year → month → day popover field. Reuses MonthlyReport's own
 // month-nav CSS classes (.month-picker-*) — this is that same popover, with
-// a day grid added as a second step after a month is picked, so callers get
-// full day precision instead of just a month.
+// a year grid (for jumping straight to a distant year, same as the report's
+// own nav) and a day grid (so callers get full day precision instead of
+// just a month) added as extra steps.
 export default function DatePickerField({
   label,
   value,
@@ -23,9 +24,12 @@ export default function DatePickerField({
 }: DatePickerFieldProps) {
   const { language, t } = useLanguage();
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<"month" | "day">("month");
+  const [view, setView] = useState<"year" | "month" | "day">("month");
   const [pickerYear, setPickerYear] = useState(() => (value ?? maxDate ?? new Date()).getFullYear());
   const [pickerMonth, setPickerMonth] = useState(() => (value ?? maxDate ?? new Date()).getMonth());
+  const [yearGridStart, setYearGridStart] = useState(
+    () => (value ?? maxDate ?? new Date()).getFullYear() - 5
+  );
 
   function openPicker() {
     const base = value ?? maxDate ?? new Date();
@@ -33,6 +37,16 @@ export default function DatePickerField({
     setPickerMonth(base.getMonth());
     setView("month");
     setOpen(true);
+  }
+
+  function openYearGrid() {
+    setYearGridStart(pickerYear - 5);
+    setView("year");
+  }
+
+  function handlePickYear(year: number) {
+    setPickerYear(year);
+    setView("month");
   }
 
   function handlePickMonth(monthIndex: number) {
@@ -82,7 +96,45 @@ export default function DatePickerField({
           <>
             <div className="month-picker-backdrop" onClick={() => setOpen(false)} />
             <div className="month-picker-popover" role="dialog" aria-label={label}>
-              {view === "month" ? (
+              {view === "year" ? (
+                <>
+                  <div className="month-picker-year-row">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      aria-label={t("report.previousYear")}
+                      onClick={() => setYearGridStart((start) => start - 12)}
+                    >
+                      ‹
+                    </button>
+                    <strong>
+                      {yearGridStart}–{yearGridStart + 11}
+                    </strong>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      aria-label={t("report.nextYear")}
+                      disabled={maxYear !== undefined && yearGridStart + 12 > maxYear}
+                      onClick={() => setYearGridStart((start) => start + 12)}
+                    >
+                      ›
+                    </button>
+                  </div>
+                  <div className="month-picker-grid">
+                    {Array.from({ length: 12 }, (_, index) => yearGridStart + index).map((year) => (
+                      <button
+                        key={year}
+                        type="button"
+                        className={year === pickerYear ? "month-picker-month active" : "month-picker-month"}
+                        disabled={maxYear !== undefined && year > maxYear}
+                        onClick={() => handlePickYear(year)}
+                      >
+                        {year}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : view === "month" ? (
                 <>
                   <div className="month-picker-year-row">
                     <button
@@ -93,7 +145,9 @@ export default function DatePickerField({
                     >
                       ‹
                     </button>
-                    <strong>{pickerYear}</strong>
+                    <button type="button" className="btn-secondary" onClick={openYearGrid}>
+                      {pickerYear}
+                    </button>
                     <button
                       type="button"
                       className="btn-secondary"

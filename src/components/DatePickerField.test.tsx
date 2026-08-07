@@ -57,6 +57,35 @@ describe("DatePickerField", () => {
     expect(screen.getByRole("button", { name: "Jun" })).not.toBeDisabled();
   });
 
+  it("opens a year grid for a fast jump to a distant year, then picks its month and day", async () => {
+    const onChange = vi.fn();
+    render(<DatePickerField label="From" value={null} onChange={onChange} />);
+
+    const currentYear = new Date().getFullYear();
+    await userEvent.click(screen.getByRole("button", { name: "Any" }));
+    await userEvent.click(screen.getByRole("button", { name: String(currentYear) }));
+
+    expect(screen.getByText(`${currentYear - 5}–${currentYear + 6}`)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: String(currentYear - 3) }));
+    await userEvent.click(screen.getByRole("button", { name: "Jan" }));
+    await userEvent.click(screen.getByRole("button", { name: "10" }));
+
+    expect(onChange).toHaveBeenCalledWith(new Date(currentYear - 3, 0, 10));
+  });
+
+  it("disables years after maxDate's year in the year grid", async () => {
+    const onChange = vi.fn();
+    const maxDate = new Date(2026, 5, 10); // 10 June 2026
+    render(<DatePickerField label="From" value={null} onChange={onChange} maxDate={maxDate} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Any" }));
+    await userEvent.click(screen.getByRole("button", { name: "2026" }));
+
+    expect(screen.getByRole("button", { name: "2026" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "2027" })).toBeDisabled();
+  });
+
   it("disables days after maxDate within maxDate's own month", async () => {
     const onChange = vi.fn();
     const maxDate = new Date(2026, 5, 10); // 10 June 2026
