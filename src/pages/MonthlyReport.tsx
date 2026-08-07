@@ -113,14 +113,24 @@ export default function MonthlyReport() {
       <h1>{t("report.title")}</h1>
 
       <div className="month-nav">
-        <button type="button" className="btn-secondary" onClick={goToPreviousMonth}>
-          {t("report.previous")}
+        <button
+          type="button"
+          className="btn-secondary"
+          aria-label={t("report.previous")}
+          onClick={goToPreviousMonth}
+        >
+          ‹
         </button>
         <strong>{formatMonthLabel(month, language)}</strong>
         <div className="month-nav-right">
           {!isCurrentMonth && (
-            <button type="button" className="btn-secondary" onClick={goToNextMonth}>
-              {t("report.next")}
+            <button
+              type="button"
+              className="btn-secondary"
+              aria-label={t("report.next")}
+              onClick={goToNextMonth}
+            >
+              ›
             </button>
           )}
           <div className="month-picker">
