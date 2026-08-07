@@ -285,7 +285,14 @@ export default function MonthlyReport() {
                                 className="home-list-row"
                               >
                                 <span>{pickText(product.nameEn, product.nameZh, language)}</span>
-                                <span>${product.total.toFixed(2)}</span>
+                                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  {product.promoSavings > 0 && (
+                                    <span className="savings-pill">
+                                      {t("report.saved")} ${product.promoSavings.toFixed(2)}
+                                    </span>
+                                  )}
+                                  <span>${product.total.toFixed(2)}</span>
+                                </span>
                               </li>
                             ))}
                           </ul>

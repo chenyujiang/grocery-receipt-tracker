@@ -12,6 +12,11 @@ export interface CategoryProductBreakdownItem {
   nameEn: string;
   nameZh: string;
   total: number;
+  // Sum of (original_price - unit_price) * quantity across this product's
+  // promotional purchases this month — `total`/`subtotal` already reflect
+  // what was actually paid, so this is purely informational, never
+  // subtracted back out or stored as a negative amount anywhere.
+  promoSavings: number;
 }
 
 export interface CategoryBreakdownItem {
@@ -43,6 +48,9 @@ interface MonthReceiptRow {
   uploaded_by: string;
   receipt_items: Array<{
     subtotal: number;
+    quantity: number;
+    original_price: number | null;
+    is_promotion: boolean;
     product_id: string | null;
     raw_name_en: string;
     raw_name_zh: string | null;
@@ -77,7 +85,7 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
   const { data: monthRows, error: monthError } = await supabase
     .from("receipts")
     .select(
-      "total_amount, uploaded_by, receipt_items(subtotal, product_id, raw_name_en, raw_name_zh, products(category, canonical_name_en, canonical_name_zh))"
+      "total_amount, uploaded_by, receipt_items(subtotal, quantity, original_price, is_promotion, product_id, raw_name_en, raw_name_zh, products(category, canonical_name_en, canonical_name_zh))"
     )
     .eq("status", "confirmed")
     .gte("purchase_date", start)
@@ -118,15 +126,21 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
         categoryProducts.set(category, products);
       }
       const productKey = item.product_id ?? `raw:${item.raw_name_en}`;
+      const savings =
+        item.is_promotion && item.original_price != null
+          ? item.original_price * item.quantity - item.subtotal
+          : 0;
       const existing = products.get(productKey);
       if (existing) {
         existing.total += item.subtotal;
+        existing.promoSavings += savings;
       } else {
         products.set(productKey, {
           productId: item.product_id,
           nameEn: item.products?.canonical_name_en ?? item.raw_name_en,
           nameZh: item.products?.canonical_name_zh ?? item.raw_name_zh ?? "",
           total: item.subtotal,
+          promoSavings: savings,
         });
       }
     }

@@ -112,6 +112,7 @@ export const translations = {
     "report.lineItems": "line items",
     "report.exportCsv": "Export CSV",
     "report.exporting": "Exporting…",
+    "report.saved": "Saved",
 
     "notifications.title": "Notifications",
     "notifications.subtitle": "Price-spike alerts (change > 15%) and low-stock alerts.",
@@ -249,6 +250,7 @@ export const translations = {
     "report.lineItems": "条明细",
     "report.exportCsv": "导出 CSV",
     "report.exporting": "导出中…",
+    "report.saved": "省了",
 
     "notifications.title": "通知中心",
     "notifications.subtitle": "价格异常提醒（涨幅超过 15%）和库存快用完提醒。",

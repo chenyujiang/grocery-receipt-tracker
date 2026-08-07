@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // @/lib/monthlyReport and @/lib/exportCsv are the boundary — their own
@@ -27,8 +27,8 @@ const SAMPLE_REPORT = {
       category: "Food - Fruits",
       total: 60,
       products: [
-        { productId: "product-2", nameEn: "Broccoli", nameZh: "西兰花", total: 40 },
-        { productId: "product-3", nameEn: "Carrots", nameZh: "胡萝卜", total: 20 },
+        { productId: "product-2", nameEn: "Broccoli", nameZh: "西兰花", total: 40, promoSavings: 0 },
+        { productId: "product-3", nameEn: "Carrots", nameZh: "胡萝卜", total: 20, promoSavings: 1.5 },
       ],
     },
   ],
@@ -73,6 +73,21 @@ describe("MonthlyReport", () => {
     await userEvent.click(screen.getByRole("button", { name: /Food - Fruits/ }));
 
     expect(screen.queryByText(/Broccoli/)).not.toBeInTheDocument();
+  });
+
+  it("shows a savings badge only for a product with promotional savings this month", async () => {
+    vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
+
+    render(<MonthlyReport />);
+    await screen.findByText("$120.50");
+
+    await userEvent.click(screen.getByRole("button", { name: /Food - Fruits/ }));
+
+    const carrotsRow = screen.getByText("Carrots").closest("li") as HTMLElement;
+    expect(within(carrotsRow).getByText(/Saved \$1\.50/)).toBeInTheDocument();
+
+    const broccoliRow = screen.getByText("Broccoli").closest("li") as HTMLElement;
+    expect(within(broccoliRow).queryByText(/Saved/)).not.toBeInTheDocument();
   });
 
   it("shows a Today button only when viewing a past month, and it jumps back to the current month", async () => {

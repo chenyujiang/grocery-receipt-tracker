@@ -70,6 +70,9 @@ describe("fetchMonthlyReport", () => {
           receipt_items: [
             {
               subtotal: 12.0,
+              quantity: 1,
+              original_price: null,
+              is_promotion: false,
               product_id: "product-1",
               raw_name_en: "Anchor Blue Milk 500g",
               raw_name_zh: "安科蓝带牛奶 500克",
@@ -139,7 +142,15 @@ describe("fetchMonthlyReport", () => {
       {
         category: "Food - Dairy & Bakery",
         total: 12.0,
-        products: [{ productId: "product-1", nameEn: "Anchor Blue Milk", nameZh: "安科蓝带牛奶", total: 12.0 }],
+        products: [
+          {
+            productId: "product-1",
+            nameEn: "Anchor Blue Milk",
+            nameZh: "安科蓝带牛奶",
+            total: 12.0,
+            promoSavings: 0,
+          },
+        ],
       },
     ]);
     expect(report.alertCount).toBe(2);
@@ -161,6 +172,9 @@ describe("fetchMonthlyReport", () => {
           receipt_items: [
             {
               subtotal: 6.0,
+              quantity: 1,
+              original_price: null,
+              is_promotion: false,
               product_id: "product-1",
               raw_name_en: "Anchor Blue Milk 500g",
               raw_name_zh: "安科蓝带牛奶 500克",
@@ -172,6 +186,9 @@ describe("fetchMonthlyReport", () => {
             },
             {
               subtotal: 6.0,
+              quantity: 1,
+              original_price: null,
+              is_promotion: false,
               product_id: "product-1",
               raw_name_en: "Anchor Blue Milk 500g",
               raw_name_zh: "安科蓝带牛奶 500克",
@@ -183,6 +200,9 @@ describe("fetchMonthlyReport", () => {
             },
             {
               subtotal: 8.0,
+              quantity: 1,
+              original_price: null,
+              is_promotion: false,
               product_id: null,
               raw_name_en: "Mystery Snack",
               raw_name_zh: null,
@@ -217,12 +237,86 @@ describe("fetchMonthlyReport", () => {
       {
         category: "Food - Dairy & Bakery",
         total: 12.0,
-        products: [{ productId: "product-1", nameEn: "Anchor Blue Milk", nameZh: "安科蓝带牛奶", total: 12.0 }],
+        products: [
+          {
+            productId: "product-1",
+            nameEn: "Anchor Blue Milk",
+            nameZh: "安科蓝带牛奶",
+            total: 12.0,
+            promoSavings: 0,
+          },
+        ],
       },
       {
         category: "Other / Uncategorized",
         total: 8.0,
-        products: [{ productId: null, nameEn: "Mystery Snack", nameZh: "", total: 8.0 }],
+        products: [{ productId: null, nameEn: "Mystery Snack", nameZh: "", total: 8.0, promoSavings: 0 }],
+      },
+    ]);
+  });
+
+  it("sums a product's promotional savings (original price vs. what was actually paid) without touching its spend total", async () => {
+    const monthChain = monthReceiptsChain({
+      data: [
+        {
+          total_amount: 8.0,
+          uploaded_by: "user-1",
+          receipt_items: [
+            {
+              subtotal: 8.0,
+              quantity: 2,
+              original_price: 5.0,
+              is_promotion: true,
+              product_id: "product-1",
+              raw_name_en: "Anchor Blue Milk 500g",
+              raw_name_zh: "安科蓝带牛奶 500克",
+              products: {
+                category: "Food - Dairy & Bakery",
+                canonical_name_en: "Anchor Blue Milk",
+                canonical_name_zh: "安科蓝带牛奶",
+              },
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+    const prevChain = prevMonthReceiptsChain({ data: [], error: null });
+    const alertsChain = alertsCountChain({ count: 0, error: null });
+    const productsRowsChain = productsChain({
+      data: [{ id: "product-1", canonical_name_en: "Anchor Blue Milk", canonical_name_zh: "安科蓝带牛奶" }],
+      error: null,
+    });
+    const historyRowsChain = historyChain({ data: [], error: null });
+
+    vi.mocked(supabase.from)
+      .mockReturnValueOnce(monthChain as never)
+      .mockReturnValueOnce(prevChain as never)
+      .mockReturnValueOnce(alertsChain as never)
+      .mockReturnValueOnce(productsRowsChain as never)
+      .mockReturnValueOnce(historyRowsChain as never);
+    vi.mocked(fetchCircleMembers).mockResolvedValue([
+      { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
+    ]);
+
+    const report = await fetchMonthlyReport(MONTH);
+
+    // Paid $8 for 2 units that would've been $5 each ($10) — $2 saved, but
+    // total/totalSpend still reflect the $8 actually paid, never $10 or -$2.
+    expect(report.totalSpend).toBe(8.0);
+    expect(report.categoryBreakdown).toEqual([
+      {
+        category: "Food - Dairy & Bakery",
+        total: 8.0,
+        products: [
+          {
+            productId: "product-1",
+            nameEn: "Anchor Blue Milk",
+            nameZh: "安科蓝带牛奶",
+            total: 8.0,
+            promoSavings: 2.0,
+          },
+        ],
       },
     ]);
   });

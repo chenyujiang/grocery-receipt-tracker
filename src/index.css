@@ -345,6 +345,19 @@ legend {
   white-space: nowrap;
 }
 
+/* Red-on-white highlighted amount — how much a product's promotional
+   purchases saved this month (informational only; spend totals already
+   reflect what was actually paid, never a separate negative line). */
+.savings-pill {
+  background: var(--danger);
+  color: var(--primary-contrast);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 ul {
   list-style: none;
   margin: 0;
