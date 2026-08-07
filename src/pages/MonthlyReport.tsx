@@ -259,10 +259,10 @@ export default function MonthlyReport() {
                 {report.categoryBreakdown.map((entry) => {
                   const isOpen = expandedCategories.has(entry.category);
                   return (
-                    <li key={entry.category} style={{ marginBottom: 8 }}>
+                    <li key={entry.category} style={{ marginBottom: 8, borderBottom: "none" }}>
                       <button
                         type="button"
-                        className="btn-secondary"
+                        className={isOpen ? undefined : "btn-secondary"}
                         style={{
                           width: "100%",
                           display: "flex",
@@ -277,17 +277,19 @@ export default function MonthlyReport() {
                         <span>${entry.total.toFixed(2)}</span>
                       </button>
                       {isOpen && (
-                        <ul style={{ marginTop: 6, paddingLeft: 24 }}>
-                          {entry.products.map((product) => (
-                            <li
-                              key={product.productId ?? product.nameEn}
-                              className="home-list-row"
-                            >
-                              <span>{pickText(product.nameEn, product.nameZh, language)}</span>
-                              <span>${product.total.toFixed(2)}</span>
-                            </li>
-                          ))}
-                        </ul>
+                        <fieldset style={{ marginTop: 6 }}>
+                          <ul>
+                            {entry.products.map((product) => (
+                              <li
+                                key={product.productId ?? product.nameEn}
+                                className="home-list-row"
+                              >
+                                <span>{pickText(product.nameEn, product.nameZh, language)}</span>
+                                <span>${product.total.toFixed(2)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </fieldset>
                       )}
                     </li>
                   );
