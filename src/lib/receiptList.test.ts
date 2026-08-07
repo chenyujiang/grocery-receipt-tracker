@@ -50,7 +50,8 @@ describe("fetchReceipts", () => {
 
     const receipts = await fetchReceipts();
 
-    expect(chain.order).toHaveBeenCalledWith("purchase_date", { ascending: false });
+    expect(chain.order).toHaveBeenNthCalledWith(1, "purchase_date", { ascending: false });
+    expect(chain.order).toHaveBeenNthCalledWith(2, "uploaded_at", { ascending: false });
     expect(chain.or).not.toHaveBeenCalled();
     expect(chain.gte).not.toHaveBeenCalled();
     expect(chain.lte).not.toHaveBeenCalled();

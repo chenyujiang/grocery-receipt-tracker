@@ -44,7 +44,12 @@ export async function fetchReceipts(filters: ReceiptFilters = {}): Promise<Recei
     query = query.eq("uploaded_by", filters.uploadedBy);
   }
 
-  const { data, error } = await query.order("purchase_date", { ascending: false });
+  // purchase_date alone can't order same-day receipts consistently (it has
+  // no time component) — break ties by upload time, newest first, so the
+  // list is always most-recent-first end to end.
+  const { data, error } = await query
+    .order("purchase_date", { ascending: false })
+    .order("uploaded_at", { ascending: false });
   if (error) {
     throw error;
   }

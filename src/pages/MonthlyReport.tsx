@@ -26,6 +26,10 @@ function CalendarIcon() {
   );
 }
 
+// Temporarily hidden per product decision — code and tests kept intact so
+// it's a one-line flip to bring back.
+const SHOW_EXPORT_CSV = false;
+
 // Section 14 + 15, page 5: month-scoped overview — total spend vs last month,
 // category breakdown, the price-change leaderboard (reusing Section 10),
 // alert counts, per-uploader spending, and the CSV export button.
@@ -238,25 +242,27 @@ export default function MonthlyReport() {
             </p>
           </section>
 
-          <section>
-            <h2>{t("report.exportCsv")}</h2>
-            <MonthPickerField
-              label={t("receiptList.from")}
-              value={exportFromMonth}
-              onChange={setExportFromMonth}
-              maxMonth={currentMonth}
-            />
-            <MonthPickerField
-              label={t("receiptList.to")}
-              value={exportToMonth}
-              onChange={setExportToMonth}
-              maxMonth={currentMonth}
-            />
-            {exportError && <p role="alert">{exportError}</p>}
-            <button type="button" className="btn-block" onClick={handleExport} disabled={exporting}>
-              {exporting ? t("report.exporting") : t("report.exportCsv")}
-            </button>
-          </section>
+          {SHOW_EXPORT_CSV && (
+            <section>
+              <h2>{t("report.exportCsv")}</h2>
+              <MonthPickerField
+                label={t("receiptList.from")}
+                value={exportFromMonth}
+                onChange={setExportFromMonth}
+                maxMonth={currentMonth}
+              />
+              <MonthPickerField
+                label={t("receiptList.to")}
+                value={exportToMonth}
+                onChange={setExportToMonth}
+                maxMonth={currentMonth}
+              />
+              {exportError && <p role="alert">{exportError}</p>}
+              <button type="button" className="btn-block" onClick={handleExport} disabled={exporting}>
+                {exporting ? t("report.exporting") : t("report.exportCsv")}
+              </button>
+            </section>
+          )}
         </>
       )}
     </div>

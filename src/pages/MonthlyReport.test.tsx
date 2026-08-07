@@ -127,7 +127,10 @@ describe("MonthlyReport", () => {
     expect(fetchMonthlyReport).toHaveBeenCalledTimes(callsBeforeOpening);
   });
 
-  it("exports a CSV for the selected date range", async () => {
+  // The export-CSV section is temporarily hidden (SHOW_EXPORT_CSV = false in
+  // MonthlyReport.tsx) — skipped rather than deleted so re-enabling the flag
+  // brings this coverage straight back.
+  it.skip("exports a CSV for the selected date range", async () => {
     vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
     vi.mocked(fetchExportRows).mockResolvedValue([]);
 
@@ -142,7 +145,7 @@ describe("MonthlyReport", () => {
     );
   });
 
-  it("exports from a year-then-month-picked range when the export From month is changed", async () => {
+  it.skip("exports from a year-then-month-picked range when the export From month is changed", async () => {
     vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
     vi.mocked(fetchExportRows).mockResolvedValue([]);
 
