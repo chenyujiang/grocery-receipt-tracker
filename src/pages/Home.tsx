@@ -39,8 +39,9 @@ export default function Home() {
             ) : (
               <ul>
                 {summary.categoryBreakdown.map((entry) => (
-                  <li key={entry.category}>
-                    {categoryLabel(entry.category, language)} — ${entry.total.toFixed(2)}
+                  <li key={entry.category} className="home-list-row">
+                    <span>{categoryLabel(entry.category, language)}</span>
+                    <span className="price-pill">${entry.total.toFixed(2)}</span>
                   </li>
                 ))}
               </ul>
@@ -61,17 +62,23 @@ export default function Home() {
             {summary.recentReceipts.length === 0 ? (
               <p>{t("home.noReceipts")}</p>
             ) : (
-              <ul>
+              <ul className="receipt-list">
                 {summary.recentReceipts.map((receipt) => (
-                  <li key={receipt.id}>
-                    {receipt.purchaseDate} · {pickText(receipt.storeNameEn, receipt.storeNameZh, language)}{" "}
-                    — ${receipt.totalAmount.toFixed(2)}
-                    {receipt.status === "pending_review" && (
-                      <>
-                        {" "}
-                        · <Link to={`/receipts/${receipt.id}/review`}>{t("home.needsReview")}</Link>
-                      </>
-                    )}
+                  <li key={receipt.id} className="receipt-card">
+                    <div className="receipt-card-row">
+                      <span className="receipt-card-store">
+                        {pickText(receipt.storeNameEn, receipt.storeNameZh, language)}
+                      </span>
+                      {receipt.status === "pending_review" && (
+                        <Link to={`/receipts/${receipt.id}/review`} className="receipt-card-badge">
+                          {t("home.needsReview")}
+                        </Link>
+                      )}
+                    </div>
+                    <div className="receipt-card-row">
+                      <span className="receipt-card-date">{receipt.purchaseDate}</span>
+                      <span className="price-pill">${receipt.totalAmount.toFixed(2)}</span>
+                    </div>
                   </li>
                 ))}
               </ul>

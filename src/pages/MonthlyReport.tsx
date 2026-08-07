@@ -279,9 +279,12 @@ export default function MonthlyReport() {
                       {isOpen && (
                         <ul style={{ marginTop: 6, paddingLeft: 24 }}>
                           {entry.products.map((product) => (
-                            <li key={product.productId ?? product.nameEn}>
-                              {pickText(product.nameEn, product.nameZh, language)} — $
-                              {product.total.toFixed(2)}
+                            <li
+                              key={product.productId ?? product.nameEn}
+                              className="home-list-row"
+                            >
+                              <span>{pickText(product.nameEn, product.nameZh, language)}</span>
+                              <span>${product.total.toFixed(2)}</span>
                             </li>
                           ))}
                         </ul>
