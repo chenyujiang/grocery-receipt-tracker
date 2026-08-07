@@ -46,10 +46,12 @@ export default function MonthlyReport() {
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setReport(null);
     setError(null);
+    setExpandedCategories(new Set());
     fetchMonthlyReport(month)
       .then(setReport)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load report"));
@@ -77,6 +79,15 @@ export default function MonthlyReport() {
   function handlePickMonth(monthIndex: number) {
     setMonth(new Date(pickerYear, monthIndex, 1));
     setPickerOpen(false);
+  }
+
+  function toggleCategory(category: string) {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
   }
 
   async function handleExport() {
@@ -192,12 +203,40 @@ export default function MonthlyReport() {
             {report.categoryBreakdown.length === 0 ? (
               <p>{t("home.noData")}</p>
             ) : (
-              <ul>
-                {report.categoryBreakdown.map((entry) => (
-                  <li key={entry.category}>
-                    {categoryLabel(entry.category, language)} — ${entry.total.toFixed(2)}
-                  </li>
-                ))}
+              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {report.categoryBreakdown.map((entry) => {
+                  const isOpen = expandedCategories.has(entry.category);
+                  return (
+                    <li key={entry.category} style={{ marginBottom: 8 }}>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-block"
+                        style={{
+                          marginTop: 0,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          textAlign: "left",
+                        }}
+                        onClick={() => toggleCategory(entry.category)}
+                      >
+                        <span>
+                          {isOpen ? "▾" : "▸"} {categoryLabel(entry.category, language)}
+                        </span>
+                        <span>${entry.total.toFixed(2)}</span>
+                      </button>
+                      {isOpen && (
+                        <ul style={{ marginTop: 6, paddingLeft: 24 }}>
+                          {entry.products.map((product) => (
+                            <li key={product.productId ?? product.nameEn}>
+                              {pickText(product.nameEn, product.nameZh, language)} — $
+                              {product.total.toFixed(2)}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

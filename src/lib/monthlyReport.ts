@@ -7,9 +7,17 @@ import {
   type ProductPriceHistory,
 } from "@/lib/priceChangeLeaderboard";
 
+export interface CategoryProductBreakdownItem {
+  productId: string | null;
+  nameEn: string;
+  nameZh: string;
+  total: number;
+}
+
 export interface CategoryBreakdownItem {
   category: string;
   total: number;
+  products: CategoryProductBreakdownItem[];
 }
 
 export interface UploaderSpend {
@@ -36,7 +44,9 @@ interface MonthReceiptRow {
   receipt_items: Array<{
     subtotal: number;
     product_id: string | null;
-    products: { category: string } | null;
+    raw_name_en: string;
+    raw_name_zh: string | null;
+    products: { category: string; canonical_name_en: string; canonical_name_zh: string | null } | null;
   }>;
 }
 
@@ -67,7 +77,7 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
   const { data: monthRows, error: monthError } = await supabase
     .from("receipts")
     .select(
-      "total_amount, uploaded_by, receipt_items(subtotal, product_id, products(category))"
+      "total_amount, uploaded_by, receipt_items(subtotal, product_id, raw_name_en, raw_name_zh, products(category, canonical_name_en, canonical_name_zh))"
     )
     .eq("status", "confirmed")
     .gte("purchase_date", start)
@@ -81,6 +91,10 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
   let totalSpend = 0;
   let lineItemCount = 0;
   const categoryTotals = new Map<string, number>();
+  // Nested by category, then by product — product_id when the item is
+  // matched to a standardized Product, otherwise its raw recognized name
+  // (an item can be left unmatched if its Product was later deleted).
+  const categoryProducts = new Map<string, Map<string, CategoryProductBreakdownItem>>();
   const uploaderTotals = new Map<string, number>();
   const productIds = new Set<string>();
 
@@ -97,11 +111,35 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
       if (item.product_id) {
         productIds.add(item.product_id);
       }
+
+      let products = categoryProducts.get(category);
+      if (!products) {
+        products = new Map();
+        categoryProducts.set(category, products);
+      }
+      const productKey = item.product_id ?? `raw:${item.raw_name_en}`;
+      const existing = products.get(productKey);
+      if (existing) {
+        existing.total += item.subtotal;
+      } else {
+        products.set(productKey, {
+          productId: item.product_id,
+          nameEn: item.products?.canonical_name_en ?? item.raw_name_en,
+          nameZh: item.products?.canonical_name_zh ?? item.raw_name_zh ?? "",
+          total: item.subtotal,
+        });
+      }
     }
   }
 
   const categoryBreakdown = [...categoryTotals.entries()]
-    .map(([category, total]) => ({ category, total }))
+    .map(([category, total]) => ({
+      category,
+      total,
+      products: [...(categoryProducts.get(category)?.values() ?? [])].sort(
+        (a, b) => b.total - a.total
+      ),
+    }))
     .sort((a, b) => b.total - a.total);
 
   const previousMonthSpend = await fetchMonthSpend(previousBounds.start, previousBounds.end);

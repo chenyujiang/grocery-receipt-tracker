@@ -22,7 +22,16 @@ const SAMPLE_REPORT = {
   totalSpend: 120.5,
   previousMonthSpend: 100,
   changePercent: 20.5,
-  categoryBreakdown: [{ category: "Food - Fresh Produce", total: 60 }],
+  categoryBreakdown: [
+    {
+      category: "Food - Fresh Produce",
+      total: 60,
+      products: [
+        { productId: "product-2", nameEn: "Broccoli", nameZh: "西兰花", total: 40 },
+        { productId: "product-3", nameEn: "Carrots", nameZh: "胡萝卜", total: 20 },
+      ],
+    },
+  ],
   priceChangeLeaderboard: [
     { productId: "product-1", nameEn: "Anchor Blue Milk", nameZh: "安科蓝带牛奶", changePercent: 25 },
   ],
@@ -46,6 +55,24 @@ describe("MonthlyReport", () => {
     expect(screen.getByText(/Food - Fresh Produce/)).toBeInTheDocument();
     expect(screen.getByText(/Anchor Blue Milk/)).toBeInTheDocument();
     expect(screen.getByText(/3 alerts triggered/)).toBeInTheDocument();
+  });
+
+  it("expands a category to reveal its product breakdown, and collapses again", async () => {
+    vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
+
+    render(<MonthlyReport />);
+    await screen.findByText("$120.50");
+
+    expect(screen.queryByText(/Broccoli/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Food - Fresh Produce/ }));
+
+    expect(screen.getByText(/Broccoli/)).toBeInTheDocument();
+    expect(screen.getByText(/Carrots/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Food - Fresh Produce/ }));
+
+    expect(screen.queryByText(/Broccoli/)).not.toBeInTheDocument();
   });
 
   it("re-queries the previous month when Previous is clicked", async () => {
