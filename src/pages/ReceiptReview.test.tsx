@@ -70,6 +70,8 @@ describe("ReceiptReview", () => {
     renderReviewPage();
 
     expect(await screen.findByDisplayValue("Anchor Blue Milk 2L")).toBeInTheDocument();
+    // The item has a weight/volume spec (2L) — it should show alongside the category.
+    expect(screen.getByText(/2L/)).toBeInTheDocument();
     expect(fetchReceiptDraft).toHaveBeenCalledWith("receipt-1");
   });
 

@@ -23,7 +23,7 @@ npm run dev
 - `SUPABASE_SERVICE_ROLE_KEY` —— 只在 `/api` 内部使用，绝不发给客户端。
 - `CLAUDE_API_KEY` —— 从 Anthropic 控制台获取，同样只用于服务端。
 
-数据库结构（`supabase/migrations/`）对应 spec.md 第 5 节：`circles`、`profiles`（含 `display_name`，用于小票列表的上传人筛选和圈子设置页）、`categories`（已预置 9 个固定分类）、`products`、`receipts`、`receipt_items`、`edit_logs`、`alerts`（价格异常和库存提醒共用的一张表）、`global_admins`、以及 `user_ai_access`（第 16 节）。每张表都开启了 RLS——圈子成员可以看到圈内的所有数据，但只能修改/删除自己上传的记录（对应第 2、4 节）。`receipts` 存储 bucket 是私有的，按 `circle_id` 分路径隔离。旧的 `ai_spend_limit` 单例表还在，但已经不用了（被 `user_ai_access` 取代），保留着只是为了以后可能的清理迁移。
+数据库结构（`supabase/migrations/`）对应 spec.md 第 5 节：`circles`、`profiles`（含 `display_name`，用于小票列表的上传人筛选和圈子设置页）、`categories`（已预置固定分类目录，上线后又把食品类进一步细分——见 spec.md 第 9 节）、`products`、`receipts`、`receipt_items`、`edit_logs`、`alerts`（价格异常和库存提醒共用的一张表）、`global_admins`、以及 `user_ai_access`（第 16 节）。每张表都开启了 RLS——圈子成员可以看到圈内的所有数据，但只能修改/删除自己上传的记录（对应第 2、4 节）。`receipts` 存储 bucket 是私有的，按 `circle_id` 分路径隔离。旧的 `ai_spend_limit` 单例表还在，但已经不用了（被 `user_ai_access` 取代），保留着只是为了以后可能的清理迁移。
 
 `user_ai_access` 是**按用户**追踪 Claude API 访问权限的，不是全局的：全新用户拿到恰好 1 次免费成功识别（按次数算），用完之后需要全局管理员通过管理后台给他分配一份真正的按金额算的额度（默认 $1，或自定义）——分配额度永远是重置（清零已用、设新上限），不是累加充值。`api/receipts/recognize.ts` 在每次识别调用前都会检查，一旦某个用户超出自己的额度就拒绝（返回 402）；不会自动重置。模型选用 **Claude Haiku 4.5**（`claude-haiku-4-5`），出于成本考虑——结构化提取任务不需要 Opus/Sonnet 级别的定价。
 

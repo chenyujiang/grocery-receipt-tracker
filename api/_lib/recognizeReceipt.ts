@@ -126,7 +126,11 @@ function buildPrompt(existingProducts: ExistingProduct[]): string {
     ".\n" +
     "Also compare each item's English name against this circle's existing standardized " +
     "products by semantic similarity; set matched_product_id to the matching id, or null " +
-    "if it looks like a new product:\n" +
+    "if it looks like a new product. A promotional/on-special item is still the same " +
+    "underlying product as its regular-price counterpart — ignore promo wording ('was $X " +
+    "now $Y', 'special', 'clearance', etc.) when matching, so it lands on the same " +
+    "matched_product_id (and therefore the same category) instead of being treated as a " +
+    "new product:\n" +
     productList
   );
 }

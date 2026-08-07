@@ -19,7 +19,7 @@ describe("Home", () => {
   it("shows this month's total, category breakdown, alert count, and recent receipts", async () => {
     vi.mocked(fetchHomeSummary).mockResolvedValue({
       monthTotal: 33.5,
-      categoryBreakdown: [{ category: "Food - Fresh Produce", total: 25.5 }],
+      categoryBreakdown: [{ category: "Food - Fruits", total: 25.5 }],
       pendingAlertsCount: 3,
       recentReceipts: [
         {
@@ -40,7 +40,7 @@ describe("Home", () => {
     );
 
     expect(await screen.findByText("$33.50")).toBeInTheDocument();
-    expect(screen.getByText(/Food - Fresh Produce/)).toBeInTheDocument();
+    expect(screen.getByText(/Food - Fruits/)).toBeInTheDocument();
     expect(screen.getByText(/3 pending alerts/)).toBeInTheDocument();
     expect(screen.getByText(/Countdown/)).toBeInTheDocument();
   });

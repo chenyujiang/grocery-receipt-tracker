@@ -203,6 +203,26 @@ There's no separate "low confidence" flag — the review/confirm step itself is 
 
 Exact subcategories are left for development to fine-tune; the English names are the taxonomy's original definition, with Chinese as the translation.
 
+**Amended post-launch**: the two catch-all food categories turned out too coarse once real receipts accumulated — `Food - Fresh Produce` mixed fruit, vegetables, and meat together, and `Food - Snacks & Beverages` mixed snacks, drinks, condiments, and frozen food. Split into:
+
+| Top-level category |
+|---|
+| Food - Grains & Oil |
+| Food - Fruits |
+| Food - Vegetables |
+| Food - Meat & Seafood |
+| Food - Dairy & Bakery |
+| Food - Frozen |
+| Food - Snacks |
+| Food - Beverages |
+| Household - Cleaning |
+| Household - Personal Care |
+| Baby & Maternity |
+| Pet Supplies |
+| Other / Uncategorized |
+
+`Food - Meat & Seafood` and `Food - Frozen` are new, not just splits of an existing category — added because real products didn't fit the fruit/vegetable/snack/beverage split otherwise. Existing `Product` rows in the removed categories were hand-reclassified by name (see `supabase/migrations/20260807000003_refine_food_categories.sql`) since there's still no category-edit UI (Section 15 doesn't expose one) to do it any other way.
+
 ## 10. Price-Change Calculation & Display
 
 **Comparison baseline**: against the last purchase price (not a historical average).

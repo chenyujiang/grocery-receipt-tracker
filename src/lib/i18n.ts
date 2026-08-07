@@ -96,8 +96,7 @@ export const translations = {
     "product.promo": "promo",
 
     "report.title": "Monthly Report",
-    "report.previous": "Previous month",
-    "report.next": "Next month",
+    "report.backToToday": "Today",
     "report.pickMonth": "Pick a month",
     "report.previousYear": "Previous year",
     "report.nextYear": "Next year",
@@ -234,8 +233,7 @@ export const translations = {
     "product.promo": "促销",
 
     "report.title": "月度报告",
-    "report.previous": "上个月",
-    "report.next": "下个月",
+    "report.backToToday": "回到本月",
     "report.pickMonth": "选择月份",
     "report.previousYear": "上一年",
     "report.nextYear": "下一年",

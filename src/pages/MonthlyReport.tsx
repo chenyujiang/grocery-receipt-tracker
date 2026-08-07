@@ -45,7 +45,9 @@ export default function MonthlyReport() {
   const [exportError, setExportError] = useState<string | null>(null);
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerView, setPickerView] = useState<"year" | "month">("month");
   const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
+  const [yearGridStart, setYearGridStart] = useState(() => new Date().getFullYear() - 5);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -65,17 +67,24 @@ export default function MonthlyReport() {
   const today = new Date();
   const isCurrentMonth = month.getTime() === currentMonth.getTime();
 
-  function goToPreviousMonth() {
-    setMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
-  }
-
-  function goToNextMonth() {
-    setMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
+  function goToCurrentMonth() {
+    setMonth(currentMonth);
   }
 
   function openPicker() {
     setPickerYear(month.getFullYear());
+    setPickerView("month");
     setPickerOpen(true);
+  }
+
+  function openYearGrid() {
+    setYearGridStart(pickerYear - 5);
+    setPickerView("year");
+  }
+
+  function handlePickYear(year: number) {
+    setPickerYear(year);
+    setPickerView("month");
   }
 
   function handlePickMonth(monthIndex: number) {
@@ -113,24 +122,11 @@ export default function MonthlyReport() {
       <h1>{t("report.title")}</h1>
 
       <div className="month-nav">
-        <button
-          type="button"
-          className="btn-secondary"
-          aria-label={t("report.previous")}
-          onClick={goToPreviousMonth}
-        >
-          ‹
-        </button>
         <strong>{formatMonthLabel(month, language)}</strong>
         <div className="month-nav-right">
           {!isCurrentMonth && (
-            <button
-              type="button"
-              className="btn-secondary"
-              aria-label={t("report.next")}
-              onClick={goToNextMonth}
-            >
-              ›
+            <button type="button" className="btn-secondary" onClick={goToCurrentMonth}>
+              {t("report.backToToday")}
             </button>
           )}
           <div className="month-picker">
@@ -146,47 +142,91 @@ export default function MonthlyReport() {
               <>
                 <div className="month-picker-backdrop" onClick={() => setPickerOpen(false)} />
                 <div className="month-picker-popover" role="dialog" aria-label={t("report.pickMonth")}>
-                  <div className="month-picker-year-row">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      aria-label={t("report.previousYear")}
-                      onClick={() => setPickerYear((year) => year - 1)}
-                    >
-                      ‹
-                    </button>
-                    <strong>{pickerYear}</strong>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      aria-label={t("report.nextYear")}
-                      disabled={pickerYear >= currentMonth.getFullYear()}
-                      onClick={() => setPickerYear((year) => year + 1)}
-                    >
-                      ›
-                    </button>
-                  </div>
-                  <div className="month-picker-grid">
-                    {getMonthNames(language).map((name, monthIndex) => {
-                      const disabled =
-                        pickerYear === currentMonth.getFullYear() && monthIndex > currentMonth.getMonth();
-                      const selected =
-                        pickerYear === month.getFullYear() && monthIndex === month.getMonth();
-                      return (
+                  {pickerView === "year" ? (
+                    <>
+                      <div className="month-picker-year-row">
                         <button
-                          key={name}
                           type="button"
-                          className={
-                            selected ? "month-picker-month active" : "month-picker-month"
-                          }
-                          disabled={disabled}
-                          onClick={() => handlePickMonth(monthIndex)}
+                          className="btn-secondary"
+                          aria-label={t("report.previousYear")}
+                          onClick={() => setYearGridStart((start) => start - 12)}
                         >
-                          {name}
+                          ‹
                         </button>
-                      );
-                    })}
-                  </div>
+                        <strong>
+                          {yearGridStart}–{yearGridStart + 11}
+                        </strong>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          aria-label={t("report.nextYear")}
+                          disabled={yearGridStart + 12 > currentMonth.getFullYear()}
+                          onClick={() => setYearGridStart((start) => start + 12)}
+                        >
+                          ›
+                        </button>
+                      </div>
+                      <div className="month-picker-grid">
+                        {Array.from({ length: 12 }, (_, index) => yearGridStart + index).map((year) => (
+                          <button
+                            key={year}
+                            type="button"
+                            className={year === pickerYear ? "month-picker-month active" : "month-picker-month"}
+                            disabled={year > currentMonth.getFullYear()}
+                            onClick={() => handlePickYear(year)}
+                          >
+                            {year}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="month-picker-year-row">
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          aria-label={t("report.previousYear")}
+                          onClick={() => setPickerYear((year) => year - 1)}
+                        >
+                          ‹
+                        </button>
+                        <button type="button" className="btn-secondary" onClick={openYearGrid}>
+                          {pickerYear}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          aria-label={t("report.nextYear")}
+                          disabled={pickerYear >= currentMonth.getFullYear()}
+                          onClick={() => setPickerYear((year) => year + 1)}
+                        >
+                          ›
+                        </button>
+                      </div>
+                      <div className="month-picker-grid">
+                        {getMonthNames(language).map((name, monthIndex) => {
+                          const disabled =
+                            pickerYear === currentMonth.getFullYear() && monthIndex > currentMonth.getMonth();
+                          const selected =
+                            pickerYear === month.getFullYear() && monthIndex === month.getMonth();
+                          return (
+                            <button
+                              key={name}
+                              type="button"
+                              className={
+                                selected ? "month-picker-month active" : "month-picker-month"
+                              }
+                              disabled={disabled}
+                              onClick={() => handlePickMonth(monthIndex)}
+                            >
+                              {name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               </>
             )}

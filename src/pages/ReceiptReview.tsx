@@ -173,6 +173,12 @@ export default function ReceiptReview() {
           <p>
             {t("common.category")}: {item.category ? categoryLabel(item.category, language) : "—"}
           </p>
+          {item.unitSpecUnit !== null && (
+            <p>
+              {t("detail.specValue")}: {item.unitSpecValue}
+              {item.unitSpecUnit}
+            </p>
+          )}
         </fieldset>
       ))}
 

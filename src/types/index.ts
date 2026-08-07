@@ -69,11 +69,19 @@ export interface EditLog {
 }
 
 // Section 9: fixed, system-wide category list (English is canonical, Chinese is the translation).
+// Amended post-launch: Fresh Produce split into Fruits/Vegetables (plus a
+// new Meat & Seafood, since several "Fresh Produce" products turned out to
+// be meat), Snacks & Beverages split into Snacks/Beverages, and a new
+// Frozen category added — see supabase/migrations/20260807000003_refine_food_categories.sql.
 export const CATEGORIES = [
   { en: "Food - Grains & Oil", zh: "食品-粮油调味" },
-  { en: "Food - Fresh Produce", zh: "食品-生鲜" },
+  { en: "Food - Fruits", zh: "食品-水果" },
+  { en: "Food - Vegetables", zh: "食品-蔬菜" },
+  { en: "Food - Meat & Seafood", zh: "食品-肉类海鲜" },
   { en: "Food - Dairy & Bakery", zh: "食品-乳制品烘焙" },
-  { en: "Food - Snacks & Beverages", zh: "食品-零食饮料" },
+  { en: "Food - Frozen", zh: "食品-冷冻食品" },
+  { en: "Food - Snacks", zh: "食品-零食" },
+  { en: "Food - Beverages", zh: "食品-饮料" },
   { en: "Household - Cleaning", zh: "日用品-清洁洗护" },
   { en: "Household - Personal Care", zh: "日用品-个人护理" },
   { en: "Baby & Maternity", zh: "母婴用品" },

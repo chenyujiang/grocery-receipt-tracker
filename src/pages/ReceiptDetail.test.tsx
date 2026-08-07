@@ -90,6 +90,8 @@ describe("ReceiptDetail", () => {
 
     expect(await screen.findByText("Countdown Newmarket")).toBeInTheDocument();
     expect(screen.getByText("Anchor Blue Milk 2L")).toBeInTheDocument();
+    // WEIGHED_ITEM has a weight/volume spec (2L) — it should show alongside quantity/price.
+    expect(screen.getByText(/\(2L\)/)).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 

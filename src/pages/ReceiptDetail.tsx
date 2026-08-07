@@ -216,6 +216,13 @@ export default function ReceiptDetail() {
                 </span>
                 <span className="receipt-detail-item-meta">
                   {item.quantity} × ${item.unitPrice.toFixed(2)}
+                  {item.unitSpecUnit !== null && (
+                    <>
+                      {" "}
+                      ({item.unitSpecValue}
+                      {item.unitSpecUnit})
+                    </>
+                  )}
                   {item.isPromotion && <> · {t("review.promotion")}</>}
                   {item.category && <> · {categoryLabel(item.category, language)}</>}
                 </span>

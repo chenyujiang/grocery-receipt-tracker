@@ -45,8 +45,8 @@ describe("fetchHomeSummary", () => {
         {
           total_amount: 25.5,
           receipt_items: [
-            { subtotal: 15.5, products: { category: "Food - Fresh Produce" } },
-            { subtotal: 10.0, products: { category: "Food - Fresh Produce" } },
+            { subtotal: 15.5, products: { category: "Food - Fruits" } },
+            { subtotal: 10.0, products: { category: "Food - Fruits" } },
           ],
         },
         {
@@ -84,7 +84,7 @@ describe("fetchHomeSummary", () => {
 
     expect(summary.monthTotal).toBe(33.5);
     expect(summary.categoryBreakdown).toEqual([
-      { category: "Food - Fresh Produce", total: 25.5 },
+      { category: "Food - Fruits", total: 25.5 },
       { category: "Household - Cleaning", total: 8.0 },
     ]);
     expect(summary.pendingAlertsCount).toBe(3);

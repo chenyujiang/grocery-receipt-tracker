@@ -24,7 +24,7 @@ const SAMPLE_REPORT = {
   changePercent: 20.5,
   categoryBreakdown: [
     {
-      category: "Food - Fresh Produce",
+      category: "Food - Fruits",
       total: 60,
       products: [
         { productId: "product-2", nameEn: "Broccoli", nameZh: "西兰花", total: 40 },
@@ -52,7 +52,7 @@ describe("MonthlyReport", () => {
     render(<MonthlyReport />);
 
     expect(await screen.findByText("$120.50")).toBeInTheDocument();
-    expect(screen.getByText(/Food - Fresh Produce/)).toBeInTheDocument();
+    expect(screen.getByText(/Food - Fruits/)).toBeInTheDocument();
     expect(screen.getByText(/Anchor Blue Milk/)).toBeInTheDocument();
     expect(screen.getByText(/3 alerts triggered/)).toBeInTheDocument();
   });
@@ -65,43 +65,53 @@ describe("MonthlyReport", () => {
 
     expect(screen.queryByText(/Broccoli/)).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /Food - Fresh Produce/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Food - Fruits/ }));
 
     expect(screen.getByText(/Broccoli/)).toBeInTheDocument();
     expect(screen.getByText(/Carrots/)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /Food - Fresh Produce/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Food - Fruits/ }));
 
     expect(screen.queryByText(/Broccoli/)).not.toBeInTheDocument();
   });
 
-  it("re-queries the previous month when Previous is clicked", async () => {
+  it("shows a Today button only when viewing a past month, and it jumps back to the current month", async () => {
     vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
 
     render(<MonthlyReport />);
     await screen.findByText("$120.50");
 
-    const firstCallMonth = vi.mocked(fetchMonthlyReport).mock.calls[0][0] as Date;
-    await userEvent.click(screen.getByRole("button", { name: /previous/i }));
+    expect(screen.queryByRole("button", { name: "Today" })).not.toBeInTheDocument();
 
-    expect(fetchMonthlyReport).toHaveBeenCalledTimes(2);
-    const secondCallMonth = vi.mocked(fetchMonthlyReport).mock.calls[1][0] as Date;
-    expect(secondCallMonth.getMonth()).toBe(
-      (firstCallMonth.getMonth() - 1 + 12) % 12
-    );
+    await userEvent.click(screen.getByRole("button", { name: /pick a month/i }));
+    await userEvent.click(screen.getByRole("button", { name: /previous year/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Jan" }));
+
+    expect(await screen.findByRole("button", { name: "Today" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Today" }));
+
+    expect(screen.queryByRole("button", { name: "Today" })).not.toBeInTheDocument();
+    const now = new Date();
+    expect(fetchMonthlyReport).toHaveBeenLastCalledWith(new Date(now.getFullYear(), now.getMonth(), 1));
   });
 
-  it("hides Next on the current month, and shows it again after going back", async () => {
+  it("opens a year grid for a fast jump to a distant year, then picks its month", async () => {
     vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
 
     render(<MonthlyReport />);
     await screen.findByText("$120.50");
 
-    expect(screen.queryByRole("button", { name: /^next/i })).not.toBeInTheDocument();
+    const currentYear = new Date().getFullYear();
+    await userEvent.click(screen.getByRole("button", { name: /pick a month/i }));
+    await userEvent.click(screen.getByRole("button", { name: String(currentYear) }));
 
-    await userEvent.click(screen.getByRole("button", { name: /previous/i }));
+    expect(screen.getByText(`${currentYear - 5}–${currentYear + 6}`)).toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: /^next/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: String(currentYear - 3) }));
+    await userEvent.click(screen.getByRole("button", { name: "Jan" }));
+
+    expect(fetchMonthlyReport).toHaveBeenLastCalledWith(new Date(currentYear - 3, 0, 1));
   });
 
   it("opens a year-then-month picker and re-queries the picked month", async () => {
