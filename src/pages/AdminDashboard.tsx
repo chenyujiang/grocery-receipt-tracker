@@ -247,7 +247,12 @@ export default function AdminDashboard() {
 
           {selected.size >= 2 && (
             <div className="receipt-card-actions-row" style={{ marginBottom: 14 }}>
-              <button type="button" disabled={merging} onClick={() => void mergeSelected()}>
+              <button
+                type="button"
+                className="btn-danger"
+                disabled={merging}
+                onClick={() => void mergeSelected()}
+              >
                 Merge {selected.size} users into a circle
               </button>
               <button

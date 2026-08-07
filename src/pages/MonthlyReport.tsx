@@ -262,9 +262,9 @@ export default function MonthlyReport() {
                     <li key={entry.category} style={{ marginBottom: 8 }}>
                       <button
                         type="button"
-                        className="btn-secondary btn-block"
+                        className="btn-secondary"
                         style={{
-                          marginTop: 0,
+                          width: "100%",
                           display: "flex",
                           justifyContent: "space-between",
                           textAlign: "left",
