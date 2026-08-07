@@ -66,6 +66,8 @@ The user is based in New Zealand, so receipts are originally in English (from su
 - **Duplicate-receipt prevention**: new receipts are auto-checked for suspected duplicates by matching store + date + total amount; when detected, the user confirms either "yes, duplicate, don't import" or "not a duplicate, continue."
 - **Buyer field**: each record's `uploaded_by` is automatically set to the current login email, requiring no extra input, and enables per-person spending statistics.
 
+**Amended post-launch — invite links dropped, not deferred**: the app turned out to be family-only/self-use, so the invite-link "join an existing circle" path above was never built and won't be. Signup still self-service-creates its own circle via RLS (unchanged), but bringing several people into one shared circle is now an admin-driven action instead — see Section 16's amendment for `merge_users_into_new_circle`.
+
 ## 5. Data Model
 
 ### 5.0 Circle & User Profile
@@ -89,7 +91,7 @@ The user is based in New Zealand, so receipts are originally in English (from su
 
 Since "one account belongs to exactly one circle" (Section 4), circle membership and role are stored directly on the user profile table — no many-to-many membership table is needed.
 
-The concrete implementation of invite links (token generation, expiry, etc.) is left for development to design and isn't expanded on in this document.
+The concrete implementation of invite links (token generation, expiry, etc.) is left for development to design and isn't expanded on in this document. **Amended post-launch**: never designed or built — see Section 4's amendment.
 
 ### 5.1 Receipt
 
@@ -179,6 +181,8 @@ There's no separate "low confidence" flag — the review/confirm step itself is 
 **Spec changes**: don't affect the matching decision — different purchase records under the same standardized product can have different specs; spec is just an attribute of each `ReceiptItem`.
 
 **Barcodes**: not handled. New Zealand supermarket receipts typically don't print barcodes, so no field is reserved for this.
+
+**Amended post-launch**: the recognition prompt now explicitly tells Claude that a promotional/on-special item is still the same underlying product as its regular-price counterpart — ignore promo wording ("was $X now $Y", "special", "clearance") when matching, so it lands on the same `matched_product_id` (and therefore the same `Product.category`) instead of splitting off into a separate `Product`.
 
 ## 9. Category Taxonomy
 
@@ -287,6 +291,10 @@ Exact subcategories are left for development to fine-tune; the English names are
 - The number of price-spike/low-stock alerts triggered this month.
 - Spending distribution by uploader, and the total receipts/line items uploaded this month.
 
+**Amended post-launch**: each category row expands into a per-product breakdown (which products made up that category's total, and how much each cost) — the category total alone didn't say what was actually bought. A product with promotional purchases that month also shows how much its promotions saved, as a separate informational figure (a red badge in the UI) — this is never subtracted from or added to any spend total, which already reflects what was actually paid (`ReceiptItem.subtotal` uses the transacted `unit_price`, not `original_price`); no negative-amount line is recorded anywhere.
+
+**Amended post-launch**: the page's own month nav (browse which month's report to view) dropped its Previous/Next text buttons in favor of an icon-only calendar trigger; its popover gained a year-grid (jump straight to a distant year) and a "Today" button that appears only when viewing a past month.
+
 **Data export**:
 
 - Format: CSV.
@@ -300,11 +308,11 @@ Exact subcategories are left for development to fine-tune; the English names are
 
 1. **Home/Dashboard**: this month's total spend, category breakdown, a pending-alerts summary, recent receipts.
 2. **Photo upload flow**: photograph/select → AI processing → preview/confirm → save.
-3. **Receipt list**: historical receipts, filterable by store/uploader/date range (a year→month→day picker). Each receipt can be deleted (by its own uploader, per Section 4's permissions — also removes its stored image from Supabase Storage) and, once `confirmed`, opens a detail view (its own page) listing every line item; a still-`pending_review` receipt instead opens the editable preview/confirm screen from Section 6. **Amended (ticket 16)**: the confirmed-receipt detail view is no longer purely read-only — its own uploader can toggle an inline Edit mode to fix name/quantity/unit price/promotion, purchase date (via the same picker as the list filter/export range), and the weight/volume spec (value + a fixed g/kg/ml/L unit dropdown, shown only for items that already have one). Edits reuse the existing `EditLog` diffing and don't retroactively re-check price-spike alerts. **Amended again post-launch**: the shared picker (`DatePickerField`, née `MonthPickerField`) regained a day step for every filter/edit use — the month-only version made correcting an exact purchase date awkward (ticket 16 had to special-case preserving the day-of-month around it, since removed). The monthly report's own month browser (Section 14) is unaffected — it stays month-only, since that page is inherently a monthly view.
+3. **Receipt list**: historical receipts, filterable by store/uploader/date range (a year→month→day picker). Each receipt can be deleted (by its own uploader, per Section 4's permissions — also removes its stored image from Supabase Storage) and, once `confirmed`, opens a detail view (its own page) listing every line item; a still-`pending_review` receipt instead opens the editable preview/confirm screen from Section 6. **Amended (ticket 16)**: the confirmed-receipt detail view is no longer purely read-only — its own uploader can toggle an inline Edit mode to fix name/quantity/unit price/promotion, purchase date (via the same picker as the list filter/export range), and the weight/volume spec (value + a fixed g/kg/ml/L unit dropdown, shown only for items that already have one). Edits reuse the existing `EditLog` diffing and don't retroactively re-check price-spike alerts. **Amended post-launch**: an item's weight/volume spec is now also shown next to its quantity/price in the read-only detail view and the pre-confirm review screen, not just in edit mode. **Amended again post-launch**: the shared picker (`DatePickerField`, née `MonthPickerField`) regained a day step for every filter/edit use — the month-only version made correcting an exact purchase date awkward (ticket 16 had to special-case preserving the day-of-month around it, since removed). It later also gained a year-grid step (jump straight to a distant year, matching Section 14's own month-nav amendment) for both the list filters and the purchase-date editor. The monthly report's own month browser (Section 14) is unaffected — it stays month-only, since that page is inherently a monthly view.
 4. **Product detail page**: price trend chart + multi-store comparison module + consumption rate/estimated days remaining + purchase history.
 5. **Monthly report page**: see Section 14.
 6. **Notification center**: the price-spike and low-stock alert list.
-7. **Circle settings**: member management, invite links.
+7. **Circle settings**: member management, invite links. **Amended post-launch**: invite links dropped (see Section 4); "Dissolve circle" is hidden behind a flag (code kept) now that circle consolidation is an admin-only action (Section 16), not something an owner should do unilaterally.
 
 **Navigation**: a bottom tab bar with five even items — Home / Receipts / Upload / Report / Me (photo upload is a normal tab, **amended from** a centered floating action button). Notifications is a separate icon pinned to the top-right of every page instead of living in the tab bar.
 
@@ -331,6 +339,8 @@ A global-admin identity, separate from the per-circle `owner`/`member` roles in 
 **Migration of existing users**: everyone who already has an account is grandfathered directly into the dollar-cap model (default $1, or set per-user by the admin), skipping the new-user free-trial gate entirely.
 
 **UI direction**: settled via `/prototype` — a "needs attention" queue surfacing exactly who is blocked and why, followed by the full roster grouped by circle in collapsible sections, each user shown as a card (not a plain table row) with their credit state and actions (Grant $1 / custom amount / ban-unban) always visible.
+
+**Amended post-launch — circle merging**: with invite links dropped (Section 4's amendment), the dashboard gained a third admin action: multi-select several standalone-circle users in the roster and merge them into one brand-new circle. Backed by `merge_users_into_new_circle`, a service-role-only Postgres function that atomically moves the selected users' products/receipts/alerts to the new circle, sets the first-selected user as owner and the rest as members, and deletes the now-empty old circles. It refuses the merge if any selected user's current circle already has other members — `Product` rows are circle-level, not per-user, so pulling one member out of an already-shared circle would strand the rest of that circle's data with no owner action able to recover it.
 
 ### 16.1 Data model
 
