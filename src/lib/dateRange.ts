@@ -26,8 +26,20 @@ export function nextMonthStart(date: Date): string {
   return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-01`;
 }
 
-// The calendar month a date falls in, as a Date on its 1st — the unit every
-// year-then-month picker (MonthPickerField, MonthlyReport's own nav) selects.
+// The calendar month a date falls in, as a Date on its 1st — the unit
+// MonthlyReport's own month nav selects.
 export function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+// Shared with the `date`-typed purchase_date column's string form —
+// DatePickerField hands back a Date, but every filter/save call needs the
+// local-calendar-day string (not toISOString, which shifts by timezone).
+export function formatDateString(date: Date): string {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+export function parseDateString(value: string): Date {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }

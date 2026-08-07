@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { monthBounds, nextMonthStart, startOfMonth } from "@/lib/dateRange";
+import {
+  monthBounds,
+  nextMonthStart,
+  startOfMonth,
+  formatDateString,
+  parseDateString,
+} from "@/lib/dateRange";
 
 describe("monthBounds", () => {
   it("returns the first and last calendar day of the given date's month", () => {
@@ -24,5 +30,22 @@ describe("nextMonthStart", () => {
 describe("startOfMonth", () => {
   it("returns the 1st of the given date's month", () => {
     expect(startOfMonth(new Date(2026, 7, 15))).toEqual(new Date(2026, 7, 1));
+  });
+});
+
+describe("formatDateString", () => {
+  it("formats a Date as a local YYYY-MM-DD string, zero-padded", () => {
+    expect(formatDateString(new Date(2026, 0, 5))).toBe("2026-01-05");
+  });
+});
+
+describe("parseDateString", () => {
+  it("parses a YYYY-MM-DD string as a local Date", () => {
+    expect(parseDateString("2026-01-05")).toEqual(new Date(2026, 0, 5));
+  });
+
+  it("round-trips with formatDateString", () => {
+    const date = new Date(2026, 11, 31);
+    expect(parseDateString(formatDateString(date))).toEqual(date);
   });
 });

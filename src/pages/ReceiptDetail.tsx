@@ -4,33 +4,14 @@ import { fetchReceiptDraft, editConfirmedReceipt, type ReceiptDraft, type DraftI
 import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
-import MonthPickerField from "@/components/MonthPickerField";
+import { formatDateString, parseDateString } from "@/lib/dateRange";
+import DatePickerField from "@/components/DatePickerField";
 
 const SPEC_UNITS = ["g", "kg", "ml", "L"];
 
-function parseDateString(value: string): Date {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function formatDateString(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-// Picking a new month must keep the existing day-of-month rather than
-// resetting it to the 1st (issue 16) — MonthPickerField only knows about
-// months, but purchase_date needs day precision preserved.
-function withMonthKeepingDay(newMonth: Date, currentDate: Date): Date {
-  const year = newMonth.getFullYear();
-  const month = newMonth.getMonth();
-  const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
-  return new Date(year, month, Math.min(currentDate.getDate(), lastDayOfMonth));
-}
-
 // Section 15, page 3 + issue 16: a confirmed receipt's own uploader can
 // toggle an inline edit mode to fix OCR mistakes — name/quantity/unit
-// price/promotion (already editable pre-confirm), plus the purchase month
+// price/promotion (already editable pre-confirm), plus the purchase date
 // and the weight/volume spec (only for items that already have one).
 // Anyone else still gets the read-only view below.
 export default function ReceiptDetail() {
@@ -133,13 +114,10 @@ export default function ReceiptDetail() {
       {editing ? (
         <>
           <div style={{ marginBottom: 14 }}>
-            <MonthPickerField
+            <DatePickerField
               label={t("detail.purchaseDate")}
               value={purchaseDate}
-              onChange={(newMonth) => {
-                if (!newMonth || !purchaseDate) return;
-                setPurchaseDate(withMonthKeepingDay(newMonth, purchaseDate));
-              }}
+              onChange={setPurchaseDate}
             />
           </div>
 

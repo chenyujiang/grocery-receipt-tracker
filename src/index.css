@@ -161,7 +161,7 @@ legend {
   position: relative;
 }
 
-/* MonthPickerField: the same popover as the report's own nav, but presented
+/* DatePickerField: the same popover as the report's own nav, but presented
    as a labeled form field (trigger button + optional clear) instead of a
    bare icon button. */
 .month-picker-field {
@@ -270,6 +270,31 @@ legend {
 }
 
 .month-picker-month.active {
+  background: var(--primary);
+  color: var(--primary-contrast);
+}
+
+/* DatePickerField's second step: a day grid inside the same popover. */
+.month-picker-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.month-picker-day {
+  padding: 6px 0;
+  background: var(--surface-muted);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+}
+
+.month-picker-day:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.month-picker-day.active {
   background: var(--primary);
   color: var(--primary-contrast);
 }

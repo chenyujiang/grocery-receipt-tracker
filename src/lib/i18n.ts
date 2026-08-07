@@ -22,6 +22,7 @@ export const translations = {
     "common.cancel": "Cancel",
     "common.any": "Any",
     "common.clear": "Clear",
+    "common.back": "‹ Back",
 
     "nav.home": "Home",
     "nav.receipts": "Receipts",
@@ -77,7 +78,7 @@ export const translations = {
     "detail.save": "Save",
     "detail.saving": "Saving…",
     "detail.cancel": "Cancel",
-    "detail.purchaseDate": "Purchase month",
+    "detail.purchaseDate": "Purchase date",
     "detail.specValue": "Spec value",
     "detail.specUnit": "Spec unit",
 
@@ -159,6 +160,7 @@ export const translations = {
     "common.cancel": "取消",
     "common.any": "不限",
     "common.clear": "清除",
+    "common.back": "‹ 返回",
 
     "nav.home": "首页",
     "nav.receipts": "小票",
@@ -214,7 +216,7 @@ export const translations = {
     "detail.save": "保存",
     "detail.saving": "保存中…",
     "detail.cancel": "取消",
-    "detail.purchaseDate": "购买月份",
+    "detail.purchaseDate": "购买日期",
     "detail.specValue": "规格数值",
     "detail.specUnit": "规格单位",
 

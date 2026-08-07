@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { fetchMonthlyReport, type MonthlyReport as MonthlyReportData } from "@/lib/monthlyReport";
 import { fetchExportRows, rowsToCsv, downloadCsv } from "@/lib/exportCsv";
-import { monthBounds, startOfMonth } from "@/lib/dateRange";
+import { monthBounds, startOfMonth, formatDateString, parseDateString } from "@/lib/dateRange";
 import { formatMonthLabel, getMonthNames } from "@/lib/monthFormat";
-import MonthPickerField from "@/components/MonthPickerField";
+import DatePickerField from "@/components/DatePickerField";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 
@@ -39,8 +39,8 @@ export default function MonthlyReport() {
   const [report, setReport] = useState<MonthlyReportData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [exportFromMonth, setExportFromMonth] = useState<Date | null>(null);
-  const [exportToMonth, setExportToMonth] = useState<Date | null>(null);
+  const [exportFrom, setExportFrom] = useState<Date | null>(null);
+  const [exportTo, setExportTo] = useState<Date | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -56,11 +56,13 @@ export default function MonthlyReport() {
       .then(setReport)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load report"));
 
-    setExportFromMonth(month);
-    setExportToMonth(month);
+    const bounds = monthBounds(month);
+    setExportFrom(parseDateString(bounds.start));
+    setExportTo(parseDateString(bounds.end));
   }, [month]);
 
   const currentMonth = startOfMonth(new Date());
+  const today = new Date();
   const isCurrentMonth = month.getTime() === currentMonth.getTime();
 
   function goToPreviousMonth() {
@@ -91,12 +93,12 @@ export default function MonthlyReport() {
   }
 
   async function handleExport() {
-    if (!exportFromMonth || !exportToMonth) return;
+    if (!exportFrom || !exportTo) return;
     setExportError(null);
     setExporting(true);
     try {
-      const from = monthBounds(exportFromMonth).start;
-      const to = monthBounds(exportToMonth).end;
+      const from = formatDateString(exportFrom);
+      const to = formatDateString(exportTo);
       const rows = await fetchExportRows({ from, to });
       downloadCsv(`receipts_${from}_to_${to}.csv`, rowsToCsv(rows));
     } catch (err) {
@@ -284,17 +286,17 @@ export default function MonthlyReport() {
           {SHOW_EXPORT_CSV && (
             <section>
               <h2>{t("report.exportCsv")}</h2>
-              <MonthPickerField
+              <DatePickerField
                 label={t("receiptList.from")}
-                value={exportFromMonth}
-                onChange={setExportFromMonth}
-                maxMonth={currentMonth}
+                value={exportFrom}
+                onChange={setExportFrom}
+                maxDate={today}
               />
-              <MonthPickerField
+              <DatePickerField
                 label={t("receiptList.to")}
-                value={exportToMonth}
-                onChange={setExportToMonth}
-                maxMonth={currentMonth}
+                value={exportTo}
+                onChange={setExportTo}
+                maxDate={today}
               />
               {exportError && <p role="alert">{exportError}</p>}
               <button type="button" className="btn-block" onClick={handleExport} disabled={exporting}>

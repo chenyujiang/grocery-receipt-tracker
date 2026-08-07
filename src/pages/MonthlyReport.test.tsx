@@ -172,18 +172,24 @@ describe("MonthlyReport", () => {
     );
   });
 
-  it.skip("exports from a year-then-month-picked range when the export From month is changed", async () => {
+  it.skip("exports from a year-month-day-picked range when the export From date is changed", async () => {
     vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
     vi.mocked(fetchExportRows).mockResolvedValue([]);
 
     render(<MonthlyReport />);
     await screen.findByText("$120.50");
 
-    const currentMonthLabel = new Date().toLocaleDateString("en-NZ", { month: "long", year: "numeric" });
-    const [exportFromTrigger] = screen.getAllByRole("button", { name: currentMonthLabel });
+    const now = new Date();
+    const defaultFromLabel = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString("en-NZ", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const exportFromTrigger = screen.getByRole("button", { name: defaultFromLabel });
     await userEvent.click(exportFromTrigger);
     await userEvent.click(screen.getByRole("button", { name: /previous year/i }));
     await userEvent.click(screen.getByRole("button", { name: "Jan" }));
+    await userEvent.click(screen.getByRole("button", { name: "1" }));
 
     await userEvent.click(screen.getByRole("button", { name: /export csv/i }));
 

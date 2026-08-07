@@ -3,13 +3,13 @@ import { Link } from "react-router-dom";
 import { fetchReceipts, type ReceiptListItem, type ReceiptFilters } from "@/lib/receiptList";
 import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
 import { deleteReceipt } from "@/lib/receipts";
-import { monthBounds, startOfMonth } from "@/lib/dateRange";
-import MonthPickerField from "@/components/MonthPickerField";
+import { formatDateString } from "@/lib/dateRange";
+import DatePickerField from "@/components/DatePickerField";
 import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText } from "@/lib/bilingual";
 
-const currentMonth = startOfMonth(new Date());
+const today = new Date();
 
 // Section 15, page 3: historical receipts, filterable by store/date/uploader.
 export default function ReceiptList() {
@@ -20,8 +20,8 @@ export default function ReceiptList() {
   const [error, setError] = useState<string | null>(null);
 
   const [storeQuery, setStoreQuery] = useState("");
-  const [dateFromMonth, setDateFromMonth] = useState<Date | null>(null);
-  const [dateToMonth, setDateToMonth] = useState<Date | null>(null);
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
   const [uploadedBy, setUploadedBy] = useState("");
 
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -47,8 +47,8 @@ export default function ReceiptList() {
     event.preventDefault();
     load({
       storeQuery: storeQuery || undefined,
-      dateFrom: dateFromMonth ? monthBounds(dateFromMonth).start : undefined,
-      dateTo: dateToMonth ? monthBounds(dateToMonth).end : undefined,
+      dateFrom: dateFrom ? formatDateString(dateFrom) : undefined,
+      dateTo: dateTo ? formatDateString(dateTo) : undefined,
       uploadedBy: uploadedBy || undefined,
     });
   }
@@ -81,18 +81,18 @@ export default function ReceiptList() {
             placeholder={t("receiptList.storePlaceholder")}
           />
         </label>
-        <MonthPickerField
+        <DatePickerField
           label={t("receiptList.from")}
-          value={dateFromMonth}
-          onChange={setDateFromMonth}
-          maxMonth={currentMonth}
+          value={dateFrom}
+          onChange={setDateFrom}
+          maxDate={today}
           clearable
         />
-        <MonthPickerField
+        <DatePickerField
           label={t("receiptList.to")}
-          value={dateToMonth}
-          onChange={setDateToMonth}
-          maxMonth={currentMonth}
+          value={dateTo}
+          onChange={setDateTo}
+          maxDate={today}
           clearable
         />
         <label>
