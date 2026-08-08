@@ -17,37 +17,41 @@ function deriveDisplayName(email: string): string {
 // Section 4: signing up creates a new circle and makes the signer its owner.
 // (Joining an existing circle via invite link is a separate, not-yet-built
 // path — see README.md's Supabase section.)
+//
+// Bug fix: the circle/profile inserts below must NOT chain .select() (i.e.
+// must not do INSERT ... RETURNING). `circles`' own SELECT policy is
+// `id = current_circle_id()`, which resolves via the user's `profiles` row —
+// a row that doesn't exist yet for a brand-new signer. PostgREST's default
+// insert behavior asks for the row back, so the RETURNING clause hits that
+// same-not-yet-satisfiable SELECT policy and the whole INSERT statement is
+// rejected as an RLS violation (100% reproducible, not actually a timing
+// race — confirmed directly against Postgres, bypassing the client
+// entirely). Generating the id client-side and skipping .select() avoids
+// needing the row back at all.
 export async function signUpWithEmail(email: string, password: string): Promise<SignUpResult> {
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
   if (signUpError || !signUpData.user) {
     throw signUpError ?? new Error("Sign-up did not return a user");
   }
   const userId = signUpData.user.id;
+  const circleId = crypto.randomUUID();
 
-  const { data: circle, error: circleError } = await supabase
-    .from("circles")
-    .insert({})
-    .select()
-    .single();
-  if (circleError || !circle) {
-    throw circleError ?? new Error("Failed to create circle");
+  const { error: circleError } = await supabase.from("circles").insert({ id: circleId });
+  if (circleError) {
+    throw circleError;
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .insert({
-      user_id: userId,
-      circle_id: circle.id,
-      role: "owner",
-      display_name: deriveDisplayName(email),
-    })
-    .select()
-    .single();
-  if (profileError || !profile) {
-    throw profileError ?? new Error("Failed to create owner profile");
+  const { error: profileError } = await supabase.from("profiles").insert({
+    user_id: userId,
+    circle_id: circleId,
+    role: "owner",
+    display_name: deriveDisplayName(email),
+  });
+  if (profileError) {
+    throw profileError;
   }
 
-  return { userId, circleId: circle.id, role: "owner" };
+  return { userId, circleId, role: "owner" };
 }
 
 interface SignInResult {
@@ -75,18 +79,15 @@ async function ensureProfile(userId: string, email: string): Promise<void> {
     return;
   }
 
-  const { data: circle, error: circleError } = await supabase
-    .from("circles")
-    .insert({})
-    .select()
-    .single();
-  if (circleError || !circle) {
-    throw circleError ?? new Error("Failed to create circle");
+  const circleId = crypto.randomUUID();
+  const { error: circleError } = await supabase.from("circles").insert({ id: circleId });
+  if (circleError) {
+    throw circleError;
   }
 
   const { error: profileError } = await supabase.from("profiles").insert({
     user_id: userId,
-    circle_id: circle.id,
+    circle_id: circleId,
     role: "owner",
     display_name: deriveDisplayName(email),
   });

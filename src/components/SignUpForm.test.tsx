@@ -15,10 +15,11 @@ vi.mock("@/lib/supabaseClient", () => ({
 import { supabase } from "@/lib/supabaseClient";
 import SignUpForm from "@/components/SignUpForm";
 
-function insertChain(result: { data: unknown; error: unknown }) {
-  const single = vi.fn().mockResolvedValue(result);
-  const select = vi.fn(() => ({ single }));
-  const insert = vi.fn(() => ({ select }));
+// auth.ts's circle/profile inserts deliberately don't chain .select() (see
+// its comment — RETURNING would hit a not-yet-satisfiable RLS SELECT
+// policy for a brand-new user), so the mock only needs to resolve {error}.
+function insertChain(result: { error: unknown }) {
+  const insert = vi.fn().mockResolvedValue(result);
   return { insert };
 }
 
@@ -28,16 +29,14 @@ describe("SignUpForm", () => {
   });
 
   it("lets a user sign up and reports the new owner profile", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("circle-1" as never);
     vi.mocked(supabase.auth.signUp).mockResolvedValue({
       data: { user: { id: "user-1" }, session: null },
       error: null,
     } as never);
 
-    const circlesChain = insertChain({ data: { id: "circle-1" }, error: null });
-    const profilesChain = insertChain({
-      data: { user_id: "user-1", circle_id: "circle-1", role: "owner" },
-      error: null,
-    });
+    const circlesChain = insertChain({ error: null });
+    const profilesChain = insertChain({ error: null });
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       if (table === "circles") return circlesChain as never;
       if (table === "profiles") return profilesChain as never;
