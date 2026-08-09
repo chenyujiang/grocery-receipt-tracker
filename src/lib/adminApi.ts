@@ -23,8 +23,11 @@ export async function isGlobalAdmin(userId: string): Promise<boolean> {
 
 // Issue 15: the admin dashboard's calls to the backend's admin-only routes.
 export type AdminUserCredit =
-  | { mode: "trial"; trialUsed: boolean }
+  | { mode: "trial"; callsUsed: number }
   | { mode: "cap"; capUsd: number; spentUsd: number };
+
+// Must match api/_lib/userAiAccess.ts's FREE_TRIAL_LIMIT.
+export const FREE_TRIAL_LIMIT = 5;
 
 export interface AdminUserRow {
   userId: string;

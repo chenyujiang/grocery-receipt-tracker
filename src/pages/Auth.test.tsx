@@ -1,28 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 
 // @/lib/auth and @/lib/adminApi are the boundaries — their own Supabase
 // behavior is covered by their own tests; this only checks issue 15
-// decision 8's post-login redirect (admin -> dashboard, everyone else -> "/").
+// decision 8's post-login redirect (admin -> dashboard, everyone else -> "/")
+// plus the post-signup justSignedUp router state.
 vi.mock("@/lib/auth", () => ({
   signInWithEmail: vi.fn(),
+  signUpWithEmail: vi.fn(),
 }));
 vi.mock("@/lib/adminApi", async () => {
   const actual = await vi.importActual<typeof import("@/lib/adminApi")>("@/lib/adminApi");
   return { ...actual, isGlobalAdmin: vi.fn() };
 });
 
-import { signInWithEmail } from "@/lib/auth";
+import { signInWithEmail, signUpWithEmail } from "@/lib/auth";
 import { isGlobalAdmin, ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
 import Auth from "@/pages/Auth";
+
+function HomeRouteProbe() {
+  const location = useLocation();
+  const justSignedUp = Boolean((location.state as { justSignedUp?: boolean } | null)?.justSignedUp);
+  return <p>Home page{justSignedUp ? " (just signed up)" : ""}</p>;
+}
 
 function renderAuthFlow() {
   return render(
     <MemoryRouter initialEntries={["/auth"]}>
       <Routes>
         <Route path="/auth" element={<Auth />} />
-        <Route path="/" element={<p>Home page</p>} />
+        <Route path="/" element={<HomeRouteProbe />} />
         <Route path={ADMIN_DASHBOARD_PATH} element={<p>Admin dashboard</p>} />
       </Routes>
     </MemoryRouter>
@@ -68,5 +76,23 @@ describe("Auth", () => {
     await submitSignIn();
 
     await waitFor(() => expect(screen.getByText("Home page")).toBeInTheDocument());
+  });
+
+  it("marks the redirect as just-signed-up after a non-admin signs up", async () => {
+    vi.mocked(signUpWithEmail).mockResolvedValue({
+      userId: "user-2",
+      circleId: "circle-2",
+      role: "owner",
+    });
+    vi.mocked(isGlobalAdmin).mockResolvedValue(false);
+
+    renderAuthFlow();
+    fireEvent.click(screen.getByRole("button", { name: /sign up instead/i }));
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "hunter2" } });
+    fireEvent.change(screen.getByLabelText(/display name/i), { target: { value: "New User" } });
+    fireEvent.click(screen.getByRole("button", { name: /^sign up$/i }));
+
+    expect(await screen.findByText("Home page (just signed up)")).toBeInTheDocument();
   });
 });

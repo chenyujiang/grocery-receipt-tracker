@@ -10,6 +10,7 @@ vi.mock("@/lib/adminApi", () => ({
   grantAdminCredit: vi.fn(),
   setAdminUserBanned: vi.fn(),
   mergeUsersIntoCircle: vi.fn(),
+  FREE_TRIAL_LIMIT: 5,
 }));
 
 import { fetchAdminUsers, grantAdminCredit, setAdminUserBanned, mergeUsersIntoCircle } from "@/lib/adminApi";
@@ -23,7 +24,7 @@ const ALICE = {
   role: "owner",
   joinedAt: "2026-01-05T00:00:00Z",
   banned: false,
-  credit: { mode: "trial" as const, trialUsed: false },
+  credit: { mode: "trial" as const, callsUsed: 0 },
 };
 
 const BEN_BLOCKED = {
@@ -34,7 +35,7 @@ const BEN_BLOCKED = {
   role: "member",
   joinedAt: "2026-02-10T00:00:00Z",
   banned: false,
-  credit: { mode: "trial" as const, trialUsed: true },
+  credit: { mode: "trial" as const, callsUsed: 5 },
 };
 
 const CARL = {
@@ -45,7 +46,7 @@ const CARL = {
   role: "member",
   joinedAt: "2026-03-01T00:00:00Z",
   banned: false,
-  credit: { mode: "trial" as const, trialUsed: false },
+  credit: { mode: "trial" as const, callsUsed: 0 },
 };
 
 function renderPage() {

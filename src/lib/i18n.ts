@@ -33,6 +33,8 @@ export const translations = {
     "nav.me": "Me",
 
     "home.title": "Home",
+    "home.welcomeTitle": "Welcome!",
+    "home.welcomeTrialBody": "You have {count} free AI receipt recognitions to try the app.",
     "home.thisMonth": "This month",
     "home.byCategory": "By category",
     "home.noData": "No data yet.",
@@ -174,6 +176,8 @@ export const translations = {
     "nav.me": "我的",
 
     "home.title": "首页",
+    "home.welcomeTitle": "欢迎！",
+    "home.welcomeTrialBody": "你有 {count} 次免费的 AI 小票识别额度，可以先体验一下。",
     "home.thisMonth": "本月支出",
     "home.byCategory": "分类占比",
     "home.noData": "暂无数据。",

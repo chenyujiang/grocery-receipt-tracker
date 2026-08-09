@@ -328,7 +328,7 @@ A global-admin identity, separate from the per-circle `owner`/`member` roles in 
 
 **Per-user credit model** (replaces Section 3.1's old global cap): each user has an independent dollar cap and spend counter. "Granting credit" is a **reset**, not a top-up — it zeroes the user's spend counter and sets a fresh cap, defaulting to $1 on a single click, or any custom admin-entered amount. It has no relationship to what the user had before.
 
-**New-user free trial**: a brand-new user gets exactly **one free successful recognition call** (count-based, not dollar-based — a single Haiku 4.5 call costs far less than $1, so a dollar allowance wouldn't actually cap them at one use). Only a successful call consumes it; failed/errored attempts don't. Once consumed, further attempts are refused until an admin grants a real (dollar-based) credit.
+**New-user free trial**: a brand-new user gets **`FREE_TRIAL_LIMIT` (5) free successful recognition calls** (count-based, not dollar-based — a single Haiku 4.5 call costs far less than $1, so a dollar allowance wouldn't actually cap them usefully). Only a successful call consumes one; failed/errored attempts don't. Once all 5 are used, further attempts are refused until an admin grants a real (dollar-based) credit. **Amended post-launch**: the signup flow now tells the user about this allowance directly — a one-time welcome message on the Home page right after registering, via `justSignedUp` router state set by `Auth.tsx`'s post-signup redirect.
 
 **Blocked-user messaging**: when refused (free trial spent, or dollar cap hit), the user sees a message with a `mailto:` link to the admin's email address, opening their own email client with a pre-filled draft. No backend transactional-email service is introduced.
 
@@ -359,9 +359,9 @@ Presence of a row = is a global admin. Added by hand via the Supabase SQL editor
 | Field | Description |
 |---|---|
 | `user_id` | Primary key, references `auth.users.id` |
-| `free_trial_used` | Whether the one free recognition call has been consumed |
+| `free_trial_calls_used` | Count of free recognition calls consumed so far (0–5) |
 | `cap_usd` | Dollar cap; `null` means still in free-trial mode, not yet granted real credit |
 | `spent_usd` | Accumulated spend against `cap_usd`, default 0 |
 | `updated_at` | Last-write timestamp |
 
-Mode is derived from `cap_usd`, not a separate enum: `null` → free-trial mode (refuse if `free_trial_used`); non-null → dollar-cap mode (refuse if `spent_usd >= cap_usd`). The **absence** of a row for a `user_id` is itself meaningful — a fresh signup that's never consumed its free call. Migrating existing users inserts a row per current `profiles.user_id` with `free_trial_used = true, cap_usd = 1.00, spent_usd = 0`.
+Mode is derived from `cap_usd`, not a separate enum: `null` → free-trial mode (refuse if `free_trial_calls_used >= FREE_TRIAL_LIMIT`); non-null → dollar-cap mode (refuse if `spent_usd >= cap_usd`). The **absence** of a row for a `user_id` is itself meaningful — a fresh signup that's never consumed a free call. Migrating existing users inserts a row per current `profiles.user_id` with `free_trial_calls_used = 5, cap_usd = 1.00, spent_usd = 0` (grandfathered straight into dollar-cap mode, so the trial-call count is moot for them). **Amended post-launch**: the trial limit was raised from 1 to 5 (`free_trial_used boolean` → `free_trial_calls_used integer`, migration `20260809000001_user_ai_access_trial_count`).

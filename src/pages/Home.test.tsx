@@ -7,6 +7,12 @@ import { MemoryRouter } from "react-router-dom";
 vi.mock("@/lib/home", () => ({
   fetchHomeSummary: vi.fn(),
 }));
+// Home only needs the FREE_TRIAL_LIMIT constant, not any of adminApi's
+// Supabase-backed functions — mocked here so this test doesn't need real
+// Supabase env vars just to import it.
+vi.mock("@/lib/adminApi", () => ({
+  FREE_TRIAL_LIMIT: 5,
+}));
 
 import { fetchHomeSummary } from "@/lib/home";
 import Home from "@/pages/Home";
@@ -73,5 +79,40 @@ describe("Home", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("network error");
+  });
+
+  it("shows a one-time free-trial welcome message right after sign-up", async () => {
+    vi.mocked(fetchHomeSummary).mockResolvedValue({
+      monthTotal: 0,
+      categoryBreakdown: [],
+      pendingAlertsCount: 0,
+      recentReceipts: [],
+    });
+
+    render(
+      <MemoryRouter initialEntries={[{ pathname: "/", state: { justSignedUp: true } }]}>
+        <Home />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/5 free AI receipt recognitions/)).toBeInTheDocument();
+  });
+
+  it("doesn't show the welcome message on a normal visit", async () => {
+    vi.mocked(fetchHomeSummary).mockResolvedValue({
+      monthTotal: 0,
+      categoryBreakdown: [],
+      pendingAlertsCount: 0,
+      recentReceipts: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    );
+
+    await screen.findByText(/no data yet/i);
+    expect(screen.queryByText(/free AI receipt recognitions/)).not.toBeInTheDocument();
   });
 });

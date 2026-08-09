@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabaseAdmin.js";
+import { FREE_TRIAL_LIMIT } from "./userAiAccess.js";
 
 // Issue 15: the three operations the admin dashboard needs — list every
 // user across every circle, grant a user real dollar credit, and ban/unban
@@ -6,7 +7,7 @@ import { supabaseAdmin } from "./supabaseAdmin.js";
 // actual logic lives and is unit tested.
 
 export type AdminUserCredit =
-  | { mode: "trial"; trialUsed: boolean }
+  | { mode: "trial"; callsUsed: number }
   | { mode: "cap"; capUsd: number; spentUsd: number };
 
 export interface AdminUserRow {
@@ -43,7 +44,7 @@ export async function listAdminUsers(): Promise<AdminUserRow[]> {
 
   const { data: accessRows, error: accessError } = await supabaseAdmin
     .from("user_ai_access")
-    .select("user_id, free_trial_used, cap_usd, spent_usd");
+    .select("user_id, free_trial_calls_used, cap_usd, spent_usd");
   if (accessError) {
     throw accessError;
   }
@@ -61,7 +62,7 @@ export async function listAdminUsers(): Promise<AdminUserRow[]> {
     const credit: AdminUserCredit =
       access && access.cap_usd !== null
         ? { mode: "cap", capUsd: access.cap_usd, spentUsd: access.spent_usd }
-        : { mode: "trial", trialUsed: access?.free_trial_used ?? false };
+        : { mode: "trial", callsUsed: access?.free_trial_calls_used ?? 0 };
 
     return {
       userId: profile.user_id,
@@ -77,12 +78,12 @@ export async function listAdminUsers(): Promise<AdminUserRow[]> {
 }
 
 // Issue 15 decision 4: granting credit is a reset, not a top-up — always
-// zeroes spent_usd and marks the free trial as used, graduating the user
-// out of trial mode for good.
+// zeroes spent_usd and marks the free trial as fully used, graduating the
+// user out of trial mode for good.
 export async function grantCredit(userId: string, capUsd: number = DEFAULT_CAP_USD): Promise<void> {
   const { error } = await supabaseAdmin.from("user_ai_access").upsert({
     user_id: userId,
-    free_trial_used: true,
+    free_trial_calls_used: FREE_TRIAL_LIMIT,
     cap_usd: capUsd,
     spent_usd: 0,
     updated_at: new Date().toISOString(),

@@ -57,7 +57,7 @@ describe("listAdminUsers", () => {
       }
       if (table === "user_ai_access") {
         return selectChain({
-          data: [{ user_id: "u1", free_trial_used: true, cap_usd: 1, spent_usd: 0.3 }],
+          data: [{ user_id: "u1", free_trial_calls_used: 5, cap_usd: 1, spent_usd: 0.3 }],
           error: null,
         }) as never;
       }
@@ -94,7 +94,7 @@ describe("listAdminUsers", () => {
         role: "member",
         joinedAt: "2026-02-10T00:00:00Z",
         banned: true,
-        credit: { mode: "trial", trialUsed: false },
+        credit: { mode: "trial", callsUsed: 0 },
       },
     ]);
   });
@@ -112,7 +112,7 @@ describe("grantCredit", () => {
     await grantCredit("u1");
 
     expect(chain.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: "u1", cap_usd: 1, spent_usd: 0, free_trial_used: true })
+      expect.objectContaining({ user_id: "u1", cap_usd: 1, spent_usd: 0, free_trial_calls_used: 5 })
     );
   });
 
@@ -123,7 +123,7 @@ describe("grantCredit", () => {
     await grantCredit("u1", 5);
 
     expect(chain.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: "u1", cap_usd: 5, spent_usd: 0, free_trial_used: true })
+      expect.objectContaining({ user_id: "u1", cap_usd: 5, spent_usd: 0, free_trial_calls_used: 5 })
     );
   });
 });

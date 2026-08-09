@@ -42,52 +42,76 @@ describe("getAccessStatus", () => {
 
     const status = await getAccessStatus("user-1");
 
-    expect(status).toEqual({ allowed: true, mode: "trial", spentUsd: 0, capUsd: null });
+    expect(status).toEqual({
+      allowed: true,
+      mode: "trial",
+      spentUsd: 0,
+      capUsd: null,
+      freeTrialCallsUsed: 0,
+    });
   });
 
-  it("allows a user whose row exists but hasn't used their free trial yet", async () => {
+  it("allows a user whose row exists but hasn't used up their free trial yet", async () => {
     vi.mocked(supabaseAdmin.from).mockReturnValue(
       selectMaybeSingleChain({
-        data: { free_trial_used: false, cap_usd: null, spent_usd: 0 },
+        data: { free_trial_calls_used: 4, cap_usd: null, spent_usd: 0 },
         error: null,
       }) as never
     );
 
     const status = await getAccessStatus("user-1");
 
-    expect(status).toEqual({ allowed: true, mode: "trial", spentUsd: 0, capUsd: null });
+    expect(status).toEqual({
+      allowed: true,
+      mode: "trial",
+      spentUsd: 0,
+      capUsd: null,
+      freeTrialCallsUsed: 4,
+    });
   });
 
-  it("refuses a user who has already used their free trial and has no dollar cap yet", async () => {
+  it("refuses a user who has used all 5 free trial calls and has no dollar cap yet", async () => {
     vi.mocked(supabaseAdmin.from).mockReturnValue(
       selectMaybeSingleChain({
-        data: { free_trial_used: true, cap_usd: null, spent_usd: 0 },
+        data: { free_trial_calls_used: 5, cap_usd: null, spent_usd: 0 },
         error: null,
       }) as never
     );
 
     const status = await getAccessStatus("user-1");
 
-    expect(status).toEqual({ allowed: false, mode: "trial", spentUsd: 0, capUsd: null });
+    expect(status).toEqual({
+      allowed: false,
+      mode: "trial",
+      spentUsd: 0,
+      capUsd: null,
+      freeTrialCallsUsed: 5,
+    });
   });
 
   it("allows a dollar-cap user under their cap", async () => {
     vi.mocked(supabaseAdmin.from).mockReturnValue(
       selectMaybeSingleChain({
-        data: { free_trial_used: true, cap_usd: 1.0, spent_usd: 0.3 },
+        data: { free_trial_calls_used: 5, cap_usd: 1.0, spent_usd: 0.3 },
         error: null,
       }) as never
     );
 
     const status = await getAccessStatus("user-1");
 
-    expect(status).toEqual({ allowed: true, mode: "cap", spentUsd: 0.3, capUsd: 1.0 });
+    expect(status).toEqual({
+      allowed: true,
+      mode: "cap",
+      spentUsd: 0.3,
+      capUsd: 1.0,
+      freeTrialCallsUsed: 0,
+    });
   });
 
   it("refuses a dollar-cap user who has reached their cap", async () => {
     vi.mocked(supabaseAdmin.from).mockReturnValue(
       selectMaybeSingleChain({
-        data: { free_trial_used: true, cap_usd: 1.0, spent_usd: 1.0 },
+        data: { free_trial_calls_used: 5, cap_usd: 1.0, spent_usd: 1.0 },
         error: null,
       }) as never
     );
@@ -103,8 +127,11 @@ describe("recordSuccess", () => {
     vi.clearAllMocks();
   });
 
-  it("marks the free trial used when the caller was in trial mode", async () => {
-    const selectChain = selectMaybeSingleChain({ data: null, error: null });
+  it("increments the free trial call count when the caller was in trial mode", async () => {
+    const selectChain = selectMaybeSingleChain({
+      data: { free_trial_calls_used: 2, cap_usd: null, spent_usd: 0 },
+      error: null,
+    });
     const upsertChainResult = upsertChain({ error: null });
 
     vi.mocked(supabaseAdmin.from).mockReturnValue({
@@ -116,13 +143,13 @@ describe("recordSuccess", () => {
 
     expect(upsertChainResult.upsert).toHaveBeenCalledWith({
       user_id: "user-1",
-      free_trial_used: true,
+      free_trial_calls_used: 3,
     });
   });
 
   it("adds the new cost onto the existing spent_usd when the caller is in dollar-cap mode", async () => {
     const selectChain = selectMaybeSingleChain({
-      data: { free_trial_used: true, cap_usd: 1.0, spent_usd: 0.3 },
+      data: { free_trial_calls_used: 5, cap_usd: 1.0, spent_usd: 0.3 },
       error: null,
     });
     const updateChain = updateEqChain({ error: null });

@@ -1,15 +1,22 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { fetchHomeSummary, type HomeSummary } from "@/lib/home";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
+import { FREE_TRIAL_LIMIT } from "@/lib/adminApi";
 
 // Section 15, page 1: Home/Dashboard — this month's total spend, category
 // breakdown, a pending-alerts summary, and recent receipts.
 export default function Home() {
   const { language, t } = useLanguage();
+  const location = useLocation();
   const [summary, setSummary] = useState<HomeSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Auth.tsx passes this through router state right after sign-up (not a
+  // URL param, so it doesn't survive a refresh — a one-time welcome, not a
+  // persistent banner).
+  const justSignedUp = Boolean((location.state as { justSignedUp?: boolean } | null)?.justSignedUp);
 
   useEffect(() => {
     fetchHomeSummary()
@@ -20,6 +27,13 @@ export default function Home() {
   return (
     <div className="page">
       <h1>{t("home.title")}</h1>
+
+      {justSignedUp && (
+        <section>
+          <h2>{t("home.welcomeTitle")}</h2>
+          <p>{t("home.welcomeTrialBody", { count: FREE_TRIAL_LIMIT })}</p>
+        </section>
+      )}
 
       {error && <p role="alert">{error}</p>}
 

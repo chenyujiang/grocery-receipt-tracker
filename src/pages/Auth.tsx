@@ -15,7 +15,11 @@ export default function Auth() {
 
   async function handleAuthSuccess(result: { userId: string }) {
     const admin = await isGlobalAdmin(result.userId).catch(() => false);
-    navigate(admin ? ADMIN_DASHBOARD_PATH : "/");
+    if (admin) {
+      navigate(ADMIN_DASHBOARD_PATH);
+      return;
+    }
+    navigate("/", mode === "signup" ? { state: { justSignedUp: true } } : undefined);
   }
 
   return (

@@ -5,6 +5,7 @@ import {
   grantAdminCredit,
   setAdminUserBanned,
   mergeUsersIntoCircle,
+  FREE_TRIAL_LIMIT,
   type AdminUserRow,
 } from "@/lib/adminApi";
 
@@ -16,7 +17,7 @@ import {
 
 function needsAttention(user: AdminUserRow): boolean {
   if (user.banned) return false;
-  if (user.credit.mode === "trial") return user.credit.trialUsed;
+  if (user.credit.mode === "trial") return user.credit.callsUsed >= FREE_TRIAL_LIMIT;
   return user.credit.spentUsd >= user.credit.capUsd;
 }
 
@@ -81,9 +82,9 @@ function UserCard({ user, onChange, selected, onToggleSelect }: UserCardProps) {
       <div className="receipt-card-row">
         {user.credit.mode === "trial" ? (
           <span style={{ fontSize: 13 }}>
-            {user.credit.trialUsed
-              ? "Free trial used — awaiting credit"
-              : "Free trial not yet used (1 available)"}
+            {user.credit.callsUsed >= FREE_TRIAL_LIMIT
+              ? "Free trial used up — awaiting credit"
+              : `Free trial: ${user.credit.callsUsed} of ${FREE_TRIAL_LIMIT} used`}
           </span>
         ) : (
           <span style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
