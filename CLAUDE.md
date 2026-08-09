@@ -45,6 +45,8 @@ Pick the modifier by what the action *does*, not by where it sits: destructive �
 
 **Cards**: `.page section`, `.page fieldset`, and `.receipt-card` all share one look — `var(--surface)` background, `var(--border)` border, `var(--radius)` corner radius, `var(--shadow)`, `16px 18px` padding. Reuse one of these rather than inventing a new bordered/shadowed box.
 
+**Form controls**: `input`/`select`/`textarea` are pinned to `font-size: 16px` in `src/index.css` — mobile browsers (iOS Safari, Android Chrome) auto-zoom the whole page on focus if a form control's font-size drops below 16px. Don't let a component-specific style shrink this back down.
+
 ## Claude API usage in this app (not this coding session)
 
 The app's own backend (`api/receipts/recognize.ts`) calls the Anthropic API server-side to OCR + translate + suggest product matches in one call. Two constraints that must not be relaxed without the user's explicit say-so:
