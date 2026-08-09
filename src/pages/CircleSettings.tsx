@@ -25,6 +25,7 @@ export default function CircleSettings() {
   const [error, setError] = useState<string | null>(null);
 
   const [displayNameInput, setDisplayNameInput] = useState("");
+  const [editingName, setEditingName] = useState(false);
   const [savingName, setSavingName] = useState(false);
 
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
@@ -73,11 +74,17 @@ export default function CircleSettings() {
     try {
       await updateOwnDisplayName(session.userId, displayNameInput);
       load();
+      setEditingName(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update name");
     } finally {
       setSavingName(false);
     }
+  }
+
+  function handleCancelEditName() {
+    setDisplayNameInput(self?.displayName ?? "");
+    setEditingName(false);
   }
 
   async function handleRemoveMember(userId: string) {
@@ -132,19 +139,39 @@ export default function CircleSettings() {
         <>
           <section>
             <h2>{t("settings.yourName")}</h2>
-            <form onSubmit={handleSaveName}>
-              <label>
-                {t("settings.displayName")}
-                <input
-                  value={displayNameInput}
-                  onChange={(event) => setDisplayNameInput(event.target.value)}
-                  required
-                />
-              </label>
-              <button type="submit" disabled={savingName}>
-                {savingName ? t("settings.saving") : t("settings.save")}
-              </button>
-            </form>
+            {editingName ? (
+              <form onSubmit={handleSaveName}>
+                <label>
+                  {t("settings.displayName")}
+                  <input
+                    value={displayNameInput}
+                    onChange={(event) => setDisplayNameInput(event.target.value)}
+                    required
+                  />
+                </label>
+                <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
+                  <button type="submit" style={{ flex: 1 }} disabled={savingName}>
+                    {savingName ? t("settings.saving") : t("settings.save")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ flex: 1 }}
+                    onClick={handleCancelEditName}
+                    disabled={savingName}
+                  >
+                    {t("settings.cancel")}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <p>{self?.displayName}</p>
+                <button type="button" className="btn-block" onClick={() => setEditingName(true)}>
+                  {t("settings.edit")}
+                </button>
+              </>
+            )}
           </section>
 
           <section>

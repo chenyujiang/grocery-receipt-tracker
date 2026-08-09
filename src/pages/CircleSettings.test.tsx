@@ -88,7 +88,7 @@ describe("CircleSettings", () => {
     vi.mocked(isGlobalAdmin).mockResolvedValue(false);
 
     render(<CircleSettings />);
-    await screen.findByText(/eason/);
+    await screen.findByRole("button", { name: /^edit$/i });
 
     expect(screen.queryByRole("link", { name: /admin dashboard/i })).not.toBeInTheDocument();
   });
@@ -108,7 +108,7 @@ describe("CircleSettings", () => {
     vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER]);
 
     render(<CircleSettings />);
-    await screen.findByText(/eason/);
+    await screen.findByRole("button", { name: /^edit$/i });
 
     const toggle = screen.getByRole("switch", { name: /display language/i });
     expect(toggle).not.toBeChecked();
@@ -129,6 +129,16 @@ describe("CircleSettings", () => {
     expect(screen.getByRole("button", { name: "退出登录" })).toBeInTheDocument();
   });
 
+  it("shows the current display name read-only until Edit is clicked", async () => {
+    vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER, MEMBER]);
+
+    render(<CircleSettings />);
+    await screen.findByText(/kelly/);
+
+    expect(screen.queryByLabelText("Display name")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
+  });
+
   it("lets the signed-in member save a new display name", async () => {
     vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER, MEMBER]);
     vi.mocked(updateOwnDisplayName).mockResolvedValue(undefined);
@@ -136,12 +146,30 @@ describe("CircleSettings", () => {
     render(<CircleSettings />);
     await screen.findByText(/kelly/);
 
+    await userEvent.click(screen.getByRole("button", { name: /^edit$/i }));
+
     const nameInput = screen.getByLabelText("Display name");
     await userEvent.clear(nameInput);
     await userEvent.type(nameInput, "Eason C");
     await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     expect(updateOwnDisplayName).toHaveBeenCalledWith("user-1", "Eason C");
+    expect(screen.queryByLabelText("Display name")).not.toBeInTheDocument();
+  });
+
+  it("discards edits to the display name when Cancel is clicked", async () => {
+    vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER, MEMBER]);
+
+    render(<CircleSettings />);
+    await screen.findByText(/kelly/);
+
+    await userEvent.click(screen.getByRole("button", { name: /^edit$/i }));
+    await userEvent.clear(screen.getByLabelText("Display name"));
+    await userEvent.type(screen.getByLabelText("Display name"), "Someone Else");
+    await userEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(screen.queryByLabelText("Display name")).not.toBeInTheDocument();
+    expect(updateOwnDisplayName).not.toHaveBeenCalled();
   });
 
   it("lets the owner remove another member, but not themselves", async () => {
@@ -165,7 +193,7 @@ describe("CircleSettings", () => {
     vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER, MEMBER]);
 
     render(<CircleSettings />);
-    await screen.findByText(/kelly/);
+    await screen.findByRole("button", { name: /^edit$/i });
 
     expect(screen.queryByRole("button", { name: /remove/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/dissolve circle/i)).not.toBeInTheDocument();
@@ -199,7 +227,7 @@ describe("CircleSettings", () => {
     vi.mocked(signOut).mockResolvedValue(undefined);
 
     render(<CircleSettings />);
-    await screen.findByText(/eason/);
+    await screen.findByRole("button", { name: /^edit$/i });
     await userEvent.click(screen.getByRole("button", { name: /sign out/i }));
 
     expect(signOut).toHaveBeenCalled();
@@ -210,7 +238,7 @@ describe("CircleSettings", () => {
     vi.mocked(signOut).mockRejectedValue(new Error("network error"));
 
     render(<CircleSettings />);
-    await screen.findByText(/eason/);
+    await screen.findByRole("button", { name: /^edit$/i });
     await userEvent.click(screen.getByRole("button", { name: /sign out/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("network error");

@@ -17,6 +17,7 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -25,7 +26,7 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
     setError(null);
     setSubmitting(true);
     try {
-      const result = await signUpWithEmail(email, password);
+      const result = await signUpWithEmail(email, password, displayName);
       onSuccess(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-up failed");
@@ -51,6 +52,14 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
+          required
+        />
+      </label>
+      <label>
+        {t("auth.displayName")}
+        <input
+          value={displayName}
+          onChange={(event) => setDisplayName(event.target.value)}
           required
         />
       </label>

@@ -7,9 +7,9 @@ interface SignUpResult {
   role: Role;
 }
 
-// Section 4: no display-name field is collected at sign-up, so default to
-// the email's local part — a circle owner can rename members later from
-// Circle Settings.
+// Falls back to the email's local part if the sign-up form's display-name
+// field was left blank — a circle owner can rename members later from
+// Circle Settings regardless.
 function deriveDisplayName(email: string): string {
   return email.split("@")[0];
 }
@@ -28,7 +28,11 @@ function deriveDisplayName(email: string): string {
 // race — confirmed directly against Postgres, bypassing the client
 // entirely). Generating the id client-side and skipping .select() avoids
 // needing the row back at all.
-export async function signUpWithEmail(email: string, password: string): Promise<SignUpResult> {
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  displayName = ""
+): Promise<SignUpResult> {
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
   if (signUpError || !signUpData.user) {
     throw signUpError ?? new Error("Sign-up did not return a user");
@@ -45,7 +49,7 @@ export async function signUpWithEmail(email: string, password: string): Promise<
     user_id: userId,
     circle_id: circleId,
     role: "owner",
-    display_name: deriveDisplayName(email),
+    display_name: displayName.trim() || deriveDisplayName(email),
   });
   if (profileError) {
     throw profileError;

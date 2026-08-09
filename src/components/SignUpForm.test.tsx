@@ -48,6 +48,7 @@ describe("SignUpForm", () => {
 
     await userEvent.type(screen.getByLabelText(/email/i), "new@example.com");
     await userEvent.type(screen.getByLabelText(/password/i), "hunter2pass");
+    await userEvent.type(screen.getByLabelText(/display name/i), "New User");
     await userEvent.click(screen.getByRole("button", { name: /sign up/i }));
 
     await waitFor(() => {
@@ -57,6 +58,9 @@ describe("SignUpForm", () => {
         role: "owner",
       });
     });
+    expect(profilesChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ display_name: "New User" })
+    );
   });
 
   it("shows an error message when sign-up fails", async () => {
@@ -69,6 +73,7 @@ describe("SignUpForm", () => {
 
     await userEvent.type(screen.getByLabelText(/email/i), "taken@example.com");
     await userEvent.type(screen.getByLabelText(/password/i), "hunter2pass");
+    await userEvent.type(screen.getByLabelText(/display name/i), "Taken User");
     await userEvent.click(screen.getByRole("button", { name: /sign up/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("User already registered");

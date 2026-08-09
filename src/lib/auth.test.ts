@@ -50,16 +50,39 @@ describe("signUpWithEmail", () => {
       throw new Error(`unexpected table: ${table}`);
     });
 
-    const result = await signUpWithEmail("new@example.com", "hunter2pass");
+    const result = await signUpWithEmail("new@example.com", "hunter2pass", "New User");
 
     expect(circlesChain.insert).toHaveBeenCalledWith({ id: "circle-1" });
     expect(profilesChain.insert).toHaveBeenCalledWith({
       user_id: "user-1",
       circle_id: "circle-1",
       role: "owner",
-      display_name: "new",
+      display_name: "New User",
     });
     expect(result).toEqual({ userId: "user-1", circleId: "circle-1", role: "owner" });
+  });
+
+  it("falls back to the email's local part when no display name is given", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("circle-1" as never);
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({
+      data: { user: { id: "user-1" }, session: null },
+      error: null,
+    } as never);
+
+    const circlesChain = insertChain({ error: null });
+    const profilesChain = insertChain({ error: null });
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "circles") return circlesChain as never;
+      if (table === "profiles") return profilesChain as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    await signUpWithEmail("new@example.com", "hunter2pass", "   ");
+
+    expect(profilesChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ display_name: "new" })
+    );
   });
 
   it("rejects when Supabase auth sign-up itself fails (e.g. email already registered)", async () => {
