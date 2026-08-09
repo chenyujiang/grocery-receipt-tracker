@@ -552,6 +552,11 @@ input:not([type="checkbox"]),
 select,
 textarea {
   font: inherit;
+  /* Mobile browsers (iOS Safari, Android Chrome) auto-zoom the whole page
+     on focus if a form control's font-size is under 16px — this overrides
+     the inherited 15px body size just enough to opt out, without touching
+     the viewport meta tag (which would disable pinch-zoom entirely). */
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
   color: var(--text);
   background: var(--surface-muted);
