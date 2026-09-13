@@ -22,6 +22,7 @@ Project: **Eason's Project** (`xflabzrcowhqjvvwjrbt`, `ap-southeast-2`) in the `
 
 - `SUPABASE_SERVICE_ROLE_KEY` — used only inside `/api`, never sent to the client.
 - `CLAUDE_API_KEY` — from the Anthropic console, also server-side only.
+- `CRON_SECRET` — any long random string of your own choosing (not from a dashboard). Add the same value to the Vercel project's env vars, where Vercel Cron reads it and sends it as `Authorization: Bearer $CRON_SECRET` to `api/cron/low-stock-check.ts`. That route sweeps every Circle with the service-role client, so the secret is its only access control — leaving it unset doesn't disable the check, it makes the route refuse every caller.
 
 Schema (`supabase/migrations/`) mirrors spec.md Section 5: `circles`, `profiles` (including `display_name`, shown for the receipt list's uploader filter and Circle Settings), `categories` (seeded with the fixed category list, refined post-launch into finer food subcategories — see spec.md Section 9), `products`, `receipts`, `receipt_items`, `edit_logs`, `alerts` (shared table for price-spike and low-stock alerts), `global_admins`, and `user_ai_access` (Section 16). RLS is enabled on every table — members can see everything in their circle, but can only edit/delete rows they uploaded themselves (Sections 2, 4). The `receipts` storage bucket is private, path-scoped by `circle_id`. The old `ai_spend_limit` singleton table is still present but unused (superseded by `user_ai_access`), kept only for a possible later cleanup migration.
 

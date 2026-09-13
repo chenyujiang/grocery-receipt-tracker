@@ -11,7 +11,31 @@ import { fetchPurchaseHistories } from "../../src/lib/purchaseHistory.js";
 // Thin orchestration only — the detection logic lives in
 // src/lib/lowStockAlerts.ts, already covered by its own tests.
 
-export default async function handler(_req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== "GET") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  // Issue 19: this is the only route in api/ with no user session to check --
+  // it reads and writes with the service-role client across every Circle, so
+  // RLS doesn't contain it. Vercel Cron sends `Authorization: Bearer
+  // $CRON_SECRET` when CRON_SECRET is set on the project, and that shared
+  // secret is the whole of this route's access control.
+  //
+  // An unset CRON_SECRET fails closed. Treating "no secret configured" as
+  // "skip the check" would leave the route wide open in exactly the
+  // misconfigured deploy this is meant to protect.
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers.authorization;
+  const presentedSecret = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length)
+    : null;
+  if (!cronSecret || presentedSecret !== cronSecret) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const { data: products, error: productsError } = await supabaseAdmin
     .from("products")
     .select("id, circle_id, low_stock_alert_active");

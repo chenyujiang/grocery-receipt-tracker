@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({ supabaseAdmin: { from: vi.fn() } }));
 vi.mock("../../src/lib/lowStockAlerts.js", () => ({ detectLowStock: vi.fn() }));
@@ -120,21 +120,78 @@ function wireSupabase({
   return { insert, update, updates, itemQueries };
 }
 
+// What Vercel Cron sends as `Authorization: Bearer $CRON_SECRET`.
+const CRON_SECRET = "cron-secret-from-env";
+
+/** The one request shape that should get through: a GET carrying the secret. */
+function cronReq() {
+  return makeReq({ method: "GET", authToken: CRON_SECRET });
+}
+
 describe("GET /api/cron/low-stock-check", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(detectLowStock).mockReturnValue({ newAlerts: [], recoveries: [] } as never);
+    process.env.CRON_SECRET = CRON_SECRET;
   });
 
-  // CHARACTERIZATION, NOT ENDORSEMENT: this route has no method check and no
-  // shared-secret check, so anyone who knows the URL can trigger a sweep of
-  // every Circle's products.
-  // See .scratch/grocery-receipt-tracker/issues/19-authenticate-the-cron-route.md
-  it.each(["GET", "POST", "DELETE"])("currently runs for an unauthenticated %s", async (method) => {
+  afterEach(() => {
+    delete process.env.CRON_SECRET;
+  });
+
+  // Issue 19: this route reads and writes with the service-role client, so it
+  // sweeps every Circle regardless of RLS. It is the one route in api/ that
+  // has no user session to check, so the shared secret is the whole of its
+  // access control.
+  it.each(["POST", "DELETE", "PUT"])("rejects %s with 405", async (method) => {
     wireSupabase();
     const res = makeRes();
 
-    await handler(makeReq({ method }), res.res);
+    await handler(makeReq({ method, authToken: CRON_SECRET }), res.res);
+
+    expect(res.statusCode).toBe(405);
+    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects a GET with no Authorization header with 401", async () => {
+    wireSupabase();
+    const res = makeRes();
+
+    await handler(makeReq({ method: "GET" }), res.res);
+
+    expect(res.statusCode).toBe(401);
+    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects a GET carrying the wrong secret with 401", async () => {
+    wireSupabase();
+    const res = makeRes();
+
+    await handler(makeReq({ method: "GET", authToken: "not-the-secret" }), res.res);
+
+    expect(res.statusCode).toBe(401);
+    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+  });
+
+  // Fails closed: an unset CRON_SECRET in production is the exact case this
+  // check exists to protect against, so it must not degrade into "skip the
+  // check" -- that would leave the route open precisely when it is misconfigured.
+  it("refuses every caller when CRON_SECRET is unset, rather than skipping the check", async () => {
+    delete process.env.CRON_SECRET;
+    wireSupabase();
+    const res = makeRes();
+
+    await handler(makeReq({ method: "GET", authToken: CRON_SECRET }), res.res);
+
+    expect(res.statusCode).toBe(401);
+    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+  });
+
+  it("runs the sweep for a GET carrying the right secret", async () => {
+    wireSupabase();
+    const res = makeRes();
+
+    await handler(cronReq(), res.res);
 
     expect(res.statusCode).toBe(200);
   });
@@ -142,7 +199,7 @@ describe("GET /api/cron/low-stock-check", () => {
   it("sweeps every Circle in one pass, using the service-role client", async () => {
     wireSupabase();
 
-    await handler(makeReq({ method: "GET" }), makeRes().res);
+    await handler(cronReq(), makeRes().res);
 
     expect(supabaseAdmin.from).toHaveBeenCalledWith("products");
   });
@@ -153,7 +210,7 @@ describe("GET /api/cron/low-stock-check", () => {
   it("loads every Product's purchase history in one batched query", async () => {
     const { itemQueries } = wireSupabase();
 
-    await handler(makeReq({ method: "GET" }), makeRes().res);
+    await handler(cronReq(), makeRes().res);
 
     expect(itemQueries).toEqual([["product-1", "product-2"]]);
   });
@@ -165,7 +222,7 @@ describe("GET /api/cron/low-stock-check", () => {
       },
     });
 
-    await handler(makeReq({ method: "GET" }), makeRes().res);
+    await handler(cronReq(), makeRes().res);
 
     expect(detectLowStock).toHaveBeenCalledWith(
       [
@@ -202,7 +259,7 @@ describe("GET /api/cron/low-stock-check", () => {
       },
     });
 
-    await handler(makeReq({ method: "GET" }), makeRes().res);
+    await handler(cronReq(), makeRes().res);
 
     const checks = vi.mocked(detectLowStock).mock.calls[0][0];
     expect(checks[0].purchases).toEqual([purchase({ quantity: 9 })]);
@@ -212,7 +269,7 @@ describe("GET /api/cron/low-stock-check", () => {
     const { insert, update } = wireSupabase();
     const res = makeRes();
 
-    await handler(makeReq({ method: "GET" }), res.res);
+    await handler(cronReq(), res.res);
 
     expect(insert).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
@@ -228,7 +285,7 @@ describe("GET /api/cron/low-stock-check", () => {
     } as never);
     const res = makeRes();
 
-    await handler(makeReq({ method: "GET" }), res.res);
+    await handler(cronReq(), res.res);
 
     expect(insert).toHaveBeenCalledWith([
       { circle_id: "circle-2", type: "low_stock", product_id: "product-2" },
@@ -247,7 +304,7 @@ describe("GET /api/cron/low-stock-check", () => {
     } as never);
     const res = makeRes();
 
-    await handler(makeReq({ method: "GET" }), res.res);
+    await handler(cronReq(), res.res);
 
     expect(insert).not.toHaveBeenCalled();
     expect(updates).toEqual([{ payload: { low_stock_alert_active: false }, ids: ["product-2"] }]);
@@ -262,7 +319,7 @@ describe("GET /api/cron/low-stock-check", () => {
     } as never);
     const res = makeRes();
 
-    await handler(makeReq({ method: "GET" }), res.res);
+    await handler(cronReq(), res.res);
 
     expect(updates).toEqual([
       { payload: { low_stock_alert_active: true }, ids: ["product-1"] },
@@ -276,7 +333,7 @@ describe("GET /api/cron/low-stock-check", () => {
       const { itemQueries } = wireSupabase({ products: { data: null, error: { message: "timeout" } } });
       const res = makeRes();
 
-      await handler(makeReq({ method: "GET" }), res.res);
+      await handler(cronReq(), res.res);
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toEqual({ error: "Failed to load products" });
@@ -287,7 +344,7 @@ describe("GET /api/cron/low-stock-check", () => {
       const { itemQueries } = wireSupabase({ receiptItemsError: { message: "statement timeout" } });
       const res = makeRes();
 
-      await handler(makeReq({ method: "GET" }), res.res);
+      await handler(cronReq(), res.res);
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toEqual({ error: "Failed to load purchase history" });
@@ -306,7 +363,7 @@ describe("GET /api/cron/low-stock-check", () => {
       } as never);
       const res = makeRes();
 
-      await handler(makeReq({ method: "GET" }), res.res);
+      await handler(cronReq(), res.res);
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toEqual({ error: "Failed to record low-stock alerts" });
@@ -321,7 +378,7 @@ describe("GET /api/cron/low-stock-check", () => {
       } as never);
       const res = makeRes();
 
-      await handler(makeReq({ method: "GET" }), res.res);
+      await handler(cronReq(), res.res);
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toEqual({ error: "Failed to flag products as low stock" });
@@ -336,7 +393,7 @@ describe("GET /api/cron/low-stock-check", () => {
       } as never);
       const res = makeRes();
 
-      await handler(makeReq({ method: "GET" }), res.res);
+      await handler(cronReq(), res.res);
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toEqual({ error: "Failed to reset recovered products" });

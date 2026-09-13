@@ -22,6 +22,7 @@ npm run dev
 
 - `SUPABASE_SERVICE_ROLE_KEY` —— 只在 `/api` 内部使用，绝不发给客户端。
 - `CLAUDE_API_KEY` —— 从 Anthropic 控制台获取，同样只用于服务端。
+- `CRON_SECRET` —— 自己随便取一个足够长的随机字符串（不是从某个控制台拿的）。同一个值也要加到 Vercel 项目的环境变量里，Vercel Cron 会从那里读取，并以 `Authorization: Bearer $CRON_SECRET` 的形式发给 `api/cron/low-stock-check.ts`。该路由用 service-role client 扫描所有 Circle，因此这个密钥就是它全部的访问控制——不设置它并不会关掉检查，而是会让该路由拒绝所有调用方。
 
 数据库结构（`supabase/migrations/`）对应 spec.md 第 5 节：`circles`、`profiles`（含 `display_name`，用于小票列表的上传人筛选和圈子设置页）、`categories`（已预置固定分类目录，上线后又把食品类进一步细分——见 spec.md 第 9 节）、`products`、`receipts`、`receipt_items`、`edit_logs`、`alerts`（价格异常和库存提醒共用的一张表）、`global_admins`、以及 `user_ai_access`（第 16 节）。每张表都开启了 RLS——圈子成员可以看到圈内的所有数据，但只能修改/删除自己上传的记录（对应第 2、4 节）。`receipts` 存储 bucket 是私有的，按 `circle_id` 分路径隔离。旧的 `ai_spend_limit` 单例表还在，但已经不用了（被 `user_ai_access` 取代），保留着只是为了以后可能的清理迁移。
 
