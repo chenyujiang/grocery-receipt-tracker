@@ -1,5 +1,5 @@
 Type: bug
-Status: ready-for-agent
+Status: resolved
 
 ## Problem
 
@@ -30,3 +30,14 @@ Distinguish absent from invalid:
 Flip the characterization test to assert the 400, keep the two "defers to the default cap" cases as-is, and drop the `CHARACTERIZATION` comment.
 
 Check `AdminDashboard.tsx`'s grant form while doing this — if it sends the raw input value as a string, it currently hits the silent-default path on every custom grant, which would make this a live bug rather than a latent one.
+
+## Resolution
+
+`api/admin/users/[userId]/grant-credit.ts` now separates absent from invalid:
+
+- `capUsd` absent (no body, or the key missing) still resolves to `undefined` — "reset to the default $1". Both `defers to the default cap` cases are unchanged.
+- `capUsd` present but not a finite number `> 0` → `400 { error: "capUsd must be a positive number" }`, and `grantCredit` is never called, so the user's spend and cap are left alone.
+
+The characterization block is replaced by its inverse: `"5"`, `0`, `-5`, `NaN`, `Infinity` and `null` each assert the 400, the error body, and that `grantCredit` was not called. The `CHARACTERIZATION` comment is gone.
+
+`AdminDashboard.tsx` was checked as the ticket asked: its custom-grant button already does `parseFloat(customAmount)` and refuses `NaN`/`<= 0` before calling `grantAdminCredit`, so it never sent a string and this was a latent bug rather than a live one. The one input it would now let through to a 400 is the literal text `Infinity`, which `parseFloat` accepts. Left as is — the form's invalid-input handling (a silent `return`, no message) is a separate gap, and `withBusy` doesn't catch API failures either, which predates this change.

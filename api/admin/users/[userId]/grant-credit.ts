@@ -22,8 +22,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // Absent means "reset to the default"; present-but-unusable is a typo, and
+  // since a grant is a reset, defaulting it would quietly cap the user at $1.
   const { capUsd } = (req.body ?? {}) as { capUsd?: unknown };
-  const resolvedCapUsd = typeof capUsd === "number" && Number.isFinite(capUsd) && capUsd > 0 ? capUsd : undefined;
+  let resolvedCapUsd: number | undefined;
+  if (capUsd !== undefined) {
+    if (typeof capUsd !== "number" || !Number.isFinite(capUsd) || capUsd <= 0) {
+      res.status(400).json({ error: "capUsd must be a positive number" });
+      return;
+    }
+    resolvedCapUsd = capUsd;
+  }
 
   try {
     await grantCredit(userId, resolvedCapUsd);

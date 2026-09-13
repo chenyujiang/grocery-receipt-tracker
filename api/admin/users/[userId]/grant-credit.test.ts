@@ -73,10 +73,9 @@ describe("POST /api/admin/users/[userId]/grant-credit", () => {
     expect(grantCredit).toHaveBeenCalledWith("user-1", 5.5);
   });
 
-  // CHARACTERIZATION, NOT ENDORSEMENT: an unusable capUsd is silently
-  // downgraded to the default cap instead of being refused, so a typo'd
-  // grant looks like it succeeded at the amount the admin typed.
-  // See .scratch/grocery-receipt-tracker/issues/21-reject-invalid-grant-amounts.md
+  // A present-but-unusable capUsd is a typo, not a request for the default:
+  // since a grant is a reset, silently defaulting would zero the user's spend
+  // and cap them at $1 while reporting success at the amount the admin typed.
   it.each([
     ["a numeric string", "5"],
     ["zero", 0],
@@ -84,13 +83,14 @@ describe("POST /api/admin/users/[userId]/grant-credit", () => {
     ["NaN", Number.NaN],
     ["Infinity", Number.POSITIVE_INFINITY],
     ["null", null],
-  ])("currently falls back to the default cap on %s instead of 400ing", async (_label, capUsd) => {
+  ])("400s on %s instead of falling back to the default cap", async (_label, capUsd) => {
     const res = makeRes();
 
     await handler(grantReq({ capUsd }), res.res);
 
-    expect(grantCredit).toHaveBeenCalledWith("user-1", undefined);
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: "capUsd must be a positive number" });
+    expect(grantCredit).not.toHaveBeenCalled();
   });
 
   it("turns a failure to grant into a 500 without leaking the underlying error", async () => {
