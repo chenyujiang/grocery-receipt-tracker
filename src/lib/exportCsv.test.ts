@@ -50,6 +50,33 @@ describe("rowsToCsv", () => {
     expect(csv.split("\r\n")[1]).toContain('"Pak""nSave, Newmarket"');
   });
 
+  // Not every Receipt Item has a unit spec (an item sold "each" has none).
+  // The export is a raw dump, so such a row is still exported — with the two
+  // spec columns blank, rather than dropped or filled with "null".
+  it("renders an item with no unit spec as blank spec columns", () => {
+    const csv = rowsToCsv([
+      {
+        purchaseDate: "2026-08-04",
+        storeNameEn: "Countdown",
+        storeNameZh: "城内城外",
+        productNameEn: "Avocado",
+        productNameZh: "牛油果",
+        category: "Food - Fruits",
+        quantity: 3,
+        specValue: null,
+        specUnit: null,
+        unitPrice: 1.5,
+        isPromotion: false,
+        uploader: "eason",
+      },
+    ]);
+
+    const lines = csv.split("\r\n");
+    expect(lines[1]).toBe(
+      "2026-08-04,Countdown,城内城外,Avocado,牛油果,Food - Fruits,3,,,1.5,false,eason"
+    );
+  });
+
   it("returns just the header for no rows", () => {
     const csv = rowsToCsv([]);
     expect(csv.split("\r\n")).toHaveLength(1);

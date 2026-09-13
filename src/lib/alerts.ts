@@ -27,15 +27,7 @@ export async function fetchAlerts(): Promise<AlertListItem[]> {
     throw error;
   }
 
-  const rows = (data ?? []) as unknown as Array<{
-    id: string;
-    type: AlertType;
-    product_id: string;
-    new_price: number | null;
-    change_percent: number | null;
-    created_at: string;
-    products: { canonical_name_en: string; canonical_name_zh: string } | null;
-  }>;
+  const rows = data ?? [];
 
   return rows.map((row) => ({
     id: row.id,

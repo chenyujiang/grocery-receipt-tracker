@@ -42,10 +42,7 @@ export async function fetchHomeSummary(today: Date = new Date()): Promise<HomeSu
   // Cast at the boundary: without generated Database types, supabase-js
   // infers the nested to-one receipt_items.product_id -> products.id embed
   // as an array, though PostgREST returns a single object at runtime.
-  const receipts = (monthRows ?? []) as unknown as Array<{
-    total_amount: number;
-    receipt_items: Array<{ subtotal: number; products: { category: string } | null }>;
-  }>;
+  const receipts = monthRows ?? [];
 
   let monthTotal = 0;
   const categoryTotals = new Map<string, number>();
@@ -76,14 +73,7 @@ export async function fetchHomeSummary(today: Date = new Date()): Promise<HomeSu
     throw recentError;
   }
 
-  const recentReceipts = ((recentRows ?? []) as unknown as Array<{
-    id: string;
-    store_name_en: string;
-    store_name_zh: string;
-    purchase_date: string;
-    total_amount: number;
-    status: string;
-  }>).map((row) => ({
+  const recentReceipts = (recentRows ?? []).map((row) => ({
     id: row.id,
     storeNameEn: row.store_name_en,
     storeNameZh: row.store_name_zh ?? row.store_name_en,

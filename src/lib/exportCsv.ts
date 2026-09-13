@@ -9,8 +9,8 @@ export interface ExportRow {
   productNameZh: string;
   category: string;
   quantity: number;
-  specValue: number;
-  specUnit: string;
+  specValue: number | null;
+  specUnit: string | null;
   unitPrice: number;
   isPromotion: boolean;
   uploader: string;
@@ -31,8 +31,10 @@ const CSV_HEADER = [
   "uploader",
 ];
 
-function escapeCsvField(value: string | number | boolean): string {
-  const str = String(value);
+// A Receipt Item with no unit spec has no spec value or unit to export; the
+// column is left empty rather than rendering the string "null".
+function escapeCsvField(value: string | number | boolean | null): string {
+  const str = value == null ? "" : String(value);
   if (/[",\r\n]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }
@@ -93,22 +95,7 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
   // Cast at the boundary: without generated Database types, supabase-js
   // infers these to-one embeds (receipt_items -> products, -> receipts) as
   // arrays, though PostgREST returns single objects at runtime.
-  const rows = (data ?? []) as unknown as Array<{
-    quantity: number;
-    unit_spec_value: number;
-    unit_spec_unit: string;
-    unit_price: number;
-    is_promotion: boolean;
-    raw_name_en: string;
-    raw_name_zh: string;
-    products: { canonical_name_en: string; canonical_name_zh: string; category: string } | null;
-    receipts: {
-      purchase_date: string;
-      store_name_en: string;
-      store_name_zh: string;
-      uploaded_by: string;
-    };
-  }>;
+  const rows = data ?? [];
 
   return rows.map((row) => ({
     purchaseDate: row.receipts.purchase_date,
