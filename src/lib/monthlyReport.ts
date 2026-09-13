@@ -44,21 +44,6 @@ export interface MonthlyReport {
   lineItemCount: number;
 }
 
-interface MonthReceiptRow {
-  total_amount: number;
-  uploaded_by: string;
-  receipt_items: Array<{
-    subtotal: number;
-    quantity: number;
-    original_price: number | null;
-    is_promotion: boolean;
-    product_id: string | null;
-    raw_name_en: string;
-    raw_name_zh: string | null;
-    products: { category: string; canonical_name_en: string; canonical_name_zh: string | null } | null;
-  }>;
-}
-
 async function fetchMonthSpend(start: string, end: string): Promise<number> {
   const { data, error } = await supabase
     .from("receipts")
@@ -95,7 +80,7 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
     throw monthError;
   }
 
-  const receipts = (monthRows ?? []) as unknown as MonthReceiptRow[];
+  const receipts = monthRows ?? [];
 
   let totalSpend = 0;
   let lineItemCount = 0;

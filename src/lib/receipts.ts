@@ -101,24 +101,7 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
     throw itemsError;
   }
 
-  // Cast at the boundary: without generated Database types, supabase-js's
-  // select-string parser can't tell this is a to-one embed (receipt_items
-  // .product_id -> products.id) and infers `products` as an array type,
-  // even though PostgREST returns a single object at runtime here.
-  const items = (itemRows ?? []) as unknown as Array<{
-    id: string;
-    raw_name_en: string;
-    raw_name_zh: string;
-    quantity: number;
-    unit_spec_value: number | null;
-    unit_spec_unit: string | null;
-    unit_price: number;
-    original_price: number | null;
-    is_promotion: boolean;
-    subtotal: number;
-    product_id: string | null;
-    products: { category: string } | null;
-  }>;
+  const items = itemRows ?? [];
 
   return {
     id: receiptRow.id,
