@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { parseBearerToken } from "../_lib/bearerToken.js";
 import { detectLowStock, type ProductConsumptionCheck } from "../../src/lib/lowStockAlerts.js";
 import { fetchPurchaseHistories } from "../../src/lib/purchaseHistory.js";
 
@@ -27,10 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // "skip the check" would leave the route wide open in exactly the
   // misconfigured deploy this is meant to protect.
   const cronSecret = process.env.CRON_SECRET;
-  const authHeader = req.headers.authorization;
-  const presentedSecret = authHeader?.startsWith("Bearer ")
-    ? authHeader.slice("Bearer ".length)
-    : null;
+  const presentedSecret = parseBearerToken(req.headers.authorization);
   if (!cronSecret || presentedSecret !== cronSecret) {
     res.status(401).json({ error: "Unauthorized" });
     return;

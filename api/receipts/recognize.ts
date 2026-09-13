@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { parseBearerToken } from "../_lib/bearerToken.js";
 import { getAccessStatus, recordSuccess } from "../_lib/userAiAccess.js";
 import { aiAccessRefusalMessage } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
@@ -50,8 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const authHeader = req.headers.authorization;
-  const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
+  const accessToken = parseBearerToken(req.headers.authorization);
   if (!accessToken) {
     res.status(401).json({ error: "Missing Authorization: Bearer <access_token> header" });
     return;

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabaseAdmin.js";
+import { parseBearerToken } from "./bearerToken.js";
 
 // Issue 15: shared auth guard for every admin API route. A non-admin gets
 // 404, not 403 — the route's existence shouldn't be confirmed to anyone
@@ -7,7 +8,7 @@ import { supabaseAdmin } from "./supabaseAdmin.js";
 export type AdminAuthResult = { ok: true; userId: string } | { ok: false; status: 401 | 404 };
 
 export async function requireGlobalAdmin(authHeader: string | undefined): Promise<AdminAuthResult> {
-  const accessToken = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
+  const accessToken = parseBearerToken(authHeader);
   if (!accessToken) {
     return { ok: false, status: 401 };
   }
