@@ -4,8 +4,9 @@ import { fetchCircleMembers } from "@/lib/circleMembers";
 import {
   buildPriceChangeLeaderboard,
   type LeaderboardEntry,
-  type ProductPriceHistory,
+  type LeaderboardInput,
 } from "@/lib/priceChangeLeaderboard";
+import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 
 export interface CategoryProductBreakdownItem {
   productId: string | null;
@@ -194,43 +195,17 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
       }>).map((row) => [row.id, { en: row.canonical_name_en, zh: row.canonical_name_zh }])
     );
 
-    const histories: ProductPriceHistory[] = [];
-    for (const productId of productIds) {
-      const { data: rows, error } = await supabase
-        .from("receipt_items")
-        .select(
-          "unit_price, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, status)"
-        )
-        .eq("product_id", productId)
-        .eq("receipts.status", "confirmed")
-        .order("purchase_date", { foreignTable: "receipts", ascending: true });
-      if (error) {
-        throw error;
-      }
-
-      const records = ((rows ?? []) as unknown as Array<{
-        unit_price: number;
-        unit_spec_value: number | null;
-        unit_spec_unit: string | null;
-        is_promotion: boolean;
-      }>)
-        .filter((row) => row.unit_spec_value != null && row.unit_spec_unit)
-        .map((row) => ({
-          unitPrice: row.unit_price,
-          specValue: row.unit_spec_value as number,
-          specUnit: row.unit_spec_unit as string,
-          isPromotion: row.is_promotion,
-        }));
-
-      const names = productNames.get(productId);
-      histories.push({
-        productId,
+    const histories = await fetchPurchaseHistories(supabase, [...productIds]);
+    const leaderboardInput: LeaderboardInput[] = histories.map((history) => {
+      const names = productNames.get(history.productId);
+      return {
+        productId: history.productId,
         nameEn: names?.en ?? "",
         nameZh: names?.zh ?? "",
-        records,
-      });
-    }
-    priceChangeLeaderboard = buildPriceChangeLeaderboard(histories);
+        purchases: history.purchases,
+      };
+    });
+    priceChangeLeaderboard = buildPriceChangeLeaderboard(leaderboardInput);
   }
 
   return {

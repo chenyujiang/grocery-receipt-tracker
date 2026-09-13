@@ -15,10 +15,34 @@ const PRODUCTS = [
 
 function itemRow(overrides: Record<string, unknown> = {}) {
   return {
+    product_id: "product-1",
     quantity: 1,
+    unit_price: 5,
     unit_spec_value: 2,
     unit_spec_unit: "L",
-    receipts: { purchase_date: "2026-09-01" },
+    is_promotion: false,
+    receipts: {
+      purchase_date: "2026-09-01",
+      store_name_en: "Countdown",
+      store_name_zh: null,
+    },
+    ...overrides,
+  };
+}
+
+// What fetchPurchaseHistories hands back for one itemRow. The cron passes
+// Purchases straight through to detectLowStock, which reads only the
+// quantity-shaped fields of them.
+function purchase(overrides: Record<string, unknown> = {}) {
+  return {
+    purchaseDate: "2026-09-01",
+    storeNameEn: "Countdown",
+    storeNameZh: "Countdown",
+    unitPrice: 5,
+    quantity: 1,
+    specValue: 2,
+    specUnit: "L",
+    isPromotion: false,
     ...overrides,
   };
 }
@@ -44,7 +68,9 @@ function wireSupabase({
 }: Wiring = {}) {
   const insert = vi.fn().mockResolvedValue({ error: insertError });
   const updates: Array<{ payload: Record<string, unknown>; ids: string[] }> = [];
-  const itemQueries: string[] = [];
+  // One entry per receipt_items query, holding the ids that query asked for.
+  // A batched fetch means this should never grow past a single entry.
+  const itemQueries: string[][] = [];
 
   const update = vi.fn((payload: Record<string, unknown>) => ({
     in: vi.fn((_column: string, ids: string[]) => {
@@ -64,15 +90,23 @@ function wireSupabase({
     if (table === "receipt_items") {
       return {
         select: () => ({
-          eq: (_column: string, productId: string) => {
-            itemQueries.push(productId);
+          in: (_column: string, productIds: string[]) => {
+            itemQueries.push(productIds);
+            // The real query returns every requested product's rows in one
+            // flat set, each row carrying its own product_id.
+            const data = productIds.flatMap((productId) => {
+              const rows = (receiptItems[productId]?.data ?? []) as Array<
+                Record<string, unknown>
+              >;
+              return rows.map((row) => ({ ...row, product_id: productId }));
+            });
             return {
               eq: () => ({
                 order: () =>
                   Promise.resolve(
                     receiptItemsError
                       ? { data: null, error: receiptItemsError }
-                      : (receiptItems[productId] ?? { data: [], error: null })
+                      : { data, error: null }
                   ),
               }),
             };
@@ -113,15 +147,15 @@ describe("GET /api/cron/low-stock-check", () => {
     expect(supabaseAdmin.from).toHaveBeenCalledWith("products");
   });
 
-  // CHARACTERIZATION, NOT ENDORSEMENT: one receipt_items query per Product,
-  // which is the N+1 that fetchPurchaseHistories exists to prevent.
-  // See .scratch/grocery-receipt-tracker/issues/20-cron-bypasses-fetch-purchase-histories.md
-  it("currently issues one purchase-history query per Product", async () => {
+  // Was the N+1 in issue 20: one receipt_items query per Product. The route
+  // now goes through fetchPurchaseHistories, so every Product is covered by a
+  // single batched query no matter how many there are.
+  it("loads every Product's purchase history in one batched query", async () => {
     const { itemQueries } = wireSupabase();
 
     await handler(makeReq({ method: "GET" }), makeRes().res);
 
-    expect(itemQueries).toEqual(["product-1", "product-2"]);
+    expect(itemQueries).toEqual([["product-1", "product-2"]]);
   });
 
   it("hands each Product its own Purchase History, normalized", async () => {
@@ -139,9 +173,7 @@ describe("GET /api/cron/low-stock-check", () => {
           productId: "product-1",
           circleId: "circle-1",
           lowStockAlertActive: false,
-          purchases: [
-            { purchaseDate: "2026-09-01", quantity: 3, specValue: 2, specUnit: "L" },
-          ],
+          purchases: [purchase({ quantity: 3 })],
         },
         {
           productId: "product-2",
@@ -173,9 +205,7 @@ describe("GET /api/cron/low-stock-check", () => {
     await handler(makeReq({ method: "GET" }), makeRes().res);
 
     const checks = vi.mocked(detectLowStock).mock.calls[0][0];
-    expect(checks[0].purchases).toEqual([
-      { purchaseDate: "2026-09-01", quantity: 9, specValue: 2, specUnit: "L" },
-    ]);
+    expect(checks[0].purchases).toEqual([purchase({ quantity: 9 })]);
   });
 
   it("reports counts, and touches nothing, when there's nothing to do", async () => {
@@ -253,7 +283,7 @@ describe("GET /api/cron/low-stock-check", () => {
       expect(itemQueries).toEqual([]);
     });
 
-    it("500s on the first Product whose purchase history can't be loaded", async () => {
+    it("500s when the batched purchase-history query can't be loaded", async () => {
       const { itemQueries } = wireSupabase({ receiptItemsError: { message: "statement timeout" } });
       const res = makeRes();
 
@@ -261,7 +291,7 @@ describe("GET /api/cron/low-stock-check", () => {
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toEqual({ error: "Failed to load purchase history" });
-      expect(itemQueries).toEqual(["product-1"]);
+      expect(itemQueries).toEqual([["product-1", "product-2"]]);
       expect(detectLowStock).not.toHaveBeenCalled();
     });
 

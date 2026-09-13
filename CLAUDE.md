@@ -8,7 +8,7 @@ A family-shared web app: photograph grocery receipts, AI (OCR + translation + ca
 
 ## Doc language convention
 
-Every planning doc under `.scratch/grocery-receipt-tracker/` and this repo's `README.md` exists as an English original (unsuffixed filename) and a Chinese translation (`_zh` suffix, e.g. `spec_zh.md`, `README_zh.md`). Keep both in sync when editing either — don't let content drift between them. This is a documentation-only convention; it's unrelated to the app's own bilingual data fields (see below).
+Every planning doc under `.scratch/grocery-receipt-tracker/`, plus this repo's `README.md` and `CONTEXT.md`, exists as an English original (unsuffixed filename) and a Chinese translation (`_zh` suffix, e.g. `spec_zh.md`, `README_zh.md`, `CONTEXT_zh.md`). The English original is canonical when the two disagree, since its terms are the ones that match the code's identifiers. Keep both in sync when editing either — don't let content drift between them. This is a documentation-only convention; it's unrelated to the app's own bilingual data fields (see below).
 
 ## Stack
 
@@ -25,6 +25,8 @@ This project is built TDD-first (see the `tdd` skill). Before adding tests for a
 - Bilingual dynamic content (product names, store names) is stored as `_en`/`_zh` column pairs — `_en` is the OCR-recognized English source text (receipts are from New Zealand supermarkets), `_zh` is the AI translation. Fixed UI chrome is translated too (a hand-written dictionary in `src/lib/i18n.ts`, exposed via `LanguageProvider`'s `t()`), driven by the same toggle as the data content — no separate i18n framework.
 - Category lives solely on `Product.category`, read via `product_id` — `ReceiptItem` does not have its own `category` column (see spec.md Section 5.2 for why).
 - All user corrections (OCR fixes, translation fixes, category fixes) are recorded in `EditLog`.
+- **Purchase history is fetched in exactly one place**: `fetchPurchaseHistories(client, productIds)` in `src/lib/purchaseHistory.ts`. Every price/consumption feature starts from it — price change (S10), price trend, store comparison (S11), consumption rate (S12), price-spike alerts (S13), and the monthly report's leaderboard (S14). It issues **one** `.in("product_id", ids)` query, never one per product; if you find yourself writing a `for` loop around a `receipt_items` select, that's the N+1 this module exists to prevent. It returns one `PurchaseHistory` per requested id in the order requested (empty `purchases` if that product has none), each sorted oldest-first, and drops rows with no `product_id` or no unit spec, since nothing downstream can normalize them. The Supabase client is a parameter, not an import: passing `supabase` scopes the read to the caller's circle via RLS, passing `supabaseAdmin` (cron only) sweeps every circle — that choice *is* the scope decision, so keep it visible at the call site rather than behind a flag. Keeping the client out of the module is also what lets `/api` import it, since it never touches `import.meta.env`.
+- `CONTEXT.md` is the project's domain glossary (Purchase, Purchase History, Circle, …). Read it before naming a new type, and add to it when a term gets settled — but keep it a glossary: no implementation details, no requirements.
 
 ## UI style conventions
 
@@ -65,6 +67,12 @@ A single global admin (flagged via the `global_admins` table, currently just `nz
 ## Supabase
 
 Project `xflabzrcowhqjvvwjrbt` (`Eason's Project`, `ap-southeast-2`). Local migration copies live in `supabase/migrations/` and mirror what's applied live — apply new migrations through the Supabase MCP tools, then save a matching copy there. See `README.md` for env var setup and what's not yet implemented.
+
+Both clients are typed: `createClient<Database>` in `src/lib/supabaseClient.ts` and `api/_lib/supabaseAdmin.ts`, from `src/types/database.types.ts`. That file is **hand-derived from the migrations**, not generated — the Supabase CLI isn't wired up — so **a migration that changes a column must update it in the same commit**, or every query silently goes back to `any`. Two things about it that aren't `gen types` output and must survive any future regeneration: the FK `Relationships` entries (without them supabase-js infers to-one embeds as arrays, which is what the deleted `as unknown as` casts used to paper over), and the literal-union narrowing on `profiles.role` / `receipts.status` / `alerts.type`, which Postgres enforces by CHECK constraint but `gen types` only narrows for real enums.
+
+Pass `SupabaseClient<Database>`, never bare `SupabaseClient`, when a module takes its client as a parameter — the bare type defaults to an `any` schema and silently opts that module out of all of the above.
+
+Note `src/types/index.ts` still carries hand-written row interfaces (`Receipt`, `Product`, …) that predate this and are now unused and wrong about nullability; only `Role` and `CATEGORIES` are live. Reach for `Database["public"]["Tables"][...]["Row"]` instead.
 
 ## Agent skills
 

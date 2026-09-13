@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { detectLowStock, type ProductConsumptionCheck } from "../../src/lib/lowStockAlerts.js";
+import { fetchPurchaseHistories } from "../../src/lib/purchaseHistory.js";
 
 // Section 12: unlike price-spike alerts (triggered on receipt confirm), the
 // low-stock check has to run on a schedule, since estimated days remaining
@@ -9,13 +10,6 @@ import { detectLowStock, type ProductConsumptionCheck } from "../../src/lib/lowS
 //
 // Thin orchestration only — the detection logic lives in
 // src/lib/lowStockAlerts.ts, already covered by its own tests.
-
-interface ReceiptItemHistoryRow {
-  quantity: number;
-  unit_spec_value: number | null;
-  unit_spec_unit: string | null;
-  receipts: { purchase_date: string };
-}
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   const { data: products, error: productsError } = await supabaseAdmin
@@ -26,43 +20,46 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     return;
   }
 
-  const checks: Array<ProductConsumptionCheck & { circleId: string }> = [];
-  for (const product of products ?? []) {
-    const { data: rows, error } = await supabaseAdmin
-      .from("receipt_items")
-      .select("quantity, unit_spec_value, unit_spec_unit, receipts!inner(purchase_date, status)")
-      .eq("product_id", product.id)
-      .eq("receipts.status", "confirmed")
-      .order("purchase_date", { foreignTable: "receipts", ascending: true });
-    if (error) {
-      res.status(500).json({ error: "Failed to load purchase history" });
-      return;
-    }
+  const productRows = products ?? [];
+  let histories;
+  try {
+    // Service-role client: this deliberately reads across every Circle, because
+    // the cron checks the whole database's Products in one pass.
+    histories = await fetchPurchaseHistories(
+      supabaseAdmin,
+      productRows.map((product) => product.id)
+    );
+  } catch {
+    res.status(500).json({ error: "Failed to load purchase history" });
+    return;
+  }
+  const purchasesByProduct = new Map(
+    histories.map((history) => [history.productId, history.purchases])
+  );
 
-    const purchases = ((rows ?? []) as unknown as ReceiptItemHistoryRow[])
-      .filter((row) => row.unit_spec_value != null && row.unit_spec_unit)
-      .map((row) => ({
-        purchaseDate: row.receipts.purchase_date,
-        quantity: row.quantity,
-        specValue: row.unit_spec_value as number,
-        specUnit: row.unit_spec_unit as string,
-      }));
-
-    checks.push({
+  const checks: Array<ProductConsumptionCheck & { circleId: string }> = productRows.map(
+    (product) => ({
       productId: product.id,
       circleId: product.circle_id,
       lowStockAlertActive: product.low_stock_alert_active,
-      purchases,
-    });
-  }
+      purchases: purchasesByProduct.get(product.id) ?? [],
+    })
+  );
 
   const { newAlerts, recoveries } = detectLowStock(checks, new Date());
 
   if (newAlerts.length > 0) {
+    // Every alert comes from a check that was built from productRows, so the
+    // Circle is always known — look it up by id rather than scanning, and let
+    // a genuinely missing one throw instead of inserting a null circle_id.
+    const circleIdByProduct = new Map(checks.map((check) => [check.productId, check.circleId]));
     const alertRows = newAlerts.map((alert) => {
-      const check = checks.find((c) => c.productId === alert.productId);
+      const circleId = circleIdByProduct.get(alert.productId);
+      if (circleId == null) {
+        throw new Error(`low-stock alert for unknown product ${alert.productId}`);
+      }
       return {
-        circle_id: check?.circleId,
+        circle_id: circleId,
         type: "low_stock" as const,
         product_id: alert.productId,
       };

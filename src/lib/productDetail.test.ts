@@ -20,12 +20,14 @@ function productChain(result: { data: unknown; error: unknown }) {
   return { select, eq, single };
 }
 
+// The history read goes through fetchPurchaseHistories, which batches on
+// product_id: select...in("product_id",[...]).eq("receipts.status",...).order(...).
 function historyChain(result: { data: unknown; error: unknown }) {
   const order = vi.fn().mockResolvedValue(result);
   const eqStatus = vi.fn(() => ({ order }));
-  const eqProduct = vi.fn(() => ({ eq: eqStatus }));
-  const select = vi.fn(() => ({ eq: eqProduct }));
-  return { select, eqProduct, eqStatus, order };
+  const inProducts = vi.fn(() => ({ eq: eqStatus }));
+  const select = vi.fn(() => ({ in: inProducts }));
+  return { select, inProducts, eqStatus, order };
 }
 
 const TODAY = new Date("2026-08-05");
@@ -48,6 +50,7 @@ describe("fetchProductDetail", () => {
     const hChain = historyChain({
       data: [
         {
+          product_id: "product-1",
           unit_price: 5.0,
           quantity: 1,
           unit_spec_value: 500,
@@ -56,6 +59,7 @@ describe("fetchProductDetail", () => {
           receipts: { purchase_date: "2026-07-01", store_name_en: "Countdown", store_name_zh: "城内城外" },
         },
         {
+          product_id: "product-1",
           unit_price: 4.0,
           quantity: 1,
           unit_spec_value: 500,
@@ -104,6 +108,7 @@ describe("fetchProductDetail", () => {
         storeNameEn: "Countdown",
         storeNameZh: "城内城外",
         unitPrice: 5.0,
+        quantity: 1,
         specValue: 500,
         specUnit: "g",
         isPromotion: false,
@@ -113,6 +118,7 @@ describe("fetchProductDetail", () => {
         storeNameEn: "Pak'nSave",
         storeNameZh: "帕克超市",
         unitPrice: 4.0,
+        quantity: 1,
         specValue: 500,
         specUnit: "g",
         isPromotion: false,
@@ -149,4 +155,30 @@ describe("fetchProductDetail", () => {
 
     await expect(fetchProductDetail("product-1", TODAY)).rejects.toThrow("network error");
   });
+
+  // A Product whose Chinese Translation was never produced still has to read
+  // back as text, not blank — CONTEXT.md, Bilingual Name.
+  it("reads a product with no Chinese translation back as its English source text", async () => {
+    const pChain = productChain({
+      data: {
+        id: "product-1",
+        canonical_name_en: "Anchor Blue Milk",
+        canonical_name_zh: null,
+        category: "Food - Dairy & Bakery",
+      },
+      error: null,
+    });
+    const hChain = historyChain({ data: [], error: null });
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "products") return pChain as never;
+      if (table === "receipt_items") return hChain as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    const detail = await fetchProductDetail("product-1", TODAY);
+
+    expect(detail.canonicalNameZh).toBe("Anchor Blue Milk");
+  });
+
 });

@@ -59,6 +59,7 @@ const SAMPLE_DETAIL = {
       storeNameEn: "Countdown",
       storeNameZh: "城内城外",
       unitPrice: 5.0,
+      quantity: 1,
       specValue: 500,
       specUnit: "g",
       isPromotion: false,

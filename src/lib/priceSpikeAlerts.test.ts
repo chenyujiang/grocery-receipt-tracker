@@ -1,5 +1,21 @@
 import { describe, it, expect } from "vitest";
 import { detectPriceSpikes } from "@/lib/priceSpikeAlerts";
+import type { Purchase } from "@/lib/purchaseHistory";
+
+// detectPriceSpikes only reads the price-shaped fields of a Purchase; the rest
+// are filled in here so the fixtures are the real shape the fetch returns,
+// not a hand-trimmed subset of it.
+function purchase(
+  fields: Pick<Purchase, "unitPrice" | "specValue" | "specUnit" | "isPromotion">
+): Purchase {
+  return {
+    purchaseDate: "2026-08-01",
+    storeNameEn: "Countdown",
+    storeNameZh: "倒数超市",
+    quantity: 1,
+    ...fields,
+  };
+}
 
 describe("detectPriceSpikes", () => {
   it("flags a product whose price change exceeds the 15% threshold", () => {
@@ -7,8 +23,8 @@ describe("detectPriceSpikes", () => {
       {
         productId: "product-1",
         purchases: [
-          { unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false },
-          { unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false },
+          purchase({ unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+          purchase({ unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
         ],
       },
     ]);
@@ -21,8 +37,8 @@ describe("detectPriceSpikes", () => {
       {
         productId: "product-1",
         purchases: [
-          { unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false },
-          { unitPrice: 4.6, specValue: 2, specUnit: "L", isPromotion: false },
+          purchase({ unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+          purchase({ unitPrice: 4.6, specValue: 2, specUnit: "L", isPromotion: false }),
         ],
       },
     ]);
@@ -34,7 +50,7 @@ describe("detectPriceSpikes", () => {
     const spikes = detectPriceSpikes([
       {
         productId: "product-1",
-        purchases: [{ unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }],
+        purchases: [purchase({ unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false })],
       },
     ]);
 
@@ -46,15 +62,15 @@ describe("detectPriceSpikes", () => {
       {
         productId: "steady-product",
         purchases: [
-          { unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false },
-          { unitPrice: 4.1, specValue: 2, specUnit: "L", isPromotion: false },
+          purchase({ unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+          purchase({ unitPrice: 4.1, specValue: 2, specUnit: "L", isPromotion: false }),
         ],
       },
       {
         productId: "spiking-product",
         purchases: [
-          { unitPrice: 2.0, specValue: 500, specUnit: "g", isPromotion: false },
-          { unitPrice: 3.0, specValue: 500, specUnit: "g", isPromotion: false },
+          purchase({ unitPrice: 2.0, specValue: 500, specUnit: "g", isPromotion: false }),
+          purchase({ unitPrice: 3.0, specValue: 500, specUnit: "g", isPromotion: false }),
         ],
       },
     ]);

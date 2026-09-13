@@ -8,7 +8,7 @@ describe("buildPriceChangeLeaderboard", () => {
         productId: "product-1",
         nameEn: "Anchor Blue Milk",
         nameZh: "安科蓝带牛奶",
-        records: [
+        purchases: [
           { unitPrice: 4.0, specValue: 500, specUnit: "g", isPromotion: false },
           { unitPrice: 4.4, specValue: 500, specUnit: "g", isPromotion: false }, // +10%
         ],
@@ -17,7 +17,7 @@ describe("buildPriceChangeLeaderboard", () => {
         productId: "product-2",
         nameEn: "Sanitarium Weet-Bix",
         nameZh: "全麦饼",
-        records: [
+        purchases: [
           { unitPrice: 4.0, specValue: 500, specUnit: "g", isPromotion: false },
           { unitPrice: 5.0, specValue: 500, specUnit: "g", isPromotion: false }, // +25%
         ],
@@ -36,7 +36,7 @@ describe("buildPriceChangeLeaderboard", () => {
         productId: "product-1",
         nameEn: "Steady Product",
         nameZh: "稳定商品",
-        records: [
+        purchases: [
           { unitPrice: 4.0, specValue: 500, specUnit: "g", isPromotion: false },
           { unitPrice: 4.0, specValue: 500, specUnit: "g", isPromotion: false },
         ],
@@ -45,7 +45,7 @@ describe("buildPriceChangeLeaderboard", () => {
         productId: "product-2",
         nameEn: "Cheaper Product",
         nameZh: "降价商品",
-        records: [
+        purchases: [
           { unitPrice: 5.0, specValue: 500, specUnit: "g", isPromotion: false },
           { unitPrice: 4.0, specValue: 500, specUnit: "g", isPromotion: false },
         ],
@@ -60,7 +60,7 @@ describe("buildPriceChangeLeaderboard", () => {
       productId: `product-${i}`,
       nameEn: `Product ${i}`,
       nameZh: `商品${i}`,
-      records: [
+      purchases: [
         { unitPrice: 4.0, specValue: 500, specUnit: "g", isPromotion: false },
         { unitPrice: 4.0 + i, specValue: 500, specUnit: "g", isPromotion: false },
       ],

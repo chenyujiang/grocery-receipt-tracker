@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
-import { detectPriceSpikes, type ProductPriceHistory } from "@/lib/priceSpikeAlerts";
+import { detectPriceSpikes } from "@/lib/priceSpikeAlerts";
+import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
 
@@ -123,7 +124,7 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
     id: receiptRow.id,
     uploadedBy: receiptRow.uploaded_by,
     storeNameEn: receiptRow.store_name_en,
-    storeNameZh: receiptRow.store_name_zh,
+    storeNameZh: receiptRow.store_name_zh ?? receiptRow.store_name_en,
     purchaseDate: receiptRow.purchase_date,
     totalAmount: receiptRow.total_amount,
     status: receiptRow.status,
@@ -131,7 +132,7 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
     items: items.map((row) => ({
       id: row.id,
       rawNameEn: row.raw_name_en,
-      rawNameZh: row.raw_name_zh,
+      rawNameZh: row.raw_name_zh ?? row.raw_name_en,
       quantity: row.quantity,
       unitSpecValue: row.unit_spec_value,
       unitSpecUnit: row.unit_spec_unit,
@@ -168,7 +169,7 @@ async function updateReceiptItemsWithLog(
     const changes = diffReceiptItemFields(
       {
         rawNameEn: existingRow.raw_name_en,
-        rawNameZh: existingRow.raw_name_zh,
+        rawNameZh: existingRow.raw_name_zh ?? existingRow.raw_name_en,
         quantity: existingRow.quantity,
         unitSpecValue: existingRow.unit_spec_value,
         unitSpecUnit: existingRow.unit_spec_unit,
@@ -328,36 +329,7 @@ async function recordPriceSpikeAlerts(
     return;
   }
 
-  const histories: ProductPriceHistory[] = [];
-  for (const productId of productIds) {
-    const { data: rows, error } = await supabase
-      .from("receipt_items")
-      .select(
-        "unit_price, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, status)"
-      )
-      .eq("product_id", productId)
-      .eq("receipts.status", "confirmed")
-      .order("purchase_date", { foreignTable: "receipts", ascending: true });
-    if (error) {
-      throw error;
-    }
-
-    const purchases = ((rows ?? []) as unknown as Array<{
-      unit_price: number;
-      unit_spec_value: number | null;
-      unit_spec_unit: string | null;
-      is_promotion: boolean;
-    }>)
-      .filter((row) => row.unit_spec_value != null && row.unit_spec_unit)
-      .map((row) => ({
-        unitPrice: row.unit_price,
-        specValue: row.unit_spec_value as number,
-        specUnit: row.unit_spec_unit as string,
-        isPromotion: row.is_promotion,
-      }));
-
-    histories.push({ productId, purchases });
-  }
+  const histories = await fetchPurchaseHistories(supabase, productIds);
 
   const spikes = detectPriceSpikes(histories);
   if (spikes.length === 0) {

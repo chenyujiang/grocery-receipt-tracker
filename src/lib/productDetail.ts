@@ -3,16 +3,10 @@ import { calculatePriceChange, type PriceChange } from "@/lib/priceChange";
 import { buildPriceTrend, type PriceTrendPoint } from "@/lib/priceTrend";
 import { compareStores, type StoreComparisonEntry } from "@/lib/storeComparison";
 import { calculateConsumption, type ConsumptionEstimate } from "@/lib/consumptionRate";
+import { fetchPurchaseHistories, type Purchase } from "@/lib/purchaseHistory";
 
-export interface PurchaseHistoryEntry {
-  purchaseDate: string;
-  storeNameEn: string;
-  storeNameZh: string;
-  unitPrice: number;
-  specValue: number;
-  specUnit: string;
-  isPromotion: boolean;
-}
+// The detail page's history table renders a Purchase directly.
+export type PurchaseHistoryEntry = Purchase;
 
 export interface ProductDetail {
   id: string;
@@ -43,75 +37,21 @@ export async function fetchProductDetail(
     throw productError ?? new Error("Product not found");
   }
 
-  const { data: rows, error: historyError } = await supabase
-    .from("receipt_items")
-    .select(
-      "unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_name_en, store_name_zh, status)"
-    )
-    .eq("product_id", productId)
-    .eq("receipts.status", "confirmed")
-    .order("purchase_date", { foreignTable: "receipts", ascending: true });
-  if (historyError) {
-    throw historyError;
-  }
+  const [history] = await fetchPurchaseHistories(supabase, [productId]);
+  const purchaseHistory = history.purchases;
 
-  // Cast at the boundary: without generated Database types, supabase-js
-  // infers the to-one receipt_items -> receipts embed as an array, though
-  // PostgREST returns a single object at runtime.
-  const historyRows = (rows ?? []) as unknown as Array<{
-    unit_price: number;
-    quantity: number;
-    unit_spec_value: number;
-    unit_spec_unit: string;
-    is_promotion: boolean;
-    receipts: { purchase_date: string; store_name_en: string; store_name_zh: string };
-  }>;
+  const priceChange = calculatePriceChange(purchaseHistory);
 
-  const purchaseHistory: PurchaseHistoryEntry[] = historyRows.map((row) => ({
-    purchaseDate: row.receipts.purchase_date,
-    storeNameEn: row.receipts.store_name_en,
-    storeNameZh: row.receipts.store_name_zh,
-    unitPrice: row.unit_price,
-    specValue: row.unit_spec_value,
-    specUnit: row.unit_spec_unit,
-    isPromotion: row.is_promotion,
-  }));
-
-  const priceChange = calculatePriceChange(
-    purchaseHistory.map((entry) => ({
-      unitPrice: entry.unitPrice,
-      specValue: entry.specValue,
-      specUnit: entry.specUnit,
-      isPromotion: entry.isPromotion,
-    }))
-  );
-
-  const priceTrend = buildPriceTrend(
-    purchaseHistory.map((entry) => ({
-      purchaseDate: entry.purchaseDate,
-      unitPrice: entry.unitPrice,
-      specValue: entry.specValue,
-      specUnit: entry.specUnit,
-      isPromotion: entry.isPromotion,
-    }))
-  );
+  const priceTrend = buildPriceTrend(purchaseHistory);
 
   const storeComparison = compareStores(purchaseHistory);
 
-  const consumption = calculateConsumption(
-    historyRows.map((row) => ({
-      purchaseDate: row.receipts.purchase_date,
-      quantity: row.quantity,
-      specValue: row.unit_spec_value,
-      specUnit: row.unit_spec_unit,
-    })),
-    today
-  );
+  const consumption = calculateConsumption(purchaseHistory, today);
 
   return {
     id: productRow.id,
     canonicalNameEn: productRow.canonical_name_en,
-    canonicalNameZh: productRow.canonical_name_zh,
+    canonicalNameZh: productRow.canonical_name_zh ?? productRow.canonical_name_en,
     category: productRow.category,
     priceChange,
     priceTrend,

@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Supabase is the external boundary — mock it here. The leaderboard math is
 // already covered by priceChangeLeaderboard.test.ts; this only checks the
-// assembly/wiring, so the fixture uses a single product to keep the mocked
-// call sequence manageable.
+// assembly/wiring. Purchase history is one batched query regardless of how
+// many products are involved, so a multi-product fixture costs no extra mock
+// chains -- see the ranking test below.
 vi.mock("@/lib/supabaseClient", () => ({
   supabase: {
     from: vi.fn(),
@@ -48,12 +49,15 @@ function productsChain(result: { data: unknown; error: unknown }) {
   return { select, in: inFn };
 }
 
+// The leaderboard purchase history comes from fetchPurchaseHistories, which
+// batches every product into one query:
+// select...in("product_id",[...]).eq("receipts.status",...).order(...).
 function historyChain(result: { data: unknown; error: unknown }) {
   const order = vi.fn().mockResolvedValue(result);
   const eqStatus = vi.fn(() => ({ order }));
-  const eqProduct = vi.fn(() => ({ eq: eqStatus }));
-  const select = vi.fn(() => ({ eq: eqProduct }));
-  return { select, eqProduct, eqStatus, order };
+  const inProducts = vi.fn(() => ({ eq: eqStatus }));
+  const select = vi.fn(() => ({ in: inProducts }));
+  return { select, inProducts, eqStatus, order };
 }
 
 describe("fetchMonthlyReport", () => {
@@ -99,14 +103,18 @@ describe("fetchMonthlyReport", () => {
     const historyRowsChain = historyChain({
       data: [
         {
+          product_id: "product-1",
           unit_price: 4.0,
+          quantity: 1,
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
           receipts: { purchase_date: "2026-07-01" },
         },
         {
+          product_id: "product-1",
           unit_price: 6.0,
+          quantity: 1,
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
@@ -326,5 +334,160 @@ describe("fetchMonthlyReport", () => {
     vi.mocked(supabase.from).mockReturnValueOnce(monthChain as never);
 
     await expect(fetchMonthlyReport(MONTH)).rejects.toThrow("network error");
+  });
+
+  // Under the old one-query-per-product loop this test was unaffordable: each
+  // extra product needed its own mock chain spliced into the `from` sequence,
+  // which is why the multi-product ranking path had never actually run. It is
+  // now a single history chain no matter how many products are involved.
+  it("ranks the leaderboard across every product that rose this month", async () => {
+    const monthChain = monthReceiptsChain({
+      data: [
+        {
+          total_amount: 18.0,
+          uploaded_by: "user-1",
+          receipt_items: [
+            {
+              subtotal: 6.0,
+              quantity: 1,
+              original_price: null,
+              is_promotion: false,
+              product_id: "product-1",
+              raw_name_en: "Milk",
+              raw_name_zh: "牛奶",
+              products: {
+                category: "Food",
+                canonical_name_en: "Milk",
+                canonical_name_zh: "牛奶",
+              },
+            },
+            {
+              subtotal: 6.0,
+              quantity: 1,
+              original_price: null,
+              is_promotion: false,
+              product_id: "product-2",
+              raw_name_en: "Bread",
+              raw_name_zh: "面包",
+              products: {
+                category: "Food",
+                canonical_name_en: "Bread",
+                canonical_name_zh: "面包",
+              },
+            },
+            {
+              subtotal: 6.0,
+              quantity: 1,
+              original_price: null,
+              is_promotion: false,
+              product_id: "product-3",
+              raw_name_en: "Eggs",
+              raw_name_zh: "鸡蛋",
+              products: {
+                category: "Food",
+                canonical_name_en: "Eggs",
+                canonical_name_zh: "鸡蛋",
+              },
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+    const prevChain = prevMonthReceiptsChain({ data: [], error: null });
+    const alertsChain = alertsCountChain({ count: 0, error: null });
+    const productsRowsChain = productsChain({
+      data: [
+        { id: "product-1", canonical_name_en: "Milk", canonical_name_zh: "牛奶" },
+        { id: "product-2", canonical_name_en: "Bread", canonical_name_zh: "面包" },
+        { id: "product-3", canonical_name_en: "Eggs", canonical_name_zh: "鸡蛋" },
+      ],
+      error: null,
+    });
+    // Deliberately interleaved and out of date order, to pin down that the
+    // fetch groups by product and sorts within each group.
+    const historyRowsChain = historyChain({
+      data: [
+        {
+          product_id: "product-1",
+          unit_price: 6.0,
+          quantity: 1,
+          unit_spec_value: 500,
+          unit_spec_unit: "g",
+          is_promotion: false,
+          receipts: { purchase_date: "2026-08-20", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+        },
+        {
+          product_id: "product-2",
+          unit_price: 5.0,
+          quantity: 1,
+          unit_spec_value: 500,
+          unit_spec_unit: "g",
+          is_promotion: false,
+          receipts: { purchase_date: "2026-08-02", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+        },
+        {
+          product_id: "product-3",
+          unit_price: 6.0,
+          quantity: 1,
+          unit_spec_value: 500,
+          unit_spec_unit: "g",
+          is_promotion: false,
+          receipts: { purchase_date: "2026-08-20", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+        },
+        {
+          product_id: "product-1",
+          unit_price: 4.0,
+          quantity: 1,
+          unit_spec_value: 500,
+          unit_spec_unit: "g",
+          is_promotion: false,
+          receipts: { purchase_date: "2026-08-02", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+        },
+        {
+          product_id: "product-3",
+          unit_price: 5.0,
+          quantity: 1,
+          unit_spec_value: 500,
+          unit_spec_unit: "g",
+          is_promotion: false,
+          receipts: { purchase_date: "2026-08-02", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+        },
+        {
+          product_id: "product-2",
+          unit_price: 4.0,
+          quantity: 1,
+          unit_spec_value: 500,
+          unit_spec_unit: "g",
+          is_promotion: false,
+          receipts: { purchase_date: "2026-08-20", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+        },
+      ],
+      error: null,
+    });
+
+    vi.mocked(supabase.from)
+      .mockReturnValueOnce(monthChain as never)
+      .mockReturnValueOnce(prevChain as never)
+      .mockReturnValueOnce(alertsChain as never)
+      .mockReturnValueOnce(productsRowsChain as never)
+      .mockReturnValueOnce(historyRowsChain as never);
+    vi.mocked(fetchCircleMembers).mockResolvedValue([
+      { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
+    ]);
+
+    const report = await fetchMonthlyReport(MONTH);
+
+    expect(historyRowsChain.inProducts).toHaveBeenCalledTimes(1);
+    expect(historyRowsChain.inProducts).toHaveBeenCalledWith("product_id", [
+      "product-1",
+      "product-2",
+      "product-3",
+    ]);
+    // product-1 +50%, product-3 +20%, product-2 fell and is excluded.
+    expect(report.priceChangeLeaderboard).toEqual([
+      { productId: "product-1", nameEn: "Milk", nameZh: "牛奶", changePercent: 50 },
+      { productId: "product-3", nameEn: "Eggs", nameZh: "鸡蛋", changePercent: 20 },
+    ]);
   });
 });

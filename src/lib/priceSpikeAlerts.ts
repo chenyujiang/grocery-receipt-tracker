@@ -1,13 +1,9 @@
-import { calculatePriceChange, type PurchaseRecord } from "@/lib/priceChange";
+import { calculatePriceChange } from "@/lib/priceChange";
+import type { PurchaseHistory } from "@/lib/purchaseHistory";
 
 // Section 13: fixed 15% threshold, checked immediately after a receipt is
 // confirmed. "Exceeds", not "reaches" — exactly 15% doesn't trigger.
 const SPIKE_THRESHOLD_PERCENT = 15;
-
-export interface ProductPriceHistory {
-  productId: string;
-  purchases: PurchaseRecord[];
-}
 
 export interface PriceSpike {
   productId: string;
@@ -15,7 +11,7 @@ export interface PriceSpike {
   changePercent: number;
 }
 
-export function detectPriceSpikes(histories: ProductPriceHistory[]): PriceSpike[] {
+export function detectPriceSpikes(histories: PurchaseHistory[]): PriceSpike[] {
   const spikes: PriceSpike[] = [];
 
   for (const history of histories) {

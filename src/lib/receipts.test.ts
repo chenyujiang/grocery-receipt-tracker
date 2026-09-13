@@ -209,6 +209,54 @@ describe("fetchReceiptDraft", () => {
     ]);
   });
 
+  // CONTEXT.md, Bilingual Name: a Receipt Item or store with no Translation
+  // reads back as its Source Text, so the review screen's Chinese fields are
+  // never blank.
+  it("reads a store and item with no Chinese translation back as their English source text", async () => {
+    const receiptsChain = selectEqSingleChain({
+      data: {
+        id: "receipt-1",
+        store_name_en: "Four Square",
+        store_name_zh: null,
+        purchase_date: "2026-08-01",
+        total_amount: 4.5,
+        status: "pending_review",
+        original_image_url: null,
+      },
+      error: null,
+    });
+    const receiptItemsChain = selectEqChain({
+      data: [
+        {
+          id: "item-1",
+          raw_name_en: "Anchor Blue Milk 2L",
+          raw_name_zh: null,
+          quantity: 1,
+          unit_spec_value: 2,
+          unit_spec_unit: "L",
+          unit_price: 4.5,
+          original_price: null,
+          is_promotion: false,
+          subtotal: 4.5,
+          product_id: null,
+          products: null,
+        },
+      ],
+      error: null,
+    });
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "receipts") return receiptsChain as never;
+      if (table === "receipt_items") return receiptItemsChain as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    const draft = await fetchReceiptDraft("receipt-1");
+
+    expect(draft.storeNameZh).toBe("Four Square");
+    expect(draft.items[0].rawNameZh).toBe("Anchor Blue Milk 2L");
+  });
+
   it("throws when the receipt can't be found", async () => {
     const receiptsChain = selectEqSingleChain({ data: null, error: null });
     vi.mocked(supabase.from).mockImplementation((table: string) => {
@@ -257,8 +305,9 @@ const EXISTING_ITEM_ROW = {
 // confirmReceipt's receipt_items table access serves three purposes: fetch
 // the existing row before diffing (select...eq("id",...).single()), write
 // the update (update...eq("id",...)), and (for price-spike alerts) read a
-// product's confirmed history (select...eq("product_id",...).eq("receipts.status",...).order(...)).
-// The `.eq()` mock branches on the filtered column to route to the right chain.
+// affected product's confirmed history in one go, via fetchPurchaseHistories
+// (select...in("product_id",[...]).eq("receipts.status",...).order(...)).
+// The history read is the `.in()` branch; `.eq()` is only the single-row read.
 function confirmReceiptItemsMock(options: {
   existingRow?: { data: unknown; error: unknown };
   historyResult?: { data: unknown; error: unknown };
@@ -273,15 +322,15 @@ function confirmReceiptItemsMock(options: {
 
   const selectEq = vi.fn((field: string) => {
     if (field === "id") return { single };
-    if (field === "product_id") return { eq: eqStatus };
     throw new Error(`unexpected select().eq() field: ${field}`);
   });
-  const select = vi.fn(() => ({ eq: selectEq }));
+  const selectIn = vi.fn(() => ({ eq: eqStatus }));
+  const select = vi.fn(() => ({ eq: selectEq, in: selectIn }));
 
   const updateEq = vi.fn().mockResolvedValue({ error: options.updateError ?? null });
   const update = vi.fn(() => ({ eq: updateEq }));
 
-  return { select, selectEq, single, eqStatus, order, update, updateEq };
+  return { select, selectEq, selectIn, single, eqStatus, order, update, updateEq };
 }
 
 describe("confirmReceipt", () => {
@@ -386,8 +435,8 @@ describe("confirmReceipt", () => {
     const itemsChain = confirmReceiptItemsMock({
       historyResult: {
         data: [
-          { unit_price: 4.0, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false },
-          { unit_price: 5.0, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false },
+          { product_id: "product-1", unit_price: 4.0, quantity: 1, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false, receipts: { purchase_date: "2026-07-01", store_name_en: "Countdown", store_name_zh: "倒数超市" } },
+          { product_id: "product-1", unit_price: 5.0, quantity: 1, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false, receipts: { purchase_date: "2026-07-20", store_name_en: "Countdown", store_name_zh: "倒数超市" } },
         ],
         error: null,
       },
@@ -410,7 +459,7 @@ describe("confirmReceipt", () => {
       { ...SAMPLE_ITEM_UPDATE, productId: "product-1", unitPrice: 5.0 },
     ]);
 
-    expect(itemsChain.selectEq).toHaveBeenCalledWith("product_id", "product-1");
+    expect(itemsChain.selectIn).toHaveBeenCalledWith("product_id", ["product-1"]);
     expect(itemsChain.eqStatus).toHaveBeenCalledWith("receipts.status", "confirmed");
     expect(alertsInsert).toHaveBeenCalledWith([
       {
@@ -428,8 +477,8 @@ describe("confirmReceipt", () => {
     const itemsChain = confirmReceiptItemsMock({
       historyResult: {
         data: [
-          { unit_price: 4.0, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false },
-          { unit_price: 4.1, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false },
+          { product_id: "product-1", unit_price: 4.0, quantity: 1, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false, receipts: { purchase_date: "2026-07-01", store_name_en: "Countdown", store_name_zh: "倒数超市" } },
+          { product_id: "product-1", unit_price: 4.1, quantity: 1, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false, receipts: { purchase_date: "2026-07-20", store_name_en: "Countdown", store_name_zh: "倒数超市" } },
         ],
         error: null,
       },
@@ -453,6 +502,48 @@ describe("confirmReceipt", () => {
     ]);
 
     expect(alertsInsert).not.toHaveBeenCalled();
+  });
+
+  // Under the old one-query-per-product loop this test was unaffordable: each
+  // extra product needed its own mock chain spliced into the `from` sequence,
+  // which is why the multi-product path had never actually run. It is now a
+  // single history chain no matter how many products are involved.
+  it("checks every affected product in one query and alerts on each spiking one", async () => {
+    const itemsChain = confirmReceiptItemsMock({
+      historyResult: {
+        data: [
+          { product_id: "product-1", unit_price: 4.0, quantity: 1, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false, receipts: { purchase_date: "2026-07-01", store_name_en: "Countdown", store_name_zh: "倒数超市" } },
+          { product_id: "product-2", unit_price: 4.0, quantity: 1, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false, receipts: { purchase_date: "2026-07-01", store_name_en: "Countdown", store_name_zh: "倒数超市" } },
+          { product_id: "product-1", unit_price: 5.0, quantity: 1, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false, receipts: { purchase_date: "2026-07-20", store_name_en: "Countdown", store_name_zh: "倒数超市" } },
+          { product_id: "product-2", unit_price: 4.1, quantity: 1, unit_spec_value: 2, unit_spec_unit: "L", is_promotion: false, receipts: { purchase_date: "2026-07-20", store_name_en: "Countdown", store_name_zh: "倒数超市" } },
+        ],
+        error: null,
+      },
+    });
+    const receiptsChain = updateEqSelectSingleChain({
+      data: { circle_id: "circle-9" },
+      error: null,
+    });
+    const alertsInsert = vi.fn().mockResolvedValue({ error: null });
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === "receipt_items") return itemsChain as never;
+      if (table === "receipts") return receiptsChain as never;
+      if (table === "alerts") return { insert: alertsInsert } as never;
+      if (table === "edit_logs") return { insert: vi.fn().mockResolvedValue({ error: null }) } as never;
+      throw new Error(`unexpected table: ${table}`);
+    });
+
+    await confirmReceipt("receipt-1", [
+      { ...SAMPLE_ITEM_UPDATE, id: "item-1", productId: "product-1", unitPrice: 5.0 },
+      { ...SAMPLE_ITEM_UPDATE, id: "item-2", productId: "product-2", unitPrice: 4.1 },
+    ]);
+
+    expect(itemsChain.selectIn).toHaveBeenCalledTimes(1);
+    expect(itemsChain.selectIn).toHaveBeenCalledWith("product_id", ["product-1", "product-2"]);
+    expect(alertsInsert).toHaveBeenCalledWith([
+      expect.objectContaining({ product_id: "product-1", new_price: 5.0, change_percent: 25 }),
+    ]);
   });
 });
 

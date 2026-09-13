@@ -1,10 +1,13 @@
 import { calculatePriceChange, type PurchaseRecord } from "@/lib/priceChange";
 
-export interface ProductPriceHistory {
+// A PurchaseHistory plus the product's display names. The names come from the
+// products table, not from the purchases, so this is deliberately its own type
+// rather than a second thing called a purchase history.
+export interface LeaderboardInput {
   productId: string;
   nameEn: string;
   nameZh: string;
-  records: PurchaseRecord[];
+  purchases: PurchaseRecord[];
 }
 
 export interface LeaderboardEntry {
@@ -20,12 +23,12 @@ const DEFAULT_LIMIT = 5;
 // month's biggest increases, grouped by product. Reuses calculatePriceChange
 // per product and keeps only actual increases, ranked descending.
 export function buildPriceChangeLeaderboard(
-  histories: ProductPriceHistory[],
+  histories: LeaderboardInput[],
   limit: number = DEFAULT_LIMIT
 ): LeaderboardEntry[] {
   const entries: LeaderboardEntry[] = [];
   for (const history of histories) {
-    const change = calculatePriceChange(history.records);
+    const change = calculatePriceChange(history.purchases);
     if (change && change.changePercent > 0) {
       entries.push({
         productId: history.productId,
