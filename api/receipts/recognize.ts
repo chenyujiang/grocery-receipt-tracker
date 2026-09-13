@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { getAccessStatus, recordSuccess, FREE_TRIAL_LIMIT } from "../_lib/userAiAccess.js";
+import { getAccessStatus, recordSuccess } from "../_lib/userAiAccess.js";
+import { aiAccessRefusalMessage } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt.js";
 import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
@@ -89,13 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // admin to grant them a real dollar-based credit; no auto-reset either way.
   const accessStatus = await getAccessStatus(user.id);
   if (!accessStatus.allowed) {
-    const reason =
-      accessStatus.mode === "trial"
-        ? `You've already used all ${FREE_TRIAL_LIMIT} of your free AI recognitions.`
-        : `AI recognition quota used up ($${accessStatus.spentUsd} of $${accessStatus.capUsd}).`;
-    res.status(402).json({
-      error: `${reason} Email nz.eason.chen@gmail.com to get credit assigned.`,
-    });
+    res.status(402).json({ error: aiAccessRefusalMessage(accessStatus) });
     return;
   }
 
