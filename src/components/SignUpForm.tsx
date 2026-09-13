@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { signUpWithEmail } from "@/lib/auth";
 import type { Role } from "@/types";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface SignUpResult {
   userId: string;
@@ -29,7 +30,7 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
       const result = await signUpWithEmail(email, password, displayName);
       onSuccess(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign-up failed");
+      setError(errorMessage(err, "Sign-up failed"));
     } finally {
       setSubmitting(false);
     }

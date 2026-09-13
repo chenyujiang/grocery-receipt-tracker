@@ -31,6 +31,9 @@ function isAllowedMediaType(value: unknown): value is AllowedMediaType {
 // Supabase's PostgrestError is a plain object (not an Error instance), so a
 // bare `err instanceof Error` check missed it entirely and fell through to
 // a generic message with no way to tell what actually failed.
+//
+// Mirrored on the frontend by errorMessage() in src/lib/errorMessage.ts —
+// kept as a separate copy rather than a shared import. Change both together.
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error) {
     return err.message;

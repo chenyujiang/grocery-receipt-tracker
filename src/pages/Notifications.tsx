@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { fetchAlerts, type AlertListItem } from "@/lib/alerts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText } from "@/lib/bilingual";
+import { errorMessage } from "@/lib/errorMessage";
 
 // Section 13 + 15, page 6: price-spike and low-stock alert list (shared UI, ticket 11).
 export default function Notifications() {
@@ -13,7 +14,7 @@ export default function Notifications() {
   useEffect(() => {
     fetchAlerts()
       .then(setAlerts)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load alerts"));
+      .catch((err) => setError(errorMessage(err, "Failed to load alerts")));
   }, []);
 
   return (

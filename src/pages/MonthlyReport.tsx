@@ -6,6 +6,7 @@ import { formatMonthLabel, getMonthNames } from "@/lib/monthFormat";
 import DatePickerField from "@/components/DatePickerField";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
+import { errorMessage } from "@/lib/errorMessage";
 
 function CalendarIcon() {
   return (
@@ -56,7 +57,7 @@ export default function MonthlyReport() {
     setExpandedCategories(new Set());
     fetchMonthlyReport(month)
       .then(setReport)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load report"));
+      .catch((err) => setError(errorMessage(err, "Failed to load report")));
 
     const bounds = monthBounds(month);
     setExportFrom(parseDateString(bounds.start));
@@ -111,7 +112,7 @@ export default function MonthlyReport() {
       const rows = await fetchExportRows({ from, to });
       downloadCsv(`receipts_${from}_to_${to}.csv`, rowsToCsv(rows));
     } catch (err) {
-      setExportError(err instanceof Error ? err.message : "Export failed");
+      setExportError(errorMessage(err, "Export failed"));
     } finally {
       setExporting(false);
     }

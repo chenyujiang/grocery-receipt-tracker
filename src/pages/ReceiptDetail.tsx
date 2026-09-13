@@ -13,6 +13,7 @@ import { pickText, categoryLabel } from "@/lib/bilingual";
 import { formatDateString, parseDateString } from "@/lib/dateRange";
 import DatePickerField from "@/components/DatePickerField";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
+import { errorMessage } from "@/lib/errorMessage";
 
 // Section 15, page 3 + issue 16: a confirmed receipt's own uploader can
 // toggle an inline edit mode to fix OCR mistakes — the shared
@@ -35,7 +36,7 @@ export default function ReceiptDetail() {
     if (!receiptId) return;
     fetchReceiptDraft(receiptId)
       .then(setDraft)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load receipt"));
+      .catch((err) => setError(errorMessage(err, "Failed to load receipt")));
   }
 
   useEffect(load, [receiptId]);
@@ -66,7 +67,7 @@ export default function ReceiptDetail() {
       load();
       setEditing(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save changes");
+      setError(errorMessage(err, "Failed to save changes"));
     } finally {
       setSaving(false);
     }

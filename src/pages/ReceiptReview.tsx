@@ -12,6 +12,7 @@ import { findDuplicateReceipt, type DuplicateMatch } from "@/lib/duplicateCheck"
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
+import { errorMessage } from "@/lib/errorMessage";
 
 // Section 6, 15 page 2 (preview/confirm): the review step is the safety net
 // for OCR errors — user edits each field before it counts toward statistics.
@@ -45,7 +46,7 @@ export default function ReceiptReview() {
         });
       })
       .then(setDuplicate)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load receipt"));
+      .catch((err) => setError(errorMessage(err, "Failed to load receipt")));
   }, [receiptId]);
 
   async function handleDeleteDuplicate() {
@@ -56,7 +57,7 @@ export default function ReceiptReview() {
       await deleteReceipt(receiptId);
       navigate("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete receipt");
+      setError(errorMessage(err, "Failed to delete receipt"));
       setDeleting(false);
     }
   }
@@ -75,7 +76,7 @@ export default function ReceiptReview() {
       await confirmReceipt(receiptId, items.map(toItemUpdate));
       navigate("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to confirm receipt");
+      setError(errorMessage(err, "Failed to confirm receipt"));
     } finally {
       setConfirming(false);
     }

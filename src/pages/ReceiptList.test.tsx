@@ -153,6 +153,27 @@ describe("ReceiptList", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("network error");
   });
 
+  it("surfaces a Supabase PostgrestError's own message, not the generic fallback", async () => {
+    // PostgrestError is a plain object, not an Error instance — a bare
+    // `err instanceof Error` check swallows it and shows the fallback.
+    vi.mocked(fetchReceipts).mockRejectedValue({
+      message: 'permission denied for table "receipts"',
+      details: null,
+      hint: null,
+      code: "42501",
+    });
+
+    render(
+      <MemoryRouter>
+        <ReceiptList />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      'permission denied for table "receipts"'
+    );
+  });
+
   it("deletes a receipt after the user confirms", async () => {
     vi.mocked(fetchReceipts).mockResolvedValue([
       {

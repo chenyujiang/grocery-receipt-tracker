@@ -8,6 +8,7 @@ import DatePickerField from "@/components/DatePickerField";
 import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText } from "@/lib/bilingual";
+import { errorMessage } from "@/lib/errorMessage";
 
 const today = new Date();
 
@@ -31,7 +32,7 @@ export default function ReceiptList() {
     setError(null);
     fetchReceipts(filters)
       .then(setReceipts)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load receipts"));
+      .catch((err) => setError(errorMessage(err, "Failed to load receipts")));
   }
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export default function ReceiptList() {
       setReceipts((current) => (current ?? []).filter((receipt) => receipt.id !== receiptId));
       setConfirmingDeleteId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete receipt");
+      setError(errorMessage(err, "Failed to delete receipt"));
     } finally {
       setDeletingId(null);
     }

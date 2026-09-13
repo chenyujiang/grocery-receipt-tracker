@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { uploadReceipt } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { errorMessage } from "@/lib/errorMessage";
 
 // Section 6 + 15, page 2: photo upload flow.
 // take photo / pick from library -> AI processing -> preview/confirm -> save.
@@ -25,7 +26,7 @@ export default function ReceiptUpload() {
       const { receiptId } = await uploadReceipt(file);
       navigate(`/receipts/${receiptId}/review`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(errorMessage(err, "Upload failed"));
     } finally {
       setUploading(false);
     }

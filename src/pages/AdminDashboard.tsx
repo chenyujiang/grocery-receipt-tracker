@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { errorMessage } from "@/lib/errorMessage";
 import {
   fetchAdminUsers,
   grantAdminCredit,
@@ -167,7 +168,7 @@ export default function AdminDashboard() {
     setError(null);
     fetchAdminUsers()
       .then(setUsers)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load users"));
+      .catch((err) => setError(errorMessage(err, "Failed to load users")));
   }
 
   useEffect(load, []);

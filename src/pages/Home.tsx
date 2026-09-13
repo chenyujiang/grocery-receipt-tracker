@@ -4,6 +4,7 @@ import { fetchHomeSummary, type HomeSummary } from "@/lib/home";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import { FREE_TRIAL_LIMIT } from "@/lib/adminApi";
+import { errorMessage } from "@/lib/errorMessage";
 
 // Section 15, page 1: Home/Dashboard — this month's total spend, category
 // breakdown, a pending-alerts summary, and recent receipts.
@@ -21,7 +22,7 @@ export default function Home() {
   useEffect(() => {
     fetchHomeSummary()
       .then(setSummary)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load summary"));
+      .catch((err) => setError(errorMessage(err, "Failed to load summary")));
   }, []);
 
   return (

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { signInWithEmail } from "@/lib/auth";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface SignInResult {
   userId: string;
@@ -26,7 +27,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
       const result = await signInWithEmail(email, password);
       onSuccess(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign-in failed");
+      setError(errorMessage(err, "Sign-in failed"));
     } finally {
       setSubmitting(false);
     }

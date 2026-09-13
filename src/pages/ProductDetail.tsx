@@ -4,6 +4,7 @@ import { fetchProductDetail, type ProductDetail as ProductDetailData } from "@/l
 import type { PriceTrendPoint } from "@/lib/priceTrend";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
+import { errorMessage } from "@/lib/errorMessage";
 
 const PRICE_BASIS_LABEL: Record<string, string> = {
   per_100g: "/100g",
@@ -77,7 +78,7 @@ export default function ProductDetail() {
     if (!productId) return;
     fetchProductDetail(productId)
       .then(setDetail)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load product"));
+      .catch((err) => setError(errorMessage(err, "Failed to load product")));
   }, [productId]);
 
   return (

@@ -6,6 +6,7 @@ import { signOut } from "@/lib/auth";
 import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
 import { updateOwnDisplayName, removeMember, dissolveCircle } from "@/lib/circleActions";
 import { isGlobalAdmin, ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
+import { errorMessage } from "@/lib/errorMessage";
 
 const DISSOLVE_CONFIRM_TEXT = "DISSOLVE";
 
@@ -58,7 +59,7 @@ export default function CircleSettings() {
           setDisplayNameInput(self.displayName);
         }
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load members"));
+      .catch((err) => setError(errorMessage(err, "Failed to load members")));
   }
 
   useEffect(load, [session?.userId]);
@@ -76,7 +77,7 @@ export default function CircleSettings() {
       load();
       setEditingName(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update name");
+      setError(errorMessage(err, "Failed to update name"));
     } finally {
       setSavingName(false);
     }
@@ -94,7 +95,7 @@ export default function CircleSettings() {
       await removeMember(userId);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove member");
+      setError(errorMessage(err, "Failed to remove member"));
     } finally {
       setRemovingUserId(null);
     }
@@ -110,7 +111,7 @@ export default function CircleSettings() {
       // No manual navigation needed — AuthProvider's onAuthStateChange
       // updates the session to null, and RequireAuth redirects to /auth.
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to dissolve circle");
+      setError(errorMessage(err, "Failed to dissolve circle"));
       setDissolving(false);
     }
   }
@@ -121,7 +122,7 @@ export default function CircleSettings() {
     try {
       await signOut();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign-out failed");
+      setError(errorMessage(err, "Sign-out failed"));
     } finally {
       setSigningOut(false);
     }
