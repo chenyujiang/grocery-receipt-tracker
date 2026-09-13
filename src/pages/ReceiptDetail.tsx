@@ -1,19 +1,23 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { fetchReceiptDraft, editConfirmedReceipt, type ReceiptDraft, type DraftItem } from "@/lib/receipts";
+import {
+  fetchReceiptDraft,
+  editConfirmedReceipt,
+  toItemUpdate,
+  type ReceiptDraft,
+  type DraftItem,
+} from "@/lib/receipts";
 import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import { formatDateString, parseDateString } from "@/lib/dateRange";
 import DatePickerField from "@/components/DatePickerField";
-
-const SPEC_UNITS = ["g", "kg", "ml", "L"];
+import ReceiptItemFields from "@/components/ReceiptItemFields";
 
 // Section 15, page 3 + issue 16: a confirmed receipt's own uploader can
-// toggle an inline edit mode to fix OCR mistakes — name/quantity/unit
-// price/promotion (already editable pre-confirm), plus the purchase date
-// and the weight/volume spec (only for items that already have one).
-// Anyone else still gets the read-only view below.
+// toggle an inline edit mode to fix OCR mistakes — the shared
+// ReceiptItemFields editor (issue 17), plus the receipt-level purchase date,
+// which is this flow's alone. Anyone else still gets the read-only view below.
 export default function ReceiptDetail() {
   const { language, t } = useLanguage();
   const { session } = useAuth();
@@ -57,19 +61,7 @@ export default function ReceiptDetail() {
       await editConfirmedReceipt(
         receiptId,
         formatDateString(purchaseDate),
-        items.map((item) => ({
-          id: item.id,
-          productId: item.productId,
-          rawNameEn: item.rawNameEn,
-          rawNameZh: item.rawNameZh,
-          quantity: item.quantity,
-          unitSpecValue: item.unitSpecValue,
-          unitSpecUnit: item.unitSpecUnit,
-          unitPrice: item.unitPrice,
-          originalPrice: item.originalPrice,
-          isPromotion: item.isPromotion,
-          subtotal: item.subtotal,
-        }))
+        items.map(toItemUpdate)
       );
       load();
       setEditing(false);
@@ -122,73 +114,11 @@ export default function ReceiptDetail() {
           </div>
 
           {items.map((item, index) => (
-            <fieldset key={item.id}>
-              <label>
-                {t("review.nameEn")}
-                <input
-                  value={item.rawNameEn}
-                  onChange={(event) => updateItem(index, "rawNameEn", event.target.value)}
-                />
-              </label>
-              <label>
-                {t("review.nameZh")}
-                <input
-                  value={item.rawNameZh}
-                  onChange={(event) => updateItem(index, "rawNameZh", event.target.value)}
-                />
-              </label>
-              <label>
-                {t("review.quantity")}
-                <input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(event) => updateItem(index, "quantity", Number(event.target.value))}
-                />
-              </label>
-              <label>
-                {t("review.unitPrice")}
-                <input
-                  type="number"
-                  value={item.unitPrice}
-                  onChange={(event) => updateItem(index, "unitPrice", Number(event.target.value))}
-                />
-              </label>
-              {item.unitSpecUnit !== null && (
-                <>
-                  <label>
-                    {t("detail.specValue")}
-                    <input
-                      type="number"
-                      value={item.unitSpecValue ?? ""}
-                      onChange={(event) =>
-                        updateItem(index, "unitSpecValue", Number(event.target.value))
-                      }
-                    />
-                  </label>
-                  <label>
-                    {t("detail.specUnit")}
-                    <select
-                      value={item.unitSpecUnit}
-                      onChange={(event) => updateItem(index, "unitSpecUnit", event.target.value)}
-                    >
-                      {SPEC_UNITS.map((unit) => (
-                        <option key={unit} value={unit}>
-                          {unit}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </>
-              )}
-              <label>
-                <input
-                  type="checkbox"
-                  checked={item.isPromotion}
-                  onChange={(event) => updateItem(index, "isPromotion", event.target.checked)}
-                />
-                {t("review.promotion")}
-              </label>
-            </fieldset>
+            <ReceiptItemFields
+              key={item.id}
+              item={item}
+              onChange={(field, value) => updateItem(index, field, value)}
+            />
           ))}
 
           <div style={{ display: "flex", gap: 14, marginTop: 14 }}>

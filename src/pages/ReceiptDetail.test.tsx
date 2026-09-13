@@ -9,6 +9,10 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 vi.mock("@/lib/receipts", () => ({
   fetchReceiptDraft: vi.fn(),
   editConfirmedReceipt: vi.fn(),
+  // Pure field strip, not a Supabase call — stubbed with the real behavior so
+  // the page's save payload stays meaningful. The strip itself is pinned down
+  // in receipts.test.ts.
+  toItemUpdate: ({ category: _category, ...item }: { category: unknown }) => item,
 }));
 vi.mock("@/lib/AuthProvider", () => ({
   useAuth: vi.fn(),

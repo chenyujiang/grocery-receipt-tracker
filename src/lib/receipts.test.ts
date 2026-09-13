@@ -18,11 +18,50 @@ vi.mock("@/lib/imageResize", () => ({
 
 import { supabase } from "@/lib/supabaseClient";
 import { resizeImageForUpload } from "@/lib/imageResize";
-import { uploadReceipt, fetchReceiptDraft, confirmReceipt, editConfirmedReceipt, deleteReceipt } from "@/lib/receipts";
+import {
+  uploadReceipt,
+  fetchReceiptDraft,
+  confirmReceipt,
+  editConfirmedReceipt,
+  deleteReceipt,
+  toItemUpdate,
+} from "@/lib/receipts";
+import type { DraftItem } from "@/lib/receipts";
 
 function makeFile(content: string, type: string) {
   return new File([content], "receipt.jpg", { type });
 }
+
+// Issue 17: the single place that strips `category` on the way from a
+// DraftItem to an update payload. The invariant worth pinning down is the
+// absence of the key — a field-by-field comparison would still pass if the
+// strip broke, since every other field is copied verbatim.
+describe("toItemUpdate", () => {
+  const DRAFT_ITEM: DraftItem = {
+    id: "item-1",
+    rawNameEn: "Anchor Blue Milk 2L",
+    rawNameZh: "安佳蓝顶牛奶 2升",
+    quantity: 1,
+    unitSpecValue: 2,
+    unitSpecUnit: "L",
+    unitPrice: 4.5,
+    originalPrice: 5.2,
+    isPromotion: true,
+    subtotal: 4.5,
+    productId: "product-1",
+    category: "Food - Dairy & Bakery",
+  };
+
+  it("drops category, which belongs to the Product and is never written back through a ReceiptItem", () => {
+    expect(toItemUpdate(DRAFT_ITEM)).not.toHaveProperty("category");
+  });
+
+  it("carries every other field through untouched", () => {
+    const { category: _category, ...rest } = DRAFT_ITEM;
+
+    expect(toItemUpdate(DRAFT_ITEM)).toEqual(rest);
+  });
+});
 
 describe("uploadReceipt", () => {
   beforeEach(() => {

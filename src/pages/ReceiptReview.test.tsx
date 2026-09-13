@@ -11,6 +11,10 @@ vi.mock("@/lib/receipts", () => ({
   fetchReceiptDraft: vi.fn(),
   confirmReceipt: vi.fn(),
   deleteReceipt: vi.fn(),
+  // Pure field strip, not a Supabase call — stubbed with the real behavior so
+  // the page's save payload stays meaningful. The strip itself is pinned down
+  // in receipts.test.ts.
+  toItemUpdate: ({ category: _category, ...item }: { category: unknown }) => item,
 }));
 vi.mock("@/lib/duplicateCheck", () => ({
   findDuplicateReceipt: vi.fn(),
@@ -70,8 +74,9 @@ describe("ReceiptReview", () => {
     renderReviewPage();
 
     expect(await screen.findByDisplayValue("Anchor Blue Milk 2L")).toBeInTheDocument();
-    // The item has a weight/volume spec (2L) — it should show alongside the category.
-    expect(screen.getByText(/2L/)).toBeInTheDocument();
+    // Category comes from the Product, so the page shows it as plain text —
+    // it's deliberately not one of the editor's fields (spec.md 5.2).
+    expect(screen.getByText(/Dairy & Bakery/)).toBeInTheDocument();
     expect(fetchReceiptDraft).toHaveBeenCalledWith("receipt-1");
   });
 
@@ -88,6 +93,26 @@ describe("ReceiptReview", () => {
     expect(await screen.findByText("Home stub")).toBeInTheDocument();
     expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", [
       expect.objectContaining({ id: "item-1", quantity: 2 }),
+    ]);
+  });
+
+  // Issue 17: the weight/volume spec used to be read-only here and editable
+  // only after confirming — so a misread 500g/500kg reached the price-trend
+  // math before anyone could fix it. Both flows now share one editor.
+  it("lets the user correct the weight/volume spec before confirming", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
+    vi.mocked(confirmReceipt).mockResolvedValue(undefined);
+
+    renderReviewPage();
+
+    const specValue = await screen.findByLabelText(/spec value/i);
+    await userEvent.clear(specValue);
+    await userEvent.type(specValue, "1");
+    await userEvent.selectOptions(screen.getByLabelText(/spec unit/i), "kg");
+    await userEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", [
+      expect.objectContaining({ unitSpecValue: 1, unitSpecUnit: "kg" }),
     ]);
   });
 

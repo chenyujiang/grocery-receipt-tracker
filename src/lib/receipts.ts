@@ -50,18 +50,16 @@ export interface DraftItem {
   category: string | null;
 }
 
-export interface ConfirmReceiptItemUpdate {
-  id: string;
-  productId: string | null;
-  rawNameEn: string;
-  rawNameZh: string;
-  quantity: number;
-  unitSpecValue: number | null;
-  unitSpecUnit: string | null;
-  unitPrice: number;
-  originalPrice: number | null;
-  isPromotion: boolean;
-  subtotal: number;
+// Everything a DraftItem carries except `category`: category lives on the
+// Product and is read via `product_id` (spec.md Section 5.2), so it must not
+// travel back out through a ReceiptItem write. Stating that as an Omit, rather
+// than re-listing the fields, means a new DraftItem field can't be forgotten
+// here — and `toItemUpdate` below is the one place that performs the strip.
+export type ConfirmReceiptItemUpdate = Omit<DraftItem, "category">;
+
+export function toItemUpdate(item: DraftItem): ConfirmReceiptItemUpdate {
+  const { category: _category, ...update } = item;
+  return update;
 }
 
 export interface ReceiptDraft {

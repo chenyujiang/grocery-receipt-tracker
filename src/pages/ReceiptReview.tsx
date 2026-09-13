@@ -4,15 +4,19 @@ import {
   fetchReceiptDraft,
   confirmReceipt,
   deleteReceipt,
+  toItemUpdate,
   type ReceiptDraft,
   type DraftItem,
 } from "@/lib/receipts";
 import { findDuplicateReceipt, type DuplicateMatch } from "@/lib/duplicateCheck";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
+import ReceiptItemFields from "@/components/ReceiptItemFields";
 
 // Section 6, 15 page 2 (preview/confirm): the review step is the safety net
 // for OCR errors — user edits each field before it counts toward statistics.
+// The per-item controls are ReceiptItemFields, shared with ReceiptDetail's
+// post-confirm edit mode (issue 17).
 export default function ReceiptReview() {
   const { language, t } = useLanguage();
   const { receiptId } = useParams<{ receiptId: string }>();
@@ -68,22 +72,7 @@ export default function ReceiptReview() {
     setError(null);
     setConfirming(true);
     try {
-      await confirmReceipt(
-        receiptId,
-        items.map((item) => ({
-          id: item.id,
-          productId: item.productId,
-          rawNameEn: item.rawNameEn,
-          rawNameZh: item.rawNameZh,
-          quantity: item.quantity,
-          unitSpecValue: item.unitSpecValue,
-          unitSpecUnit: item.unitSpecUnit,
-          unitPrice: item.unitPrice,
-          originalPrice: item.originalPrice,
-          isPromotion: item.isPromotion,
-          subtotal: item.subtotal,
-        }))
-      );
+      await confirmReceipt(receiptId, items.map(toItemUpdate));
       navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to confirm receipt");
@@ -131,55 +120,17 @@ export default function ReceiptReview() {
       )}
 
       {items.map((item, index) => (
-        <fieldset key={item.id}>
-          <label>
-            {t("review.nameEn")}
-            <input
-              value={item.rawNameEn}
-              onChange={(event) => updateItem(index, "rawNameEn", event.target.value)}
-            />
-          </label>
-          <label>
-            {t("review.nameZh")}
-            <input
-              value={item.rawNameZh}
-              onChange={(event) => updateItem(index, "rawNameZh", event.target.value)}
-            />
-          </label>
-          <label>
-            {t("review.quantity")}
-            <input
-              type="number"
-              value={item.quantity}
-              onChange={(event) => updateItem(index, "quantity", Number(event.target.value))}
-            />
-          </label>
-          <label>
-            {t("review.unitPrice")}
-            <input
-              type="number"
-              value={item.unitPrice}
-              onChange={(event) => updateItem(index, "unitPrice", Number(event.target.value))}
-            />
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={item.isPromotion}
-              onChange={(event) => updateItem(index, "isPromotion", event.target.checked)}
-            />
-            {t("review.promotion")}
-          </label>
+        <div key={item.id}>
+          <ReceiptItemFields
+            item={item}
+            onChange={(field, value) => updateItem(index, field, value)}
+          />
+          {/* Category is the Product's, not this line's (spec.md 5.2) — shown
+              here for context, and deliberately not part of the editor. */}
           <p>
             {t("common.category")}: {item.category ? categoryLabel(item.category, language) : "—"}
           </p>
-          {item.unitSpecUnit !== null && (
-            <p>
-              {t("detail.specValue")}: {item.unitSpecValue}
-              {item.unitSpecUnit}
-            </p>
-          )}
-        </fieldset>
+        </div>
       ))}
 
       <button type="button" className="btn-block" onClick={handleConfirm} disabled={confirming}>
