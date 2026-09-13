@@ -1,31 +1,66 @@
-# Issue Tracker: Local Markdown
+# Issue tracker: GitHub
 
-Issues and specs for this repo live as markdown files in `.scratch/`.
+Issues for this repo live as GitHub issues on `chenyujiang/grocery-receipt-tracker`. Use the `gh` CLI for all operations.
+
+**The spec is not an issue.** `.scratch/grocery-receipt-tracker/spec.md` (+ `spec_zh.md`) stays a local document — it's a large living reference that CLAUDE.md cites by section number. Only tickets live on GitHub.
 
 ## Conventions
 
-- One effort per directory: `.scratch/<effort-slug>/` — currently just `.scratch/grocery-receipt-tracker/` (the whole app is one effort, not split into many)
-- The spec is `.scratch/<effort-slug>/spec.md`
-- Implementation issues are one file per ticket at `.scratch/<effort-slug>/issues/<NN>-<slug>.md`, numbered from `01` — never a single combined tickets file
-- Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md`)
-- Comments and conversation history append to the bottom of the file under a `## Comments` heading
-- **Repo-specific**: every planning doc (`spec.md`, each `issues/NN-*.md`) exists as an English original plus a `_zh` Chinese mirror (`spec_zh.md`, `NN-slug_zh.md`) — see CLAUDE.md's "Doc language convention". Keep both in sync when creating or editing either.
+- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
+- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
+- **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
+- **Comment on an issue**: `gh issue comment <number> --body "..."`
+- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
+- **Close**: `gh issue close <number> --comment "..."`
+
+Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
+
+## Repo-specific: bilingual issue bodies
+
+CLAUDE.md's "Doc language convention" applies to issues too, but as **one body with two sections** rather than two files:
+
+```markdown
+<English body — Question / Answer / etc.>
+
+---
+
+## 中文
+
+### <same headings, one level deeper>
+<Chinese mirror>
+```
+
+The English section is canonical when the two disagree. Keep both in sync when editing either. Comments may be single-language; only the issue body carries the mirror.
+
+## Pull requests as a triage surface
+
+**PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
+
+This is a family-only/self-use repo with no external contributors, so PRs are not a request surface. Note GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42` and fall back to `gh issue view 42`.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `.scratch/<effort-slug>/issues/` (creating the directory if needed) — and its `_zh` mirror.
+Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Read the file at the referenced path. The user will normally pass the path or the issue number directly.
+Run `gh issue view <number> --comments`.
+
+## Historical tickets (local markdown, migrated)
+
+Tickets 01–21 were originally local markdown under `.scratch/grocery-receipt-tracker/issues/`. They were migrated to GitHub issues #2–#22 (**local `NN` → GitHub `#NN+1`**, because PR #1 already occupied the number space) and the local files were then deleted, so GitHub is the single copy.
+
+`.scratch/grocery-receipt-tracker/issues/README.md` (+ `_zh`) survives as the mapping table only. `map.md`'s Decisions-so-far entries link directly to the GitHub issues. The deleted files remain in git history before commit `fe01e5e` if you ever need the raw markdown back.
+
+`.scratch/grocery-receipt-tracker/map.md` is still a local file, not yet a `wayfinder:map` issue.
 
 ## Wayfinding operations
 
-Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
+Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
 
-- **Map**: `.scratch/<effort>/map.md` — the Notes / Decisions-so-far / Fog body.
-- **Child ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `claimed`/`resolved`.
-- **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
-- **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
-- **Claim**: set `Status: claimed` and save before any work.
-- **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
+- **Map**: a single issue labelled `wayfinder:map`, holding the Notes / Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
+- **Child ticket**: an issue linked to the map as a GitHub sub-issue (`gh api` on the sub-issues endpoint). Where sub-issues aren't enabled, add the child to a task list in the map body and put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>` (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is assigned to the driving dev.
+- **Blocking**: GitHub's **native issue dependencies**, the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only, the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body — which is what the migrated tickets use. A ticket is unblocked when every blocker is closed.
+- **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
+- **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
+- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.

@@ -4,7 +4,7 @@ Guidance for Claude Code sessions working in this repo.
 
 ## What this is
 
-A family-shared web app: photograph grocery receipts, AI (OCR + translation + categorization) extracts line items, the app tracks unit-price changes, consumption rate, and multi-store price comparison. Full requirements: `.scratch/grocery-receipt-tracker/spec.md` (English) / `spec_zh.md` (Chinese) — read the relevant section before implementing a feature rather than re-deriving behavior from scratch. The planning history (why each decision was made) is in `.scratch/grocery-receipt-tracker/map.md` and `issues/NN-*.md`.
+A family-shared web app: photograph grocery receipts, AI (OCR + translation + categorization) extracts line items, the app tracks unit-price changes, consumption rate, and multi-store price comparison. Full requirements: `.scratch/grocery-receipt-tracker/spec.md` (English) / `spec_zh.md` (Chinese) — read the relevant section before implementing a feature rather than re-deriving behavior from scratch. The planning history (why each decision was made) is in `.scratch/grocery-receipt-tracker/map.md`, whose Decisions-so-far entries link straight to the GitHub issue holding the full reasoning. The original local `issues/NN-*.md` files were migrated to GitHub issues #2–#22 (local `NN` → `#NN+1`, since PR #1 already held a number) and then deleted; `issues/README.md` keeps the mapping table, and the files themselves are still in git history before commit `fe01e5e`.
 
 ## Doc language convention
 
@@ -84,7 +84,7 @@ Note `src/types/index.ts` still carries hand-written row interfaces (`Receipt`, 
 
 ### Issue tracker
 
-Issues and specs live as local markdown under `.scratch/<effort>/` (currently just `.scratch/grocery-receipt-tracker/`) — no GitHub Issues in use, despite the GitHub remote. See `docs/agents/issue-tracker.md`.
+Issues live as GitHub Issues on `chenyujiang/grocery-receipt-tracker`, via the `gh` CLI; issue bodies carry an English section plus a `## 中文` mirror. The spec stays local at `.scratch/grocery-receipt-tracker/spec.md`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
