@@ -113,9 +113,10 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
   return rows.map((row) => ({
     purchaseDate: row.receipts.purchase_date,
     storeNameEn: row.receipts.store_name_en,
-    storeNameZh: row.receipts.store_name_zh,
+    storeNameZh: row.receipts.store_name_zh ?? row.receipts.store_name_en,
     productNameEn: row.products?.canonical_name_en ?? row.raw_name_en,
-    productNameZh: row.products?.canonical_name_zh ?? row.raw_name_zh,
+    productNameZh:
+      row.products?.canonical_name_zh ?? row.raw_name_zh ?? row.products?.canonical_name_en ?? row.raw_name_en,
     category: row.products?.category ?? "",
     quantity: row.quantity,
     specValue: row.unit_spec_value,

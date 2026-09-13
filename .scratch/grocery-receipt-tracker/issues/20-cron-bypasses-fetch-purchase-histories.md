@@ -1,37 +1,22 @@
 Type: bug
-Status: needs-triage
+Status: resolved
 
 ## Problem
 
-`api/cron/low-stock-check.ts` builds its purchase histories with a `for` loop that issues **one `receipt_items` query per Product**, across every Circle in the database:
-
-```ts
-for (const product of products ?? []) {
-  const { data: rows, error } = await supabaseAdmin
-    .from("receipt_items")
-    .select("quantity, unit_spec_value, unit_spec_unit, receipts!inner(purchase_date, status)")
-    .eq("product_id", product.id)
-    …
-}
-```
-
-That is exactly the N+1 that `fetchPurchaseHistories(client, productIds)` in `src/lib/purchaseHistory.ts` exists to prevent, per CLAUDE.md:
+`api/cron/low-stock-check.ts` built its purchase histories with a `for` loop that issued **one `receipt_items` query per Product**, across every Circle in the database — exactly the N+1 that `fetchPurchaseHistories(client, productIds)` in `src/lib/purchaseHistory.ts` exists to prevent, per CLAUDE.md:
 
 > It issues **one** `.in("product_id", ids)` query, never one per product — if you find yourself writing a `for` loop around a `receipt_items` select, that's the bug this module exists to prevent.
 
-`fetchPurchaseHistories` already takes the client as a parameter specifically so `/api` can pass `supabaseAdmin` and sweep every Circle, which is what this route wants.
+The loop also re-implemented inline the two behaviours that module already owns: dropping rows with no unit spec, and sorting oldest-first.
 
-The module also drops rows with no unit spec and sorts oldest-first, both of which this loop re-implements inline — so the duplication is behavioural, not just structural.
+## Resolution
 
-## Uncertainty (hence needs-triage, not ready-for-agent)
+Fixed by `61176b0` ("Fetch purchase history in one batched query, not one per product"), which routed this handler — along with `receipts.ts`, `monthlyReport.ts` and `productDetail.ts` — through `fetchPurchaseHistories`, and collapsed the duplicate `ProductPriceHistory` type that had been declared twice with different bodies.
 
-At the time of writing, `src/lib/purchaseHistory.ts` exists untracked in the working tree and this handler is at its committed HEAD state, with no import of it. It's unclear whether:
+## What actually happened (worth keeping)
 
-- the refactor was in progress and this file simply hadn't been converted yet, or
-- it was converted and the change was lost.
+This was never a bug that got written; it was a bug that got **un-fixed**. The batched integration already existed and was reverted mid-flight across all four call sites, leaving `src/lib/purchaseHistory.ts` sitting untracked in the working tree with nothing importing it. This issue was filed from that intermediate state by a session that could see the N+1 in the handler but not the in-flight work that had removed it — hence the original `needs-triage`, and the note that it was unclear whether the refactor "hadn't happened yet or was lost."
 
-Worth confirming before acting — the fix itself is small (delete the loop, call `fetchPurchaseHistories(supabaseAdmin, ids)`), but it should land with whoever owns that in-flight work rather than conflicting with it.
+The lesson is about the filing, not the code: when a working tree contains an untracked module that nothing imports, and a handler that looks like it should import it, prefer asking over filing. `api/cron/low-stock-check.test.ts` was written against the reverted per-product shape for the same reason, and had to be re-adapted to the batched query afterwards.
 
-## Fix
-
-Replace the loop with a single `fetchPurchaseHistories(supabaseAdmin, productRows.map(p => p.id))` call, map the results back onto the `ProductConsumptionCheck` list, and delete the now-dead `ReceiptItemHistoryRow` interface. Then replace `low-stock-check.test.ts`'s `"currently issues one purchase-history query per Product"` characterization test — and the inline normalization tests that go with it — with a single assertion that the module was called once with every Product id.
+`CHARACTERIZATION, NOT ENDORSEMENT` is gone from that test; `"currently issues one purchase-history query per Product"` is now `"loads every Product's purchase history in one batched query"`, asserting a single batched call rather than pinning the N+1.

@@ -106,4 +106,33 @@ describe("fetchHomeSummary", () => {
 
     await expect(fetchHomeSummary(TODAY)).rejects.toThrow("network error");
   });
+
+  // CONTEXT.md, Bilingual Name.
+  it("reads a recent receipt's store with no Chinese translation back as its English source text", async () => {
+    const monthChain = monthReceiptsChain({ data: [], error: null });
+    const alertsChain = alertsCountChain({ count: 0, error: null });
+    const recentChain = recentReceiptsChain({
+      data: [
+        {
+          id: "receipt-1",
+          store_name_en: "Four Square",
+          store_name_zh: null,
+          purchase_date: "2026-08-04",
+          total_amount: 25.5,
+          status: "confirmed",
+        },
+      ],
+      error: null,
+    });
+
+    vi.mocked(supabase.from)
+      .mockReturnValueOnce(monthChain as never)
+      .mockReturnValueOnce(alertsChain as never)
+      .mockReturnValueOnce(recentChain as never);
+
+    const summary = await fetchHomeSummary(TODAY);
+
+    expect(summary.recentReceipts[0].storeNameZh).toBe("Four Square");
+  });
+
 });

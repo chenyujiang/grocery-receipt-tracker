@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import type { Database } from "../../src/types/database.types.js";
 
 // Section 3.1: server-side only. Uses the service-role key (bypasses RLS),
 // so this must never be imported from src/ or shipped to the client — only
@@ -13,4 +14,4 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
   );
 }
 
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
+export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);

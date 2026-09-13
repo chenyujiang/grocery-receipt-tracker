@@ -86,7 +86,7 @@ export async function fetchHomeSummary(today: Date = new Date()): Promise<HomeSu
   }>).map((row) => ({
     id: row.id,
     storeNameEn: row.store_name_en,
-    storeNameZh: row.store_name_zh,
+    storeNameZh: row.store_name_zh ?? row.store_name_en,
     purchaseDate: row.purchase_date,
     totalAmount: row.total_amount,
     status: row.status,
