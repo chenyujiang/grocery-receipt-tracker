@@ -7,6 +7,7 @@ import {
   type LeaderboardInput,
 } from "@/lib/priceChangeLeaderboard";
 import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
+import { bilingualName } from "@/lib/bilingualName";
 
 export interface CategoryProductBreakdownItem {
   productId: string | null;
@@ -118,17 +119,17 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
         existing.total += item.subtotal;
         existing.promoSavings += savings;
       } else {
+        // A matched Product's canonical name wins over the line's own OCR
+        // text, per language; the reader then applies the Bilingual Name rule
+        // to whatever survived.
+        const name = bilingualName(
+          item.products?.canonical_name_en ?? item.raw_name_en,
+          item.products?.canonical_name_zh ?? item.raw_name_zh
+        );
         products.set(productKey, {
           productId: item.product_id,
-          nameEn: item.products?.canonical_name_en ?? item.raw_name_en,
-          // Falls through to the English source text rather than blank — a
-          // Product whose Translation was never produced still reads back as
-          // its Source Text (CONTEXT.md, Bilingual Name).
-          nameZh:
-            item.products?.canonical_name_zh ??
-            item.raw_name_zh ??
-            item.products?.canonical_name_en ??
-            item.raw_name_en,
+          nameEn: name.en,
+          nameZh: name.zh,
           total: item.subtotal,
           promoSavings: savings,
         });
@@ -179,7 +180,7 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
     const productNames = new Map(
       (productRows ?? []).map((row) => [
         row.id,
-        { en: row.canonical_name_en, zh: row.canonical_name_zh ?? row.canonical_name_en },
+        bilingualName(row.canonical_name_en, row.canonical_name_zh),
       ])
     );
 

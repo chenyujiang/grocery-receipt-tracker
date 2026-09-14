@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
+// Relative + `.js`, not the `@/` alias: this is the one src/lib module that
+// `api/` imports at runtime (api/cron/low-stock-check.ts), and the alias is
+// a bundler concern the serverless build should not have to resolve.
+import { bilingualName } from "./bilingualName.js";
 
 // One confirmed ReceiptItem, flattened together with its Receipt's date and
 // store — the shared shape every price/consumption feature reads from.
@@ -72,10 +76,11 @@ export async function fetchPurchaseHistories(
     if (row.product_id == null || row.unit_spec_value == null || !row.unit_spec_unit) {
       continue;
     }
+    const storeName = bilingualName(row.receipts.store_name_en, row.receipts.store_name_zh);
     byProduct.get(row.product_id)?.push({
       purchaseDate: row.receipts.purchase_date,
-      storeNameEn: row.receipts.store_name_en,
-      storeNameZh: row.receipts.store_name_zh ?? row.receipts.store_name_en,
+      storeNameEn: storeName.en,
+      storeNameZh: storeName.zh,
       unitPrice: row.unit_price,
       quantity: row.quantity,
       specValue: row.unit_spec_value,

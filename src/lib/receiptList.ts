@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { bilingualName } from "@/lib/bilingualName";
 
 export interface ReceiptFilters {
   storeQuery?: string;
@@ -56,15 +57,16 @@ export async function fetchReceipts(filters: ReceiptFilters = {}): Promise<Recei
 
   const rows = data ?? [];
 
-  return rows.map((row) => ({
-    id: row.id,
-    storeNameEn: row.store_name_en,
-    // A Store whose Translation was never produced reads back as its Source
-    // Text (CONTEXT.md, Bilingual Name) — same as home.ts and receipts.ts.
-    storeNameZh: row.store_name_zh ?? row.store_name_en,
-    purchaseDate: row.purchase_date,
-    totalAmount: row.total_amount,
-    status: row.status,
-    uploadedBy: row.uploaded_by,
-  }));
+  return rows.map((row) => {
+    const storeName = bilingualName(row.store_name_en, row.store_name_zh);
+    return {
+      id: row.id,
+      storeNameEn: storeName.en,
+      storeNameZh: storeName.zh,
+      purchaseDate: row.purchase_date,
+      totalAmount: row.total_amount,
+      status: row.status,
+      uploadedBy: row.uploaded_by,
+    };
+  });
 }

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { bilingualName } from "@/lib/bilingualName";
 
 export type AlertType = "price_spike" | "low_stock";
 
@@ -29,18 +30,26 @@ export async function fetchAlerts(): Promise<AlertListItem[]> {
 
   const rows = data ?? [];
 
-  return rows.map((row) => ({
-    id: row.id,
-    type: row.type,
-    productId: row.product_id,
-    // A Product whose Translation was never produced reads back as its
-    // Source Text, never as blank (CONTEXT.md, Bilingual Name). `products`
-    // itself can only be null to the type checker — `alerts.product_id` is
-    // NOT NULL with an FK, so the embed always resolves.
-    productNameEn: row.products?.canonical_name_en ?? "",
-    productNameZh: row.products?.canonical_name_zh ?? row.products?.canonical_name_en ?? "",
-    newPrice: row.new_price,
-    changePercent: row.change_percent,
-    createdAt: row.created_at,
-  }));
+  return rows.map((row) => {
+    // `products` is null only to the type checker — `alerts.product_id` is
+    // NOT NULL with an FK, so the embed always resolves. The `?? ""` is the
+    // unreachable arm; it stands in for a Product with no Source Text at
+    // all, and feeding it through the reader is what keeps that case blank
+    // in *both* languages. Blank-in-one-language-only is the thing the
+    // Bilingual Name rule forbids (CONTEXT.md).
+    const productName = bilingualName(
+      row.products?.canonical_name_en ?? "",
+      row.products?.canonical_name_zh
+    );
+    return {
+      id: row.id,
+      type: row.type,
+      productId: row.product_id,
+      productNameEn: productName.en,
+      productNameZh: productName.zh,
+      newPrice: row.new_price,
+      changePercent: row.change_percent,
+      createdAt: row.created_at,
+    };
+  });
 }
