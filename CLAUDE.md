@@ -4,11 +4,11 @@ Guidance for Claude Code sessions working in this repo.
 
 ## What this is
 
-A family-shared web app: photograph grocery receipts, AI (OCR + translation + categorization) extracts line items, the app tracks unit-price changes, consumption rate, and multi-store price comparison. Full requirements: `.scratch/grocery-receipt-tracker/spec.md` (English) / `spec_zh.md` (Chinese) — read the relevant section before implementing a feature rather than re-deriving behavior from scratch. The planning history (why each decision was made) is in `.scratch/grocery-receipt-tracker/map.md` and `issues/NN-*.md`.
+A family-shared web app: photograph grocery receipts, AI (OCR + translation + categorization) extracts line items, the app tracks unit-price changes, consumption rate, and multi-store price comparison. Full requirements: `.scratch/grocery-receipt-tracker/spec.md`, English original first and its Chinese translation below it in the same file — read the relevant section before implementing a feature rather than re-deriving behavior from scratch. The planning history (why each decision was made) is in `.scratch/grocery-receipt-tracker/map.md` and `issues/NN-*.md`.
 
 ## Doc language convention
 
-Every planning doc under `.scratch/grocery-receipt-tracker/`, plus this repo's `README.md` and `CONTEXT.md`, exists as an English original (unsuffixed filename) and a Chinese translation (`_zh` suffix, e.g. `spec_zh.md`, `README_zh.md`, `CONTEXT_zh.md`). The English original is canonical when the two disagree, since its terms are the ones that match the code's identifiers. Keep both in sync when editing either — don't let content drift between them. This is a documentation-only convention; it's unrelated to the app's own bilingual data fields (see below).
+Every planning doc under `.scratch/grocery-receipt-tracker/`, plus this repo's `README.md`, `CONTEXT.md`, and `docs/adr/*.md`, is **one bilingual file**: the English original, then a `---` rule and a `> **中文版**` marker, then the Chinese translation. (They used to be separate `_zh.md` files; that split is gone — don't recreate it.) The English half is canonical when the two disagree, since its terms are the ones that match the code's identifiers. Edit both halves together — don't let them drift. Issue files keep a single `Type:`/`Status:`/`GitHub:` header above the English half, covering the whole file, so status can't differ between languages. This is a documentation-only convention; it's unrelated to the app's own bilingual data fields (see below).
 
 ## Stack
 

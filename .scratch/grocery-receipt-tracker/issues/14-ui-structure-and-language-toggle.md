@@ -32,3 +32,38 @@ Several rounds of implementation-time UI feedback changed this ticket's answer:
 - **Bilingual toggle**: per ticket 09's amendment, the toggle now drives fixed UI chrome too, not just dynamic content.
 - **Receipt list**: gained a delete action per row (uploader-only, per ticket 02's permission model; also cleans up the image in Storage), and a `confirmed` receipt now opens a dedicated **read-only detail page** rather than nothing — confirming only locks a receipt against further edits, it doesn't stop it from being viewed again.
 - **Date pickers**: the receipt list's date filter and the monthly report's CSV export range both moved from native day-precise `<input type="date">` controls to the same custom year-then-month popover as the report's own month navigator — trading day precision for a single consistent picker interaction across the app (see spec.md Section 14/15).
+
+---
+
+> **中文版**（上方为英文原文；两者不一致时以英文为准）
+
+## Question
+
+页面结构/信息架构长什么样，双语内容在界面上怎么切换显示？（不是要做像素级视觉设计，而是把 spec 需要的页面清单、导航方式、双语显示机制定下来；具体视觉样式留给实现阶段或后续的 /prototype 环节。）
+
+## Answer
+
+**页面清单**（移动优先，因为核心操作是手机拍照上传）：
+
+- 首页/Dashboard：本月总支出、分类占比、待处理提醒摘要（10/11 号 ticket）、最近几张小票。
+- 拍照上传流程：拍照/选图 → AI 处理中 → 预览确认页（逐条编辑双语商品名、数量、规格、单价、分类、匹配建议，见 03/05 号 ticket）→ 确认入库。
+- 小票列表：历史小票，按店铺/日期/上传人筛选。
+- 商品详情页：06 号的价格趋势图 + 13 号的多店铺比价模块 + 07 号的消耗速度/预计剩余天数 + 该商品的购买历史。
+- 月度报告页：按月份汇总的总览——本月总支出及环比、分类占比、涨幅榜单（复用 06 号 ticket 的计算逻辑，作为本页一个板块，不再单列一个重复页面）、本月触发的价格异常/低库存提醒次数（10/11 号）、按上传人的支出分布，以及导出当前时间范围数据的按钮（12 号 ticket，CSV 格式，不单独开一个导出页面）。
+- 通知中心：10/11 号的提醒列表。
+- 圈子设置：成员管理、邀请链接（02 号 ticket）。
+
+**导航方式**：底部 Tab Bar（移动网页更顺手）——首页 / 小票 / 月度报告 / 通知 / 我的；拍照上传做成一个居中悬浮的醒目按钮，而不是塞进某个 tab 里。
+
+**双语内容显示机制**：做一个语言切换开关（放在"我的"/设置页，或者页面顶部），默认只显示一种语言的动态内容（商品名、店铺名等 `_zh`/`_en` 字段），切换后整批内容跟着切换显示的语言版本；开关只影响数据内容，不影响界面固定文案（09 号 ticket 已定界面固定文案只做英文，不受这个开关影响）。
+
+**范围说明**：这张 ticket 定的是页面清单、导航结构和双语切换机制，不是像素级的视觉设计（配色细节已经在 06 号 ticket 里定了涨红跌绿；字体、间距、组件样式等留给实现/原型阶段）。
+
+## 上线后的修订
+
+实现阶段经过几轮 UI 反馈，这张 ticket 的答案有几处变了：
+
+- **导航**：拍照上传从悬浮按钮改成普通的第五个 tab（首页 / 小票 / 上传 / 报告 / 我的，五个等宽项），通知也整个搬出了 Tab Bar，改成固定在每个页面右上角的一个小图标——五个 tab 加一个悬浮按钮挤在一条底部栏里，看起来太拥挤了。
+- **双语切换**：按 09 号 ticket 的修订，这个开关现在也控制界面固定文案，不只是数据内容。
+- **小票列表**：每条记录加了删除操作（限本人上传的，遵循 02 号 ticket 的权限模型；删除时同时清掉 Storage 里的图片），已 `confirmed` 的小票现在点开是一个独立的**只读详情页**，而不是什么都没有——毕竟确认只是锁定不让再编辑，不代表不能再看。
+- **日期选择器**：小票列表的日期筛选、月度报告的 CSV 导出范围，都从原生的、精确到日的 `<input type="date">` 换成了和报告页自己的月份导航栏一样的"先选年再选月"自定义弹出选择器——牺牲精确到日的粒度，换来全 app 统一的选择交互（详见 spec.md 第 14/15 节）。

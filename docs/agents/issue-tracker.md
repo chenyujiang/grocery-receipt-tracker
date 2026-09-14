@@ -10,7 +10,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md`)
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 - **Repo-specific**: each issue file carries a `GitHub: #NN` header line pointing at its mirror on GitHub, and the GitHub copy opens with a `Mirrors …/NN-slug.md (local ticket NN)` line pointing back. See "GitHub mirror" below — the two numbers are *not* the same number.
-- **Repo-specific**: every planning doc (`spec.md`, each `issues/NN-*.md`) exists as an English original plus a `_zh` Chinese mirror (`spec_zh.md`, `NN-slug_zh.md`) — see CLAUDE.md's "Doc language convention". Keep both in sync when creating or editing either.
+- **Repo-specific**: every planning doc (`spec.md`, each `issues/NN-*.md`) is one bilingual file — English original, a `---` rule with a `> **中文版**` marker, then the Chinese translation. The `Type:`/`Status:`/`GitHub:` header sits once at the top and covers both halves. See CLAUDE.md's "Doc language convention"; keep the two halves in sync when creating or editing either.
 
 ## GitHub mirror
 
@@ -24,7 +24,7 @@ When filing a new ticket, create the local file first, then the GitHub mirror, t
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `.scratch/<effort-slug>/issues/` (creating the directory if needed) — and its `_zh` mirror.
+Create a new file under `.scratch/<effort-slug>/issues/` (creating the directory if needed), with both language halves in that one file.
 
 ## When a skill says "fetch the relevant ticket"
 
