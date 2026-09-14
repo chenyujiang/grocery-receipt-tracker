@@ -5,23 +5,19 @@ import userEvent from "@testing-library/user-event";
 // Supabase is the external boundary — mocked here. auth.ts itself is our own
 // module and is exercised for real, so this test verifies the actual wiring
 // between the form and the sign-up logic, not a mock of our own code.
-vi.mock("@/lib/supabaseClient", () => ({
-  supabase: {
-    auth: { signUp: vi.fn() },
-    from: vi.fn(),
-  },
-}));
+vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 import { supabase } from "@/lib/supabaseClient";
+import { installFakeSupabase } from "@/test/fakeSupabase";
 import SignUpForm from "@/components/SignUpForm";
 
 // auth.ts's circle/profile inserts deliberately don't chain .select() (see
 // its comment — RETURNING would hit a not-yet-satisfiable RLS SELECT
-// policy for a brand-new user), so the mock only needs to resolve {error}.
-function insertChain(result: { error: unknown }) {
-  const insert = vi.fn().mockResolvedValue(result);
-  return { insert };
-}
+// policy for a brand-new user), so a prepared {error} is the whole result.
+const INSERTED = { error: null };
+
+/** Enough dashes to satisfy crypto.randomUUID's template-literal return type. */
+const CIRCLE_ID = "circle-0000-0000-0000-000000000001";
 
 describe("SignUpForm", () => {
   beforeEach(() => {
@@ -29,18 +25,10 @@ describe("SignUpForm", () => {
   });
 
   it("lets a user sign up and reports the new owner profile", async () => {
-    vi.spyOn(crypto, "randomUUID").mockReturnValue("circle-1" as never);
-    vi.mocked(supabase.auth.signUp).mockResolvedValue({
-      data: { user: { id: "user-1" }, session: null },
-      error: null,
-    } as never);
-
-    const circlesChain = insertChain({ error: null });
-    const profilesChain = insertChain({ error: null });
-    vi.mocked(supabase.from).mockImplementation((table: string) => {
-      if (table === "circles") return circlesChain as never;
-      if (table === "profiles") return profilesChain as never;
-      throw new Error(`unexpected table: ${table}`);
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(CIRCLE_ID);
+    const db = installFakeSupabase(supabase, {
+      auth: { signUp: { data: { user: { id: "user-1" }, session: null }, error: null } },
+      tables: { circles: INSERTED, profiles: INSERTED },
     });
 
     const onSuccess = vi.fn();
@@ -54,20 +42,25 @@ describe("SignUpForm", () => {
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledWith({
         userId: "user-1",
-        circleId: "circle-1",
+        circleId: CIRCLE_ID,
         role: "owner",
       });
     });
-    expect(profilesChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ display_name: "New User" })
-    );
+    expect(db.callsFor("profiles")).toContainEqual([
+      "insert",
+      expect.objectContaining({ display_name: "New User" }),
+    ]);
   });
 
   it("shows an error message when sign-up fails", async () => {
-    vi.mocked(supabase.auth.signUp).mockResolvedValue({
-      data: { user: null, session: null },
-      error: new Error("User already registered"),
-    } as never);
+    installFakeSupabase(supabase, {
+      auth: {
+        signUp: {
+          data: { user: null, session: null },
+          error: new Error("User already registered"),
+        },
+      },
+    });
 
     render(<SignUpForm onSuccess={vi.fn()} />);
 

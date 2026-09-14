@@ -1,24 +1,12 @@
-import { describe, it, expect, vi } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { describe, it, expect } from "vitest";
+import { createFakeSupabase } from "@/test/fakeSupabase";
 import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 
 // This module takes its Supabase client as a parameter (the browser's
 // RLS-scoped one, or the cron's service-role one), so there's nothing to
 // vi.mock — the fake client is passed straight in.
 function fakeClient(result: { data: unknown; error: unknown }) {
-  const order = vi.fn().mockResolvedValue(result);
-  const eq = vi.fn(() => ({ order }));
-  const isIn = vi.fn(() => ({ eq }));
-  const select = vi.fn(() => ({ in: isIn }));
-  const from = vi.fn(() => ({ select }));
-  return {
-    client: { from } as unknown as SupabaseClient,
-    from,
-    select,
-    in: isIn,
-    eq,
-    order,
-  };
+  return createFakeSupabase({ tables: { receipt_items: result } });
 }
 
 function row(overrides: Record<string, unknown> = {}) {
@@ -46,8 +34,16 @@ describe("fetchPurchaseHistories", () => {
 
     expect(mock.from).toHaveBeenCalledTimes(1);
     expect(mock.from).toHaveBeenCalledWith("receipt_items");
-    expect(mock.in).toHaveBeenCalledWith("product_id", ["p1", "p2", "p3"]);
-    expect(mock.eq).toHaveBeenCalledWith("receipts.status", "confirmed");
+    expect(mock.callsFor("receipt_items")).toContainEqual([
+      "in",
+      "product_id",
+      ["p1", "p2", "p3"],
+    ]);
+    expect(mock.callsFor("receipt_items")).toContainEqual([
+      "eq",
+      "receipts.status",
+      "confirmed",
+    ]);
   });
 
   it("returns one history per requested product, in the order requested", async () => {
@@ -140,7 +136,7 @@ describe("fetchPurchaseHistories", () => {
 
     const histories = await fetchPurchaseHistories(mock.client, ["p1", "p1"]);
 
-    expect(mock.in).toHaveBeenCalledWith("product_id", ["p1"]);
+    expect(mock.callsFor("receipt_items")).toContainEqual(["in", "product_id", ["p1"]]);
     expect(histories).toHaveLength(1);
   });
 

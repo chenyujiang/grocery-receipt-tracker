@@ -7,6 +7,7 @@ import {
   type LeaderboardInput,
 } from "@/lib/priceChangeLeaderboard";
 import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
+import { bilingualName } from "@/lib/bilingualName";
 
 export interface CategoryProductBreakdownItem {
   productId: string | null;
@@ -54,10 +55,7 @@ async function fetchMonthSpend(start: string, end: string): Promise<number> {
   if (error) {
     throw error;
   }
-  return ((data ?? []) as Array<{ total_amount: number }>).reduce(
-    (sum, row) => sum + row.total_amount,
-    0
-  );
+  return (data ?? []).reduce((sum, row) => sum + row.total_amount, 0);
 }
 
 // Section 14: the monthly report page — total spend vs. last month, category
@@ -121,10 +119,17 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
         existing.total += item.subtotal;
         existing.promoSavings += savings;
       } else {
+        // A matched Product's canonical name wins over the line's own OCR
+        // text, per language; the reader then applies the Bilingual Name rule
+        // to whatever survived.
+        const name = bilingualName(
+          item.products?.canonical_name_en ?? item.raw_name_en,
+          item.products?.canonical_name_zh ?? item.raw_name_zh
+        );
         products.set(productKey, {
           productId: item.product_id,
-          nameEn: item.products?.canonical_name_en ?? item.raw_name_en,
-          nameZh: item.products?.canonical_name_zh ?? item.raw_name_zh ?? "",
+          nameEn: name.en,
+          nameZh: name.zh,
           total: item.subtotal,
           promoSavings: savings,
         });
@@ -173,11 +178,10 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
       throw productsError;
     }
     const productNames = new Map(
-      ((productRows ?? []) as Array<{
-        id: string;
-        canonical_name_en: string;
-        canonical_name_zh: string;
-      }>).map((row) => [row.id, { en: row.canonical_name_en, zh: row.canonical_name_zh }])
+      (productRows ?? []).map((row) => [
+        row.id,
+        bilingualName(row.canonical_name_en, row.canonical_name_zh),
+      ])
     );
 
     const histories = await fetchPurchaseHistories(supabase, [...productIds]);

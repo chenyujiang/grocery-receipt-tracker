@@ -1,30 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
 // Issue 15 decision 2: a non-admin (or logged-out visitor) hitting this
 // route sees a plain 404, not a login redirect — the route's existence
 // isn't confirmed either way.
-vi.mock("@/lib/supabaseClient", () => ({
-  supabase: {
-    auth: { getSession: vi.fn(), onAuthStateChange: vi.fn() },
-    from: vi.fn(),
-  },
-}));
+vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 import { supabase } from "@/lib/supabaseClient";
+import { installFakeSupabase } from "@/test/fakeSupabase";
 import { AuthProvider } from "@/lib/AuthProvider";
 import RequireGlobalAdmin from "@/components/RequireGlobalAdmin";
 
-function unsubscribableChange() {
-  return { data: { subscription: { unsubscribe: vi.fn() } } } as never;
-}
-
-function globalAdminsChain(result: { data: unknown; error: unknown }) {
-  const maybeSingle = vi.fn().mockResolvedValue(result);
-  const eq = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ eq }));
-  return { select };
+/** A signed-in session for `userId`, in the shape AuthProvider reads. */
+function sessionFor(userId: string) {
+  return { data: { session: { user: { id: userId }, access_token: "tok-1" } } };
 }
 
 function renderGuardedRoute() {
@@ -47,13 +37,10 @@ function renderGuardedRoute() {
 }
 
 describe("RequireGlobalAdmin", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("shows a 404 (not a login redirect) when there is no session", async () => {
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: null } } as never);
-    vi.mocked(supabase.auth.onAuthStateChange).mockReturnValue(unsubscribableChange());
+    // No `global_admins` prepared: with no session there is nobody to check,
+    // so querying it at all would throw.
+    installFakeSupabase(supabase, { auth: { getSession: { data: { session: null } } } });
 
     renderGuardedRoute();
 
@@ -61,11 +48,10 @@ describe("RequireGlobalAdmin", () => {
   });
 
   it("shows a 404 when the signed-in user is not a global admin", async () => {
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({
-      data: { session: { user: { id: "user-1" }, access_token: "tok-1" } },
-    } as never);
-    vi.mocked(supabase.auth.onAuthStateChange).mockReturnValue(unsubscribableChange());
-    vi.mocked(supabase.from).mockReturnValue(globalAdminsChain({ data: null, error: null }) as never);
+    installFakeSupabase(supabase, {
+      auth: { getSession: sessionFor("user-1") },
+      tables: { global_admins: { data: null, error: null } },
+    });
 
     renderGuardedRoute();
 
@@ -73,13 +59,10 @@ describe("RequireGlobalAdmin", () => {
   });
 
   it("renders the admin content when the signed-in user is a global admin", async () => {
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({
-      data: { session: { user: { id: "admin-1" }, access_token: "tok-1" } },
-    } as never);
-    vi.mocked(supabase.auth.onAuthStateChange).mockReturnValue(unsubscribableChange());
-    vi.mocked(supabase.from).mockReturnValue(
-      globalAdminsChain({ data: { user_id: "admin-1" }, error: null }) as never
-    );
+    installFakeSupabase(supabase, {
+      auth: { getSession: sessionFor("admin-1") },
+      tables: { global_admins: { data: { user_id: "admin-1" }, error: null } },
+    });
 
     renderGuardedRoute();
 

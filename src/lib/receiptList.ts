@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { bilingualName } from "@/lib/bilingualName";
 
 export interface ReceiptFilters {
   storeQuery?: string;
@@ -54,23 +55,18 @@ export async function fetchReceipts(filters: ReceiptFilters = {}): Promise<Recei
     throw error;
   }
 
-  const rows = (data ?? []) as Array<{
-    id: string;
-    store_name_en: string;
-    store_name_zh: string;
-    purchase_date: string;
-    total_amount: number;
-    status: string;
-    uploaded_by: string;
-  }>;
+  const rows = data ?? [];
 
-  return rows.map((row) => ({
-    id: row.id,
-    storeNameEn: row.store_name_en,
-    storeNameZh: row.store_name_zh,
-    purchaseDate: row.purchase_date,
-    totalAmount: row.total_amount,
-    status: row.status,
-    uploadedBy: row.uploaded_by,
-  }));
+  return rows.map((row) => {
+    const storeName = bilingualName(row.store_name_en, row.store_name_zh);
+    return {
+      id: row.id,
+      storeNameEn: storeName.en,
+      storeNameZh: storeName.zh,
+      purchaseDate: row.purchase_date,
+      totalAmount: row.total_amount,
+      status: row.status,
+      uploadedBy: row.uploaded_by,
+    };
+  });
 }

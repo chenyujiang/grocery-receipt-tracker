@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { fetchCircleMembers } from "@/lib/circleMembers";
+import { bilingualName } from "@/lib/bilingualName";
 
 export interface ExportRow {
   purchaseDate: string;
@@ -92,26 +93,29 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
   const members = await fetchCircleMembers();
   const nameById = new Map(members.map((member) => [member.userId, member.displayName]));
 
-  // Cast at the boundary: without generated Database types, supabase-js
-  // infers these to-one embeds (receipt_items -> products, -> receipts) as
-  // arrays, though PostgREST returns single objects at runtime.
   const rows = data ?? [];
 
-  return rows.map((row) => ({
-    purchaseDate: row.receipts.purchase_date,
-    storeNameEn: row.receipts.store_name_en,
-    storeNameZh: row.receipts.store_name_zh ?? row.receipts.store_name_en,
-    productNameEn: row.products?.canonical_name_en ?? row.raw_name_en,
-    productNameZh:
-      row.products?.canonical_name_zh ?? row.raw_name_zh ?? row.products?.canonical_name_en ?? row.raw_name_en,
-    category: row.products?.category ?? "",
-    quantity: row.quantity,
-    specValue: row.unit_spec_value,
-    specUnit: row.unit_spec_unit,
-    unitPrice: row.unit_price,
-    isPromotion: row.is_promotion,
-    uploader: nameById.get(row.receipts.uploaded_by) ?? row.receipts.uploaded_by,
-  }));
+  return rows.map((row) => {
+    const storeName = bilingualName(row.receipts.store_name_en, row.receipts.store_name_zh);
+    const productName = bilingualName(
+      row.products?.canonical_name_en ?? row.raw_name_en,
+      row.products?.canonical_name_zh ?? row.raw_name_zh
+    );
+    return {
+      purchaseDate: row.receipts.purchase_date,
+      storeNameEn: storeName.en,
+      storeNameZh: storeName.zh,
+      productNameEn: productName.en,
+      productNameZh: productName.zh,
+      category: row.products?.category ?? "",
+      quantity: row.quantity,
+      specValue: row.unit_spec_value,
+      specUnit: row.unit_spec_unit,
+      unitPrice: row.unit_price,
+      isPromotion: row.is_promotion,
+      uploader: nameById.get(row.receipts.uploaded_by) ?? row.receipts.uploaded_by,
+    };
+  });
 }
 
 // Thin browser-API wrapper (Blob + anchor click) — not worth a unit test,

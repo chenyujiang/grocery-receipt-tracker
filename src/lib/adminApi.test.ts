@@ -3,14 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Supabase (for the access token) and fetch (for the /api/admin calls) are
 // the external boundaries — mock them here, not the behavior we're testing
 // (issue 15: the admin dashboard's list/grant-credit/ban calls).
-vi.mock("@/lib/supabaseClient", () => ({
-  supabase: {
-    auth: { getSession: vi.fn() },
-    from: vi.fn(),
-  },
-}));
+vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 import { supabase } from "@/lib/supabaseClient";
+import { installFakeSupabase } from "@/test/fakeSupabase";
 import {
   fetchAdminUsers,
   grantAdminCredit,
@@ -19,21 +15,20 @@ import {
   mergeUsersIntoCircle,
 } from "@/lib/adminApi";
 
-function globalAdminsChain(result: { data: unknown; error: unknown }) {
-  const maybeSingle = vi.fn().mockResolvedValue(result);
-  const eq = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ eq }));
-  return { select };
+// The `fetch` casts below are the HTTP boundary, not the Supabase one —
+// out of scope for the shared fake.
+function installSupabase(globalAdminsRow: unknown = null) {
+  return installFakeSupabase(supabase, {
+    auth: { getSession: { data: { session: { access_token: "tok-1" } }, error: null } },
+    tables: { global_admins: { data: globalAdminsRow, error: null } },
+  });
 }
 
 describe("adminApi", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("fetch", vi.fn());
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({
-      data: { session: { access_token: "tok-1" } },
-      error: null,
-    } as never);
+    installSupabase();
   });
 
   it("fetchAdminUsers sends the access token and returns the user list", async () => {
@@ -102,15 +97,13 @@ describe("adminApi", () => {
   });
 
   it("isGlobalAdmin returns true when the user has a global_admins row", async () => {
-    vi.mocked(supabase.from).mockReturnValue(
-      globalAdminsChain({ data: { user_id: "u1" }, error: null }) as never
-    );
+    installSupabase({ user_id: "u1" });
 
     await expect(isGlobalAdmin("u1")).resolves.toBe(true);
   });
 
   it("isGlobalAdmin returns false when the user has no global_admins row", async () => {
-    vi.mocked(supabase.from).mockReturnValue(globalAdminsChain({ data: null, error: null }) as never);
+    installSupabase(null);
 
     await expect(isGlobalAdmin("u1")).resolves.toBe(false);
   });

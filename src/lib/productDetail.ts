@@ -4,6 +4,7 @@ import { buildPriceTrend, type PriceTrendPoint } from "@/lib/priceTrend";
 import { compareStores, type StoreComparisonEntry } from "@/lib/storeComparison";
 import { calculateConsumption, type ConsumptionEstimate } from "@/lib/consumptionRate";
 import { fetchPurchaseHistories, type Purchase } from "@/lib/purchaseHistory";
+import { bilingualName } from "@/lib/bilingualName";
 
 // The detail page's history table renders a Purchase directly.
 export type PurchaseHistoryEntry = Purchase;
@@ -48,10 +49,15 @@ export async function fetchProductDetail(
 
   const consumption = calculateConsumption(purchaseHistory, today);
 
+  const canonicalName = bilingualName(
+    productRow.canonical_name_en,
+    productRow.canonical_name_zh
+  );
+
   return {
     id: productRow.id,
-    canonicalNameEn: productRow.canonical_name_en,
-    canonicalNameZh: productRow.canonical_name_zh ?? productRow.canonical_name_en,
+    canonicalNameEn: canonicalName.en,
+    canonicalNameZh: canonicalName.zh,
     category: productRow.category,
     priceChange,
     priceTrend,

@@ -20,12 +20,7 @@ export async function fetchCircleMembers(): Promise<CircleMember[]> {
     throw error;
   }
 
-  const rows = (data ?? []) as Array<{
-    user_id: string;
-    display_name: string | null;
-    role: Role;
-    circle_id: string;
-  }>;
+  const rows = data ?? [];
   return rows.map((row) => ({
     userId: row.user_id,
     displayName: row.display_name ?? row.user_id,

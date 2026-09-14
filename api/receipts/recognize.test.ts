@@ -1,12 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../_lib/supabaseAdmin.js", () => ({
-  supabaseAdmin: {
-    auth: { getUser: vi.fn() },
-    from: vi.fn(),
-    storage: { from: vi.fn() },
-  },
-}));
+vi.mock("../_lib/supabaseAdmin.js", () => ({ supabaseAdmin: {} }));
 
 // getAccessStatus/recordSuccess are stubbed, but FREE_TRIAL_LIMIT stays real —
 // the refusal copy is built from it, and a fake limit would make the 402
@@ -21,6 +15,7 @@ vi.mock("../_lib/recognizeReceipt.js", () => ({ recognizeReceipt: vi.fn() }));
 vi.mock("../_lib/saveDraftReceipt.js", () => ({ saveDraftReceipt: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
 import { getAccessStatus, recordSuccess, FREE_TRIAL_LIMIT } from "../_lib/userAiAccess.js";
 import { aiAccessRefusalMessage, SUPPORT_EMAIL } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
@@ -35,34 +30,22 @@ const RECOGNIZED = { receipt: { storeName: "PAK'nSAVE" }, usage: { inputTokens: 
 
 type Result = { data: unknown; error: unknown };
 
-function profilesChain(result: Result) {
-  return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve(result) }) }) };
-}
-
-function productsChain(result: Result) {
-  return { select: () => ({ eq: () => Promise.resolve(result) }) };
-}
-
 interface Wiring {
   profiles?: Result;
   products?: Result;
   uploadError?: unknown;
 }
 
-function wireSupabase({ profiles, products, uploadError = null }: Wiring = {}) {
-  vi.mocked(supabaseAdmin.auth.getUser).mockResolvedValue({
-    data: { user: USER },
-    error: null,
-  } as never);
-
-  vi.mocked(supabaseAdmin.from).mockImplementation(((table: string) =>
-    table === "profiles"
-      ? profilesChain(profiles ?? { data: { circle_id: CIRCLE_ID }, error: null })
-      : productsChain(products ?? { data: [], error: null })) as never);
-
-  const upload = vi.fn().mockResolvedValue({ error: uploadError });
-  vi.mocked(supabaseAdmin.storage.from).mockReturnValue({ upload } as never);
-  return { upload };
+function installSupabase({ profiles, products, uploadError = null }: Wiring = {}) {
+  const db = installFakeSupabase(supabaseAdmin, {
+    auth: { getUser: { data: { user: USER }, error: null } },
+    tables: {
+      profiles: profiles ?? { data: { circle_id: CIRCLE_ID }, error: null },
+      products: products ?? { data: [], error: null },
+    },
+    storage: { upload: { error: uploadError } },
+  });
+  return { db, upload: db.storage.upload };
 }
 
 function recognizeRequest(overrides: Record<string, unknown> = {}) {
@@ -90,6 +73,7 @@ const ALLOWED = { allowed: true, mode: "trial" as const, spentUsd: 0, capUsd: nu
 describe("POST /api/receipts/recognize", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    installFakeSupabase(supabaseAdmin);
     vi.mocked(getAccessStatus).mockResolvedValue(ALLOWED as never);
     vi.mocked(recognizeReceipt).mockResolvedValue(RECOGNIZED as never);
     vi.mocked(calculateHaikuCost).mockReturnValue(0.0042);
@@ -133,7 +117,7 @@ describe("POST /api/receipts/recognize", () => {
     });
 
     it("403s when the account has no Circle", async () => {
-      wireSupabase({ profiles: { data: null, error: null } });
+      installSupabase({ profiles: { data: null, error: null } });
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
@@ -145,7 +129,7 @@ describe("POST /api/receipts/recognize", () => {
   });
 
   describe("body validation", () => {
-    beforeEach(() => wireSupabase());
+    beforeEach(() => installSupabase());
 
     it.each([
       ["a missing image", { imageBase64: undefined }],
@@ -196,7 +180,7 @@ describe("POST /api/receipts/recognize", () => {
   // an exhausted user and a billable Claude call, so every assertion here is
   // about it firing *before* recognizeReceipt.
   describe("AI Access refusal (402)", () => {
-    beforeEach(() => wireSupabase());
+    beforeEach(() => installSupabase());
 
     it("402s when the Free Trial is used up, naming the call count", async () => {
       const status = blocked("trial");
@@ -244,7 +228,7 @@ describe("POST /api/receipts/recognize", () => {
     });
 
     it("spends nothing: no Claude call, no upload, no draft", async () => {
-      const { upload } = wireSupabase();
+      const { upload } = installSupabase();
       vi.mocked(getAccessStatus).mockResolvedValue(blocked("trial") as never);
 
       await handler(recognizeRequest(), makeRes().res);
@@ -258,7 +242,7 @@ describe("POST /api/receipts/recognize", () => {
 
   describe("the happy path", () => {
     it("stores the image under the caller's Circle with the right extension", async () => {
-      const { upload } = wireSupabase();
+      const { upload } = installSupabase();
 
       await handler(recognizeRequest({ mediaType: "image/png" }), makeRes().res);
 
@@ -270,7 +254,7 @@ describe("POST /api/receipts/recognize", () => {
     });
 
     it("passes the Circle's existing products to the matcher", async () => {
-      wireSupabase({
+      installSupabase({
         products: {
           data: [{ id: "product-1", canonical_name_en: "Anchor Blue Milk 2L" }],
           error: null,
@@ -287,7 +271,7 @@ describe("POST /api/receipts/recognize", () => {
     });
 
     it("treats a Circle with no products yet as an empty list, not a failure", async () => {
-      wireSupabase({ products: { data: null, error: null } });
+      installSupabase({ products: { data: null, error: null } });
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
@@ -297,7 +281,7 @@ describe("POST /api/receipts/recognize", () => {
     });
 
     it("records the call's real cost against the caller", async () => {
-      wireSupabase();
+      installSupabase();
 
       await handler(recognizeRequest(), makeRes().res);
 
@@ -308,7 +292,7 @@ describe("POST /api/receipts/recognize", () => {
     // receipts.uploaded_by is a uuid FK to auth.users, compared against
     // auth.uid() by RLS — an email here would break every policy on the table.
     it("saves the Draft against the caller's user id, and returns its id", async () => {
-      const { upload } = wireSupabase();
+      const { upload } = installSupabase();
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
@@ -330,7 +314,7 @@ describe("POST /api/receipts/recognize", () => {
     });
 
     it("500s when the image can't be stored, before calling Claude", async () => {
-      wireSupabase({ uploadError: { message: "bucket not found" } });
+      installSupabase({ uploadError: { message: "bucket not found" } });
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
@@ -341,7 +325,7 @@ describe("POST /api/receipts/recognize", () => {
     });
 
     it("500s when the products lookup fails, before calling Claude", async () => {
-      wireSupabase({ products: { data: null, error: { message: "permission denied" } } });
+      installSupabase({ products: { data: null, error: { message: "permission denied" } } });
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
@@ -352,7 +336,7 @@ describe("POST /api/receipts/recognize", () => {
     });
 
     it("surfaces a thrown Error's message so the client can show something useful", async () => {
-      wireSupabase();
+      installSupabase();
       vi.mocked(recognizeReceipt).mockRejectedValue(new Error("Image exceeds 5MB limit"));
       const res = makeRes();
 
@@ -365,7 +349,7 @@ describe("POST /api/receipts/recognize", () => {
     // Supabase's PostgrestError is a plain object, not an Error instance —
     // the reason extractErrorMessage can't just use `instanceof Error`.
     it("surfaces the message of a non-Error rejection too", async () => {
-      wireSupabase();
+      installSupabase();
       vi.mocked(saveDraftReceipt).mockRejectedValue({ message: "null value in column store_id" });
       const res = makeRes();
 
@@ -376,7 +360,7 @@ describe("POST /api/receipts/recognize", () => {
     });
 
     it("falls back to a generic message when the rejection carries none", async () => {
-      wireSupabase();
+      installSupabase();
       vi.mocked(recognizeReceipt).mockRejectedValue("something went sideways");
       const res = makeRes();
 
@@ -389,7 +373,7 @@ describe("POST /api/receipts/recognize", () => {
     // A user whose call died after recordSuccess still gets charged for it;
     // one that died before doesn't. Pinned because it decides who pays.
     it("does not charge the caller when the Claude call itself fails", async () => {
-      wireSupabase();
+      installSupabase();
       vi.mocked(recognizeReceipt).mockRejectedValue(new Error("overloaded_error"));
 
       await handler(recognizeRequest(), makeRes().res);

@@ -1,44 +1,22 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // Supabase is the external system boundary — mock it here, not the
 // behavior we're testing (issue 15: per-user free-trial-then-dollar-cap
 // AI-call access, replacing the old global ai_spend_limit).
-vi.mock("./supabaseAdmin", () => ({
-  supabaseAdmin: {
-    from: vi.fn(),
-  },
-}));
+vi.mock("./supabaseAdmin", () => ({ supabaseAdmin: {} }));
 
 import { supabaseAdmin } from "./supabaseAdmin";
+import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
 import { getAccessStatus, recordSuccess } from "./userAiAccess";
 
-function selectMaybeSingleChain(result: { data: unknown; error: unknown }) {
-  const maybeSingle = vi.fn().mockResolvedValue(result);
-  const eq = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ eq }));
-  return { select, eq, maybeSingle };
-}
-
-function upsertChain(result: { error: unknown }) {
-  const upsert = vi.fn().mockResolvedValue(result);
-  return { upsert };
-}
-
-function updateEqChain(result: { error: unknown }) {
-  const eq = vi.fn().mockResolvedValue(result);
-  const update = vi.fn(() => ({ eq }));
-  return { update };
+/** The one row `user_ai_access` holds for a user, or null if they have none. */
+function accessRow(row: unknown) {
+  return { data: row, error: null };
 }
 
 describe("getAccessStatus", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("allows a brand-new user with no row yet (free trial available)", async () => {
-    vi.mocked(supabaseAdmin.from).mockReturnValue(
-      selectMaybeSingleChain({ data: null, error: null }) as never
-    );
+    installFakeSupabase(supabaseAdmin, { tables: { user_ai_access: accessRow(null) } });
 
     const status = await getAccessStatus("user-1");
 
@@ -52,12 +30,11 @@ describe("getAccessStatus", () => {
   });
 
   it("allows a user whose row exists but hasn't used up their free trial yet", async () => {
-    vi.mocked(supabaseAdmin.from).mockReturnValue(
-      selectMaybeSingleChain({
-        data: { free_trial_calls_used: 4, cap_usd: null, spent_usd: 0 },
-        error: null,
-      }) as never
-    );
+    installFakeSupabase(supabaseAdmin, {
+      tables: {
+        user_ai_access: accessRow({ free_trial_calls_used: 4, cap_usd: null, spent_usd: 0 }),
+      },
+    });
 
     const status = await getAccessStatus("user-1");
 
@@ -71,12 +48,11 @@ describe("getAccessStatus", () => {
   });
 
   it("refuses a user who has used all 5 free trial calls and has no dollar cap yet", async () => {
-    vi.mocked(supabaseAdmin.from).mockReturnValue(
-      selectMaybeSingleChain({
-        data: { free_trial_calls_used: 5, cap_usd: null, spent_usd: 0 },
-        error: null,
-      }) as never
-    );
+    installFakeSupabase(supabaseAdmin, {
+      tables: {
+        user_ai_access: accessRow({ free_trial_calls_used: 5, cap_usd: null, spent_usd: 0 }),
+      },
+    });
 
     const status = await getAccessStatus("user-1");
 
@@ -90,12 +66,11 @@ describe("getAccessStatus", () => {
   });
 
   it("allows a dollar-cap user under their cap", async () => {
-    vi.mocked(supabaseAdmin.from).mockReturnValue(
-      selectMaybeSingleChain({
-        data: { free_trial_calls_used: 5, cap_usd: 1.0, spent_usd: 0.3 },
-        error: null,
-      }) as never
-    );
+    installFakeSupabase(supabaseAdmin, {
+      tables: {
+        user_ai_access: accessRow({ free_trial_calls_used: 5, cap_usd: 1.0, spent_usd: 0.3 }),
+      },
+    });
 
     const status = await getAccessStatus("user-1");
 
@@ -109,12 +84,11 @@ describe("getAccessStatus", () => {
   });
 
   it("refuses a dollar-cap user who has reached their cap", async () => {
-    vi.mocked(supabaseAdmin.from).mockReturnValue(
-      selectMaybeSingleChain({
-        data: { free_trial_calls_used: 5, cap_usd: 1.0, spent_usd: 1.0 },
-        error: null,
-      }) as never
-    );
+    installFakeSupabase(supabaseAdmin, {
+      tables: {
+        user_ai_access: accessRow({ free_trial_calls_used: 5, cap_usd: 1.0, spent_usd: 1.0 }),
+      },
+    });
 
     const status = await getAccessStatus("user-1");
 
@@ -123,44 +97,37 @@ describe("getAccessStatus", () => {
 });
 
 describe("recordSuccess", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("increments the free trial call count when the caller was in trial mode", async () => {
-    const selectChain = selectMaybeSingleChain({
-      data: { free_trial_calls_used: 2, cap_usd: null, spent_usd: 0 },
-      error: null,
+    // The row is read first, then written back — one queue, two entries.
+    const db = installFakeSupabase(supabaseAdmin, {
+      tables: {
+        user_ai_access: [
+          accessRow({ free_trial_calls_used: 2, cap_usd: null, spent_usd: 0 }),
+          { error: null },
+        ],
+      },
     });
-    const upsertChainResult = upsertChain({ error: null });
-
-    vi.mocked(supabaseAdmin.from).mockReturnValue({
-      ...selectChain,
-      ...upsertChainResult,
-    } as never);
 
     await recordSuccess("user-1", 0.002);
 
-    expect(upsertChainResult.upsert).toHaveBeenCalledWith({
-      user_id: "user-1",
-      free_trial_calls_used: 3,
-    });
+    expect(db.callsFor("user_ai_access")).toContainEqual([
+      "upsert",
+      { user_id: "user-1", free_trial_calls_used: 3 },
+    ]);
   });
 
   it("adds the new cost onto the existing spent_usd when the caller is in dollar-cap mode", async () => {
-    const selectChain = selectMaybeSingleChain({
-      data: { free_trial_calls_used: 5, cap_usd: 1.0, spent_usd: 0.3 },
-      error: null,
+    const db = installFakeSupabase(supabaseAdmin, {
+      tables: {
+        user_ai_access: [
+          accessRow({ free_trial_calls_used: 5, cap_usd: 1.0, spent_usd: 0.3 }),
+          { error: null },
+        ],
+      },
     });
-    const updateChain = updateEqChain({ error: null });
-
-    vi.mocked(supabaseAdmin.from).mockReturnValue({
-      ...selectChain,
-      ...updateChain,
-    } as never);
 
     await recordSuccess("user-1", 0.05);
 
-    expect(updateChain.update).toHaveBeenCalledWith({ spent_usd: 0.35 });
+    expect(db.callsFor("user_ai_access")).toContainEqual(["update", { spent_usd: 0.35 }]);
   });
 });

@@ -1,13 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 
-vi.mock("@/lib/supabaseClient", () => ({
-  supabase: {
-    auth: { getSession: vi.fn(), onAuthStateChange: vi.fn() },
-  },
-}));
+vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 import { supabase } from "@/lib/supabaseClient";
+import { installFakeSupabase } from "@/test/fakeSupabase";
 import { AuthProvider, useAuth } from "@/lib/AuthProvider";
 
 function TestConsumer() {
@@ -16,20 +13,13 @@ function TestConsumer() {
   return <p>{session ? `Signed in as ${session.userId}` : "Signed out"}</p>;
 }
 
-function unsubscribableChange() {
-  return { data: { subscription: { unsubscribe: vi.fn() } } } as never;
-}
+const SIGNED_IN = {
+  getSession: { data: { session: { user: { id: "user-1" }, access_token: "tok-1" } } },
+};
 
 describe("AuthProvider / useAuth", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("shows the existing session once it resolves", async () => {
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({
-      data: { session: { user: { id: "user-1" }, access_token: "tok-1" } },
-    } as never);
-    vi.mocked(supabase.auth.onAuthStateChange).mockReturnValue(unsubscribableChange());
+    installFakeSupabase(supabase, { auth: SIGNED_IN });
 
     render(
       <AuthProvider>
@@ -42,10 +32,7 @@ describe("AuthProvider / useAuth", () => {
   });
 
   it("shows signed out when there is no existing session", async () => {
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({
-      data: { session: null },
-    } as never);
-    vi.mocked(supabase.auth.onAuthStateChange).mockReturnValue(unsubscribableChange());
+    installFakeSupabase(supabase, { auth: { getSession: { data: { session: null } } } });
 
     render(
       <AuthProvider>
@@ -57,15 +44,7 @@ describe("AuthProvider / useAuth", () => {
   });
 
   it("updates when the auth state changes after mount (e.g. sign-out)", async () => {
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({
-      data: { session: { user: { id: "user-1" }, access_token: "tok-1" } },
-    } as never);
-
-    let emitAuthChange: (event: string, session: unknown) => void = () => {};
-    vi.mocked(supabase.auth.onAuthStateChange).mockImplementation((callback) => {
-      emitAuthChange = callback as never;
-      return unsubscribableChange();
-    });
+    const db = installFakeSupabase(supabase, { auth: SIGNED_IN });
 
     render(
       <AuthProvider>
@@ -74,6 +53,9 @@ describe("AuthProvider / useAuth", () => {
     );
     await screen.findByText("Signed in as user-1");
 
+    // The provider subscribed on mount; the fake recorded the callback it
+    // handed over, so the test can drive it.
+    const [emitAuthChange] = db.auth.onAuthStateChange.mock.calls[0];
     act(() => {
       emitAuthChange("SIGNED_OUT", null);
     });

@@ -1,29 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // Supabase is the external system boundary — mock it here, not the
 // behavior we're testing (Sections 3.2, 5.2, 5.3, 8, 9: writing the
 // pending_review draft, and creating a new Product when nothing matched).
-vi.mock("./supabaseAdmin", () => ({
-  supabaseAdmin: {
-    from: vi.fn(),
-  },
-}));
+vi.mock("./supabaseAdmin", () => ({ supabaseAdmin: {} }));
 
 import { supabaseAdmin } from "./supabaseAdmin";
+import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
 import { saveDraftReceipt } from "./saveDraftReceipt";
 import type { RecognizedReceipt } from "./recognizeReceipt";
-
-function insertSelectSingleChain(result: { data: unknown; error: unknown }) {
-  const single = vi.fn().mockResolvedValue(result);
-  const select = vi.fn(() => ({ single }));
-  const insert = vi.fn(() => ({ select }));
-  return { insert };
-}
-
-function insertOnlyChain(result: { error: unknown }) {
-  const insert = vi.fn().mockResolvedValue(result);
-  return { insert };
-}
 
 function baseReceipt(overrides: Partial<RecognizedReceipt> = {}): RecognizedReceipt {
   return {
@@ -51,20 +36,14 @@ function baseReceipt(overrides: Partial<RecognizedReceipt> = {}): RecognizedRece
 }
 
 describe("saveDraftReceipt", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("saves the receipt as pending_review and reuses matchedProductId when already matched", async () => {
-    const receiptsChain = insertSelectSingleChain({ data: { id: "receipt-1" }, error: null });
-    const receiptItemsChain = insertOnlyChain({ error: null });
-    const productsInsert = vi.fn();
-
-    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
-      if (table === "receipts") return receiptsChain as never;
-      if (table === "receipt_items") return receiptItemsChain as never;
-      if (table === "products") return { insert: productsInsert } as never;
-      throw new Error(`unexpected table: ${table}`);
+    // `products` is left unprepared: an already-matched item must not
+    // create a Product, and reaching for the table at all would throw.
+    const db = installFakeSupabase(supabaseAdmin, {
+      tables: {
+        receipts: { data: { id: "receipt-1" }, error: null },
+        receipt_items: { error: null },
+      },
     });
 
     const result = await saveDraftReceipt({
@@ -75,7 +54,9 @@ describe("saveDraftReceipt", () => {
     });
 
     expect(result).toEqual({ receiptId: "receipt-1" });
-    expect(receiptsChain.insert).toHaveBeenCalledWith({
+    expect(db.callsFor("receipts")).toContainEqual([
+      "insert",
+      {
       circle_id: "circle-1",
       uploaded_by: "eason@example.com",
       store_name_en: "Countdown Newmarket",
@@ -83,9 +64,12 @@ describe("saveDraftReceipt", () => {
       purchase_date: "2026-08-01",
       total_amount: 4.5,
       original_image_url: "https://storage.example/receipt-1.jpg",
-      status: "pending_review",
-    });
-    expect(receiptItemsChain.insert).toHaveBeenCalledWith([
+        status: "pending_review",
+      },
+    ]);
+    expect(db.callsFor("receipt_items")).toContainEqual([
+      "insert",
+      [
       {
         receipt_id: "receipt-1",
         raw_name_en: "Anchor Blue Milk 2L",
@@ -97,22 +81,20 @@ describe("saveDraftReceipt", () => {
         unit_price: 4.5,
         original_price: null,
         is_promotion: false,
-        subtotal: 4.5,
-      },
+          subtotal: 4.5,
+        },
+      ],
     ]);
-    expect(productsInsert).not.toHaveBeenCalled();
+    expect(db.callsFor("products")).toEqual([]);
   });
 
   it("creates a new Product from the AI's category suggestion when an item has no match", async () => {
-    const receiptsChain = insertSelectSingleChain({ data: { id: "receipt-2" }, error: null });
-    const productsChain = insertSelectSingleChain({ data: { id: "new-product-9" }, error: null });
-    const receiptItemsChain = insertOnlyChain({ error: null });
-
-    vi.mocked(supabaseAdmin.from).mockImplementation((table: string) => {
-      if (table === "receipts") return receiptsChain as never;
-      if (table === "products") return productsChain as never;
-      if (table === "receipt_items") return receiptItemsChain as never;
-      throw new Error(`unexpected table: ${table}`);
+    const db = installFakeSupabase(supabaseAdmin, {
+      tables: {
+        receipts: { data: { id: "receipt-2" }, error: null },
+        products: { data: { id: "new-product-9" }, error: null },
+        receipt_items: { error: null },
+      },
     });
 
     await saveDraftReceipt({
@@ -138,14 +120,18 @@ describe("saveDraftReceipt", () => {
       }),
     });
 
-    expect(productsChain.insert).toHaveBeenCalledWith({
-      circle_id: "circle-1",
-      canonical_name_en: "Vogel's Bread",
-      canonical_name_zh: "沃格尔面包",
-      category: "Food - Dairy & Bakery",
-    });
-    expect(receiptItemsChain.insert).toHaveBeenCalledWith([
-      expect.objectContaining({ product_id: "new-product-9" }),
+    expect(db.callsFor("products")).toContainEqual([
+      "insert",
+      {
+        circle_id: "circle-1",
+        canonical_name_en: "Vogel's Bread",
+        canonical_name_zh: "沃格尔面包",
+        category: "Food - Dairy & Bakery",
+      },
+    ]);
+    expect(db.callsFor("receipt_items")).toContainEqual([
+      "insert",
+      [expect.objectContaining({ product_id: "new-product-9" })],
     ]);
   });
 });

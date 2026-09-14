@@ -1,48 +1,41 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // Supabase is the external boundary — mock it here, not the behavior we're
 // testing (Section 13/15: the notification list reads the circle's alerts,
 // RLS already scopes to the caller's circle).
-vi.mock("@/lib/supabaseClient", () => ({
-  supabase: {
-    from: vi.fn(),
-  },
-}));
+vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 import { supabase } from "@/lib/supabaseClient";
+import { installFakeSupabase } from "@/test/fakeSupabase";
 import { fetchAlerts } from "@/lib/alerts";
 
-function selectOrderChain(result: { data: unknown; error: unknown }) {
-  const order = vi.fn().mockResolvedValue(result);
-  const select = vi.fn(() => ({ order }));
-  return { select, order };
-}
-
 describe("fetchAlerts", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("loads alerts newest-first, with the bilingual product name joined in", async () => {
-    const chain = selectOrderChain({
-      data: [
-        {
-          id: "alert-1",
-          type: "price_spike",
-          product_id: "product-1",
-          new_price: 5.0,
-          change_percent: 25,
-          created_at: "2026-08-05T00:00:00Z",
-          products: { canonical_name_en: "Anchor Blue Milk", canonical_name_zh: "安科蓝带牛奶" },
+    const db = installFakeSupabase(supabase, {
+      tables: {
+        alerts: {
+          data: [
+            {
+              id: "alert-1",
+              type: "price_spike",
+              product_id: "product-1",
+              new_price: 5.0,
+              change_percent: 25,
+              created_at: "2026-08-05T00:00:00Z",
+              products: {
+                canonical_name_en: "Anchor Blue Milk",
+                canonical_name_zh: "安科蓝带牛奶",
+              },
+            },
+          ],
+          error: null,
         },
-      ],
-      error: null,
+      },
     });
-    vi.mocked(supabase.from).mockReturnValue(chain as never);
 
     const alerts = await fetchAlerts();
 
-    expect(chain.order).toHaveBeenCalledWith("created_at", { ascending: false });
+    expect(db.callsFor("alerts")).toContainEqual(["order", "created_at", { ascending: false }]);
     expect(alerts).toEqual([
       {
         id: "alert-1",
@@ -57,9 +50,43 @@ describe("fetchAlerts", () => {
     ]);
   });
 
+  // The Bilingual Name rule (CONTEXT.md): reading a name in either language
+  // always yields text — a Product whose Translation was never produced reads
+  // back as its Source Text, not as blank. A blank here would render the
+  // notification list as a nameless alert in Chinese mode.
+  it("reads an untranslated product back as its source text, not as blank", async () => {
+    installFakeSupabase(supabase, {
+      tables: {
+        alerts: {
+          data: [
+            {
+              id: "alert-1",
+              type: "low_stock",
+              product_id: "product-1",
+              new_price: null,
+              change_percent: null,
+              created_at: "2026-08-05T00:00:00Z",
+              products: {
+                canonical_name_en: "Whittaker's Dark Almond",
+                canonical_name_zh: null,
+              },
+            },
+          ],
+          error: null,
+        },
+      },
+    });
+
+    const [alert] = await fetchAlerts();
+
+    expect(alert.productNameEn).toBe("Whittaker's Dark Almond");
+    expect(alert.productNameZh).toBe("Whittaker's Dark Almond");
+  });
+
   it("throws when the query fails", async () => {
-    const chain = selectOrderChain({ data: null, error: new Error("network error") });
-    vi.mocked(supabase.from).mockReturnValue(chain as never);
+    installFakeSupabase(supabase, {
+      tables: { alerts: { data: null, error: new Error("network error") } },
+    });
 
     await expect(fetchAlerts()).rejects.toThrow("network error");
   });

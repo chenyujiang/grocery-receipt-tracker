@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { monthBounds } from "@/lib/dateRange";
+import { bilingualName } from "@/lib/bilingualName";
 
 export interface CategoryBreakdownItem {
   category: string;
@@ -73,14 +74,17 @@ export async function fetchHomeSummary(today: Date = new Date()): Promise<HomeSu
     throw recentError;
   }
 
-  const recentReceipts = (recentRows ?? []).map((row) => ({
-    id: row.id,
-    storeNameEn: row.store_name_en,
-    storeNameZh: row.store_name_zh ?? row.store_name_en,
-    purchaseDate: row.purchase_date,
-    totalAmount: row.total_amount,
-    status: row.status,
-  }));
+  const recentReceipts = (recentRows ?? []).map((row) => {
+    const storeName = bilingualName(row.store_name_en, row.store_name_zh);
+    return {
+      id: row.id,
+      storeNameEn: storeName.en,
+      storeNameZh: storeName.zh,
+      purchaseDate: row.purchase_date,
+      totalAmount: row.total_amount,
+      status: row.status,
+    };
+  });
 
   return {
     monthTotal,

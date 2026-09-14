@@ -16,6 +16,8 @@ React + TypeScript + Vite (frontend), Vercel Serverless Functions in `/api` (bac
 
 Commands: `npm run dev`, `npm run build`, `npm run typecheck`, `npm test` (vitest run).
 
+`tsc -b` spans three projects — `tsconfig.app.json` (`src`), `tsconfig.node.json` (`vite.config.ts`), and `tsconfig.api.json` (`api`) — so `typecheck` and `build` both cover the serverless functions. A new top-level directory needs its own project here, or it silently goes unchecked. `app` and `api` both extend `tsconfig.base.json`, which owns the strictness flags, module resolution, and the `@/*` path alias: put a rule that should hold everywhere there, so the frontend's settings and the functions' can't drift apart.
+
 ## Testing
 
 This project is built TDD-first (see the `tdd` skill). Before adding tests for a new unit, confirm the seams (the public interfaces under test) with the user — don't assume. The established boundary-mocking convention is to mock `@/lib/supabaseClient`, never Supabase internals. Tests use Vitest + Testing Library; `src/test/setup.ts` handles jest-dom matchers and DOM cleanup between tests.
@@ -78,7 +80,7 @@ Both clients are typed: `createClient<Database>` in `src/lib/supabaseClient.ts` 
 
 Pass `SupabaseClient<Database>`, never bare `SupabaseClient`, when a module takes its client as a parameter — the bare type defaults to an `any` schema and silently opts that module out of all of the above.
 
-Note `src/types/index.ts` still carries hand-written row interfaces (`Receipt`, `Product`, …) that predate this and are now unused and wrong about nullability; only `Role` and `CATEGORIES` are live. Reach for `Database["public"]["Tables"][...]["Row"]` instead.
+`src/types/index.ts` used to carry hand-written row interfaces (`Receipt`, `Product`, …) that predated this and were both unused and wrong about `_zh` nullability; they're deleted. Only `Role` and `CATEGORIES` live there now — for a row shape, reach for `Database["public"]["Tables"][...]["Row"]`, and don't reintroduce a hand-written one.
 
 ## Agent skills
 

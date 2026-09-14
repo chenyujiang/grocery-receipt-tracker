@@ -3,6 +3,7 @@ import { detectPriceSpikes } from "@/lib/priceSpikeAlerts";
 import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
+import { bilingualName } from "@/lib/bilingualName";
 
 export interface UploadReceiptResult {
   receiptId: string;
@@ -103,29 +104,34 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
 
   const items = itemRows ?? [];
 
+  const storeName = bilingualName(receiptRow.store_name_en, receiptRow.store_name_zh);
+
   return {
     id: receiptRow.id,
     uploadedBy: receiptRow.uploaded_by,
-    storeNameEn: receiptRow.store_name_en,
-    storeNameZh: receiptRow.store_name_zh ?? receiptRow.store_name_en,
+    storeNameEn: storeName.en,
+    storeNameZh: storeName.zh,
     purchaseDate: receiptRow.purchase_date,
     totalAmount: receiptRow.total_amount,
     status: receiptRow.status,
     originalImageUrl: receiptRow.original_image_url,
-    items: items.map((row) => ({
-      id: row.id,
-      rawNameEn: row.raw_name_en,
-      rawNameZh: row.raw_name_zh ?? row.raw_name_en,
-      quantity: row.quantity,
-      unitSpecValue: row.unit_spec_value,
-      unitSpecUnit: row.unit_spec_unit,
-      unitPrice: row.unit_price,
-      originalPrice: row.original_price,
-      isPromotion: row.is_promotion,
-      subtotal: row.subtotal,
-      productId: row.product_id,
-      category: row.products?.category ?? null,
-    })),
+    items: items.map((row) => {
+      const rawName = bilingualName(row.raw_name_en, row.raw_name_zh);
+      return {
+        id: row.id,
+        rawNameEn: rawName.en,
+        rawNameZh: rawName.zh,
+        quantity: row.quantity,
+        unitSpecValue: row.unit_spec_value,
+        unitSpecUnit: row.unit_spec_unit,
+        unitPrice: row.unit_price,
+        originalPrice: row.original_price,
+        isPromotion: row.is_promotion,
+        subtotal: row.subtotal,
+        productId: row.product_id,
+        category: row.products?.category ?? null,
+      };
+    }),
   };
 }
 
@@ -149,10 +155,12 @@ async function updateReceiptItemsWithLog(
       throw fetchError ?? new Error("Receipt item not found");
     }
 
+    const existingRawName = bilingualName(existingRow.raw_name_en, existingRow.raw_name_zh);
+
     const changes = diffReceiptItemFields(
       {
-        rawNameEn: existingRow.raw_name_en,
-        rawNameZh: existingRow.raw_name_zh ?? existingRow.raw_name_en,
+        rawNameEn: existingRawName.en,
+        rawNameZh: existingRawName.zh,
         quantity: existingRow.quantity,
         unitSpecValue: existingRow.unit_spec_value,
         unitSpecUnit: existingRow.unit_spec_unit,
