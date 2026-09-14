@@ -84,7 +84,7 @@ Note `src/types/index.ts` still carries hand-written row interfaces (`Receipt`, 
 
 ### Issue tracker
 
-Issues and specs live as local markdown under `.scratch/<effort>/` (currently just `.scratch/grocery-receipt-tracker/`) — no GitHub Issues in use, despite the GitHub remote. See `docs/agents/issue-tracker.md`.
+Issues and specs live as local markdown under `.scratch/<effort>/` (currently just `.scratch/grocery-receipt-tracker/`), and those files are canonical. Each is mirrored to a GitHub issue, linked from the file's own `GitHub: #NN` header line — **the two numbers differ** (GitHub = local + 1, because issues and PRs share one number sequence and PR #1 predates the import), so never cite a GitHub number as if it were the local one. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

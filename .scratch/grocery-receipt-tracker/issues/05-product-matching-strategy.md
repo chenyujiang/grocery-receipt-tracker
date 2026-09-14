@@ -1,5 +1,6 @@
 Type: grilling
 Status: resolved
+GitHub: #6
 Blocked by: 03
 
 ## Question

@@ -1,5 +1,6 @@
 Type: grilling
 Status: resolved
+GitHub: #2
 
 ## Question
 

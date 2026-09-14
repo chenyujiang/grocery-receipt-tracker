@@ -9,7 +9,18 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - Implementation issues are one file per ticket at `.scratch/<effort-slug>/issues/<NN>-<slug>.md`, numbered from `01` — never a single combined tickets file
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md`)
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
+- **Repo-specific**: each issue file carries a `GitHub: #NN` header line pointing at its mirror on GitHub, and the GitHub copy opens with a `Mirrors …/NN-slug.md (local ticket NN)` line pointing back. See "GitHub mirror" below — the two numbers are *not* the same number.
 - **Repo-specific**: every planning doc (`spec.md`, each `issues/NN-*.md`) exists as an English original plus a `_zh` Chinese mirror (`spec_zh.md`, `NN-slug_zh.md`) — see CLAUDE.md's "Doc language convention". Keep both in sync when creating or editing either.
+
+## GitHub mirror
+
+The local files are canonical; `chenyujiang/grocery-receipt-tracker` carries a mirror of each one. **The numbers do not match, and cannot be made to match**: GitHub issues and pull requests share one number sequence, PR #1 was opened before the local tickets were imported, so local `01`–`22` landed as GitHub `#2`–`#23`.
+
+**GitHub number = local number + 1.** Don't rely on that arithmetic — read the `GitHub: #NN` line in the file, which is authoritative and survives any future gap (a new PR consuming a number will shift the offset again for tickets filed after it).
+
+Renumbering the local files to close the gap was considered and rejected: ~75 `issue NN` references across ~37 source, migration, and doc files cite the local numbers, and every existing commit message would permanently disagree with the new ones.
+
+When filing a new ticket, create the local file first, then the GitHub mirror, then write each one's number into the other.
 
 ## When a skill says "publish to the issue tracker"
 

@@ -1,5 +1,6 @@
 Type: bug
 Status: resolved
+GitHub: #22
 
 ## 问题
 
