@@ -42,7 +42,7 @@ Success is checkable: every **Supabase-boundary** cast in `src` and `api` goes t
 
 Deliberately **not** in scope: the four follow-ups below, `CONTEXT.md` (no new domain term — a test fake is implementation), and an ADR (test-only, cheap to reverse, no future reader will wonder why).
 
-> **Superseded during implementation.** All four follow-ups were done on this branch anyway, each authorized separately as it surfaced. That means the risk argument above no longer covers the whole change: three commits (`80123cc`, `c1f9741`, `77881d8`) alter **production** behaviour, so "replacement is test-only, nothing correct can start failing" holds for the fake itself but not for the branch. See Amendments.
+> **Superseded during implementation.** All four follow-ups were done on this branch anyway, each authorized separately as it surfaced. That means the risk argument above no longer covers the whole change: three commits (`80123cc`, `73a09e0`, `7c93661`) alter **production** behaviour, so "replacement is test-only, nothing correct can start failing" holds for the fake itself but not for the branch. See Amendments.
 
 ## Already done (prerequisite, not this issue)
 
@@ -118,7 +118,7 @@ Found by `/code-review` against `main` after the branch was opened, and fixed on
 
 刻意**不**在范围内：下面那四条遗留项、`CONTEXT.md`（没有新的领域术语——测试 fake 属于实现层）、以及 ADR（纯测试代码，推翻成本很低，未来读者不会困惑）。
 
-> **实现过程中已被推翻。** 那四条遗留项最终还是都在本分支做掉了，每一条在浮现时单独获得授权。因此上面那条风险论证不再覆盖整个改动：有三个 commit（`80123cc`、`c1f9741`、`77881d8`）改的是**生产**行为，所以"替换只发生在测试侧，不会让原本正确的东西开始失败"对 fake 本身成立，对整条分支不成立。详见「修订」。
+> **实现过程中已被推翻。** 那四条遗留项最终还是都在本分支做掉了，每一条在浮现时单独获得授权。因此上面那条风险论证不再覆盖整个改动：有三个 commit（`80123cc`、`73a09e0`、`7c93661`）改的是**生产**行为，所以"替换只发生在测试侧，不会让原本正确的东西开始失败"对 fake 本身成立，对整条分支不成立。详见「修订」。
 
 ## 已完成（前置工作，不属于本 issue）
 
