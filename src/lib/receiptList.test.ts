@@ -15,6 +15,34 @@ function methodsUsed(calls: Array<[string, ...unknown[]]>) {
 }
 
 describe("fetchReceipts", () => {
+  // The Bilingual Name rule (CONTEXT.md): a Store whose Translation was never
+  // produced reads back as its Source Text. home.ts, receipts.ts, and
+  // purchaseHistory.ts all do this; the receipt list was the outlier.
+  it("reads an untranslated store name back as its source text", async () => {
+    installFakeSupabase(supabase, {
+      tables: {
+        receipts: {
+          data: [
+            {
+              id: "receipt-1",
+              store_name_en: "New World Victoria Park",
+              store_name_zh: null,
+              purchase_date: "2026-08-04",
+              total_amount: 25.5,
+              status: "confirmed",
+              uploaded_by: "user-1",
+            },
+          ],
+          error: null,
+        },
+      },
+    });
+
+    const [receipt] = await fetchReceipts();
+
+    expect(receipt.storeNameZh).toBe("New World Victoria Park");
+  });
+
   it("loads receipts newest-first with no filters applied", async () => {
     const db = installFakeSupabase(supabase, {
       tables: {

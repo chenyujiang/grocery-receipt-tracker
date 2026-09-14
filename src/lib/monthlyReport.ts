@@ -54,10 +54,7 @@ async function fetchMonthSpend(start: string, end: string): Promise<number> {
   if (error) {
     throw error;
   }
-  return ((data ?? []) as Array<{ total_amount: number }>).reduce(
-    (sum, row) => sum + row.total_amount,
-    0
-  );
+  return (data ?? []).reduce((sum, row) => sum + row.total_amount, 0);
 }
 
 // Section 14: the monthly report page — total spend vs. last month, category

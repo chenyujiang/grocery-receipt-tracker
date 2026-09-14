@@ -54,20 +54,14 @@ export async function fetchReceipts(filters: ReceiptFilters = {}): Promise<Recei
     throw error;
   }
 
-  const rows = (data ?? []) as Array<{
-    id: string;
-    store_name_en: string;
-    store_name_zh: string;
-    purchase_date: string;
-    total_amount: number;
-    status: string;
-    uploaded_by: string;
-  }>;
+  const rows = data ?? [];
 
   return rows.map((row) => ({
     id: row.id,
     storeNameEn: row.store_name_en,
-    storeNameZh: row.store_name_zh,
+    // A Store whose Translation was never produced reads back as its Source
+    // Text (CONTEXT.md, Bilingual Name) — same as home.ts and receipts.ts.
+    storeNameZh: row.store_name_zh ?? row.store_name_en,
     purchaseDate: row.purchase_date,
     totalAmount: row.total_amount,
     status: row.status,
