@@ -16,7 +16,7 @@ React + TypeScript + Vite (frontend), Vercel Serverless Functions in `/api` (bac
 
 Commands: `npm run dev`, `npm run build`, `npm run typecheck`, `npm test` (vitest run).
 
-`tsc -b` spans three projects — `tsconfig.app.json` (`src`), `tsconfig.node.json` (`vite.config.ts`), and `tsconfig.api.json` (`api`) — so `typecheck` and `build` both cover the serverless functions. A new top-level directory needs its own project here, or it silently goes unchecked.
+`tsc -b` spans three projects — `tsconfig.app.json` (`src`), `tsconfig.node.json` (`vite.config.ts`), and `tsconfig.api.json` (`api`) — so `typecheck` and `build` both cover the serverless functions. A new top-level directory needs its own project here, or it silently goes unchecked. `app` and `api` both extend `tsconfig.base.json`, which owns the strictness flags, module resolution, and the `@/*` path alias: put a rule that should hold everywhere there, so the frontend's settings and the functions' can't drift apart.
 
 ## Testing
 

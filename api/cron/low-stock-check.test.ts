@@ -4,7 +4,7 @@ vi.mock("../_lib/supabaseAdmin.js", () => ({ supabaseAdmin: {} }));
 vi.mock("../../src/lib/lowStockAlerts.js", () => ({ detectLowStock: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
+import { installFakeSupabase, type RecordedCall } from "../../src/test/fakeSupabase.js";
 import { detectLowStock } from "../../src/lib/lowStockAlerts.js";
 import { makeReq, makeRes } from "../_lib/testHandler.js";
 import handler from "./low-stock-check.js";
@@ -82,22 +82,23 @@ function installSupabase({
 /**
  * The (payload, ids) pairs written back to `products`, in order — the pairing
  * is what says which flag went to which Product, so it stays order-sensitive.
+ *
+ * One query per write, so the pairing comes from the fake's own grouping
+ * rather than from two calls happening to sit next to each other in a flat
+ * list.
  */
-function writesTo(calls: Array<[string, ...unknown[]]>) {
-  const pairs: Array<{ payload: unknown; ids: unknown }> = [];
-  calls.forEach(([method, ...args], index) => {
-    if (method !== "update") {
-      return;
-    }
-    const next = calls[index + 1];
-    pairs.push({ payload: args[0], ids: next?.[0] === "in" ? next[2] : undefined });
-  });
-  return pairs;
+function writesTo(queries: RecordedCall[][]) {
+  return queries
+    .filter((query) => query.some(([method]) => method === "update"))
+    .map((query) => ({
+      payload: query.find(([method]) => method === "update")?.[1],
+      ids: query.find(([method]) => method === "in")?.[2],
+    }));
 }
 
 /** The product ids each batched history query asked for. */
-function historyQueries(calls: Array<[string, ...unknown[]]>) {
-  return calls.filter(([method]) => method === "in").map(([, , ids]) => ids);
+function historyQueries(queries: RecordedCall[][]) {
+  return queries.map((query) => query.find(([method]) => method === "in")?.[2]);
 }
 
 // What Vercel Cron sends as `Authorization: Bearer $CRON_SECRET`.
@@ -193,7 +194,7 @@ describe("GET /api/cron/low-stock-check", () => {
 
     await handler(cronReq(), makeRes().res);
 
-    expect(historyQueries(db.callsFor("receipt_items"))).toEqual([["product-1", "product-2"]]);
+    expect(historyQueries(db.queriesFor("receipt_items"))).toEqual([["product-1", "product-2"]]);
   });
 
   it("hands each Product its own Purchase History, normalized", async () => {
@@ -249,7 +250,7 @@ describe("GET /api/cron/low-stock-check", () => {
     await handler(cronReq(), res.res);
 
     expect(db.callsFor("alerts")).toEqual([]);
-    expect(writesTo(db.callsFor("products"))).toEqual([]);
+    expect(writesTo(db.queriesFor("products"))).toEqual([]);
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ newAlerts: 0, recoveries: 0 });
   });
@@ -268,7 +269,7 @@ describe("GET /api/cron/low-stock-check", () => {
       "insert",
       [{ circle_id: "circle-2", type: "low_stock", product_id: "product-2" }],
     ]);
-    expect(writesTo(db.callsFor("products"))).toEqual([
+    expect(writesTo(db.queriesFor("products"))).toEqual([
       { payload: { low_stock_alert_active: true }, ids: ["product-2"] },
     ]);
     expect(res.body).toEqual({ newAlerts: 1, recoveries: 0 });
@@ -287,7 +288,7 @@ describe("GET /api/cron/low-stock-check", () => {
     await handler(cronReq(), res.res);
 
     expect(db.callsFor("alerts")).toEqual([]);
-    expect(writesTo(db.callsFor("products"))).toEqual([
+    expect(writesTo(db.queriesFor("products"))).toEqual([
       { payload: { low_stock_alert_active: false }, ids: ["product-2"] },
     ]);
     expect(res.body).toEqual({ newAlerts: 0, recoveries: 1 });
@@ -303,7 +304,7 @@ describe("GET /api/cron/low-stock-check", () => {
 
     await handler(cronReq(), res.res);
 
-    expect(writesTo(db.callsFor("products"))).toEqual([
+    expect(writesTo(db.queriesFor("products"))).toEqual([
       { payload: { low_stock_alert_active: true }, ids: ["product-1"] },
       { payload: { low_stock_alert_active: false }, ids: ["product-2"] },
     ]);
@@ -332,7 +333,7 @@ describe("GET /api/cron/low-stock-check", () => {
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toEqual({ error: "Failed to load purchase history" });
-      expect(historyQueries(db.callsFor("receipt_items"))).toEqual([["product-1", "product-2"]]);
+      expect(historyQueries(db.queriesFor("receipt_items"))).toEqual([["product-1", "product-2"]]);
       expect(detectLowStock).not.toHaveBeenCalled();
     });
 
@@ -351,7 +352,7 @@ describe("GET /api/cron/low-stock-check", () => {
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toEqual({ error: "Failed to record low-stock alerts" });
-      expect(writesTo(db.callsFor("products"))).toEqual([]);
+      expect(writesTo(db.queriesFor("products"))).toEqual([]);
     });
 
     it("500s when the Product can't be flagged, leaving the Alert already inserted", async () => {

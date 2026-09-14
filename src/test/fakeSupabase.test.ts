@@ -158,10 +158,10 @@ describe("createFakeSupabase: recorded calls", () => {
 });
 
 describe("createFakeSupabase: running dry", () => {
-  it("throws, naming the table, when a query has no prepared result", () => {
+  it("throws, naming the table, when a query has no prepared result", async () => {
     const db = createFakeSupabase({ tables: { receipts: { data: [], error: null } } });
 
-    expect(() => db.client.from("edit_logs")).toThrow(/edit_logs/);
+    await expect(db.client.from("edit_logs").select("id")).rejects.toThrow(/edit_logs/);
   });
 
   it("throws, naming the table and the call index, when a queue is exhausted", async () => {
@@ -169,13 +169,13 @@ describe("createFakeSupabase: running dry", () => {
 
     await db.client.from("receipts").select("id");
 
-    expect(() => db.client.from("receipts")).toThrow(/receipts.*2/s);
+    await expect(db.client.from("receipts").select("id")).rejects.toThrow(/receipts.*2/s);
   });
 
-  it("throws rather than returning an empty result, so an unexpected query is loud", () => {
+  it("throws rather than returning an empty result, so an unexpected query is loud", async () => {
     const db = createFakeSupabase({ tables: {} });
 
-    expect(() => db.client.from("products")).toThrow();
+    await expect(db.client.from("products").select("id")).rejects.toThrow();
   });
 });
 
@@ -234,13 +234,34 @@ describe("createFakeSupabase: auth, storage and rpc", () => {
     expect(result).toEqual({ data: { user: { id: "user-1" } }, error: null });
   });
 
-  it("resolves an unprepared auth call to a signed-out default", async () => {
+  it("throws, naming the method, on an unprepared auth call", async () => {
     const db = createFakeSupabase();
 
-    const { data, error } = await db.client.auth.getSession();
+    // Same reason from() is loud: a silent signed-out default turns "the code
+    // asked auth a question this test never anticipated" into a mystery.
+    await expect(db.client.auth.getSession()).rejects.toThrow(/getSession/);
+  });
 
-    expect(data.session).toBeNull();
-    expect(error).toBeNull();
+  it("throws, naming the operation, on an unprepared storage call", async () => {
+    const db = createFakeSupabase();
+
+    await expect(db.client.storage.from("receipts").remove(["a.jpg"])).rejects.toThrow(/remove/);
+  });
+
+  it("still answers onAuthStateChange unprepared, since every mount subscribes", () => {
+    const db = createFakeSupabase();
+
+    const { data } = db.client.auth.onAuthStateChange(() => {});
+
+    expect(data.subscription.unsubscribe).toBeTypeOf("function");
+  });
+
+  it("hands back the same spy for an unprepared method each time it is read", async () => {
+    const db = createFakeSupabase();
+
+    await expect(db.client.auth.getUser()).rejects.toThrow();
+
+    expect(db.auth.getUser).toHaveBeenCalledTimes(1);
   });
 
   it("exposes auth spies so a test can vary the answer per call", async () => {
@@ -291,5 +312,64 @@ describe("createFakeSupabase: auth, storage and rpc", () => {
     await expect(
       db.client.rpc("merge_users_into_new_circle", { p_user_ids: ["user-1"] })
     ).rejects.toThrow(/merge_users_into_new_circle/);
+  });
+});
+
+describe("createFakeSupabase: queue consumption", () => {
+  it("consumes a queue slot on await, not on from()", async () => {
+    const db = createFakeSupabase({
+      tables: { receipts: [{ data: ["first"], error: null }, { data: ["second"], error: null }] },
+    });
+
+    // A builder that is constructed and abandoned must not burn a slot —
+    // production does this whenever it branches after starting a query.
+    db.client.from("receipts").select("*");
+    const { data } = await db.client.from("receipts").select("*");
+
+    expect(data).toEqual(["first"]);
+  });
+
+  it("does not throw for an unprepared table until the query is actually awaited", async () => {
+    const db = createFakeSupabase();
+
+    expect(() => db.client.from("receipts")).not.toThrow();
+    await expect(db.client.from("receipts").select("*")).rejects.toThrow(/receipts/);
+  });
+});
+
+describe("createFakeSupabase: queriesFor", () => {
+  it("groups calls by query, so two reads of one table stay apart", async () => {
+    const db = createFakeSupabase({
+      tables: { receipts: [{ data: [], error: null }, { data: [], error: null }] },
+    });
+
+    await db.client.from("receipts").select("id").eq("status", "confirmed");
+    await db.client.from("receipts").select("total_amount").gte("purchase_date", "2026-01-01");
+
+    expect(db.queriesFor("receipts")).toEqual([
+      [
+        ["select", "id"],
+        ["eq", "status", "confirmed"],
+      ],
+      [
+        ["select", "total_amount"],
+        ["gte", "purchase_date", "2026-01-01"],
+      ],
+    ]);
+  });
+
+  it("reports no queries for a table that was never touched", () => {
+    expect(createFakeSupabase().queriesFor("receipts")).toEqual([]);
+  });
+
+  it("keeps callsFor as the flattened view over the same calls", async () => {
+    const db = createFakeSupabase({ tables: { receipts: { data: [], error: null } } });
+
+    await db.client.from("receipts").select("id").eq("id", "r1");
+
+    expect(db.callsFor("receipts")).toEqual([
+      ["select", "id"],
+      ["eq", "id", "r1"],
+    ]);
   });
 });

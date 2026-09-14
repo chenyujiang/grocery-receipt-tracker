@@ -25,8 +25,6 @@ export type PreparedResult = {
   data?: unknown;
   error?: unknown;
   count?: number | null;
-  status?: number;
-  statusText?: string;
 };
 
 /** A table's prepared results: a queue consumed in order, or one value reused by every call. */
@@ -43,39 +41,58 @@ export type FakeSupabaseOptions = {
   rpc?: Record<string, PreparedResult>;
 };
 
-const AUTH_DEFAULTS: Record<string, unknown> = {
-  getUser: { data: { user: null }, error: null },
-  getSession: { data: { session: null }, error: null },
-  signUp: { data: { user: null, session: null }, error: null },
-  signInWithPassword: { data: { user: null, session: null }, error: null },
-  signOut: { error: null },
-};
+// Every surface runs dry the same way: what a test did not prepare, it did
+// not anticipate, so the fake says so rather than inventing an answer. A
+// silent signed-out default or an empty `{ data: null, error: null }` turns
+// "production asked a question this test never set up" — usually a real
+// regression — into a mystery failure somewhere downstream.
+function spyBag(
+  kind: string,
+  prepared: Record<string, unknown>,
+  extras: Record<string, ReturnType<typeof vi.fn>> = {}
+) {
+  const bag: Record<string, ReturnType<typeof vi.fn>> = { ...extras };
 
-const ADMIN_AUTH_DEFAULTS: Record<string, unknown> = {
-  listUsers: { data: { users: [] }, error: null },
-  updateUserById: { data: { user: null }, error: null },
-  getUserById: { data: { user: null }, error: null },
-  createUser: { data: { user: null }, error: null },
-  deleteUser: { data: { user: null }, error: null },
-};
-
-const STORAGE_OPERATIONS = ["remove", "upload", "download", "createSignedUrl"];
-
-function resolvedSpy(value: unknown) {
-  return vi.fn().mockResolvedValue(value);
-}
-
-function spyBag(defaults: Record<string, unknown>, overrides: Record<string, unknown> = {}) {
-  const bag: Record<string, ReturnType<typeof vi.fn>> = {};
-  for (const name of new Set([...Object.keys(defaults), ...Object.keys(overrides)])) {
-    bag[name] = resolvedSpy(name in overrides ? overrides[name] : defaults[name]);
+  function ensure(name: string) {
+    if (!(name in bag)) {
+      bag[name] =
+        name in prepared
+          ? vi.fn().mockResolvedValue(prepared[name])
+          : vi.fn(() =>
+              // Rejects rather than throwing synchronously: supabase-js always
+              // hands back a promise, so production's `await` is the thing
+              // that should surface this.
+              Promise.reject(
+                new Error(
+                  `fakeSupabase: no prepared result for ${kind}.${name}(). ` +
+                    `Add it: createFakeSupabase({ ${kind.split(".")[0]}: { ${name}: ... } })`
+                )
+              )
+            );
+    }
+    return bag[name];
   }
-  return bag;
+
+  for (const name of Object.keys(prepared)) {
+    ensure(name);
+  }
+
+  // A Proxy, not a fixed list: an unprepared method still has to hand back a
+  // spy — and the *same* spy on every read, so `.mock.calls` survives — it
+  // just has to be one that throws when called.
+  return new Proxy(bag, {
+    get(_target, property) {
+      if (typeof property === "symbol") {
+        return Reflect.get(bag, property);
+      }
+      return ensure(property);
+    },
+  }) as Record<string, ReturnType<typeof vi.fn>>;
 }
 
 export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   const tables = options.tables ?? {};
-  const calls = new Map<string, RecordedCall[]>();
+  const queries = new Map<string, RecordedCall[][]>();
   const consumed = new Map<string, number>();
 
   function nextResult(table: string): PreparedResult {
@@ -94,7 +111,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
     }
     if (callIndex > prepared.length) {
       throw new Error(
-        `fakeSupabase: from("${table}") was called ${callIndex} time(s), ` +
+        `fakeSupabase: from("${table}") was awaited ${callIndex} time(s), ` +
           `but only ${prepared.length} result(s) were prepared for it.`
       );
     }
@@ -104,11 +121,21 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   // Recorded through a Proxy rather than a fixed method list, so the fake
   // never has to be extended just because production reaches for another
   // PostgREST filter.
-  function buildQuery(table: string, result: PreparedResult): unknown {
-    const record = (call: RecordedCall) => {
-      const existing = calls.get(table) ?? [];
-      existing.push(call);
-      calls.set(table, existing);
+  function buildQuery(table: string): unknown {
+    const recorded: RecordedCall[] = [];
+    queries.set(table, [...(queries.get(table) ?? []), recorded]);
+
+    // Keyed to the await, not to `from()`: a builder that is constructed and
+    // then abandoned must not eat a queue slot. Memoised, so awaiting one
+    // builder twice is still one query.
+    let settled: PreparedResult | undefined;
+    let hasSettled = false;
+    const resolveOnce = () => {
+      if (!hasSettled) {
+        settled = nextResult(table);
+        hasSettled = true;
+      }
+      return settled as PreparedResult;
     };
 
     const query: unknown = new Proxy(
@@ -124,10 +151,10 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
             return (
               resolve: (value: PreparedResult) => unknown,
               reject?: (reason: unknown) => unknown
-            ) => Promise.resolve(result).then(resolve, reject);
+            ) => new Promise<PreparedResult>((ok) => ok(resolveOnce())).then(resolve, reject);
           }
           return (...args: unknown[]) => {
-            record([property, ...args]);
+            recorded.push([property, ...args]);
             return query;
           };
         },
@@ -136,23 +163,32 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
     return query;
   }
 
-  const from = vi.fn((table: string) => buildQuery(table, nextResult(table)));
+  const from = vi.fn((table: string) => buildQuery(table));
 
   const { admin: adminOverrides, ...authOverrides } = options.auth ?? {};
-  const auth = spyBag(AUTH_DEFAULTS, authOverrides);
-  const adminAuth = spyBag(ADMIN_AUTH_DEFAULTS, adminOverrides ?? {});
-  // Synchronous, unlike the rest of auth: it returns an unsubscribe handle.
-  auth.onAuthStateChange = vi.fn(() => ({
+  // Synchronous, unlike the rest of auth, and every mount subscribes — so it
+  // keeps a default where the others deliberately have none.
+  const onAuthStateChange = vi.fn(() => ({
     data: { subscription: { unsubscribe: vi.fn() } },
   }));
+  const auth = spyBag("auth", authOverrides, { onAuthStateChange });
+  const adminAuth = spyBag("auth.admin", adminOverrides ?? {});
+  const clientAuth = new Proxy(
+    {},
+    {
+      get(_target, property) {
+        if (property === "admin") {
+          return adminAuth;
+        }
+        if (typeof property === "symbol") {
+          return undefined;
+        }
+        return auth[property as string];
+      },
+    }
+  );
 
-  const storageOverrides = options.storage ?? {};
-  const bucketOperations: Record<string, ReturnType<typeof vi.fn>> = {};
-  for (const name of new Set([...STORAGE_OPERATIONS, ...Object.keys(storageOverrides)])) {
-    bucketOperations[name] = resolvedSpy(
-      name in storageOverrides ? storageOverrides[name] : { data: null, error: null }
-    );
-  }
+  const bucketOperations = spyBag("storage", options.storage ?? {});
   const storageFrom = vi.fn(() => bucketOperations);
 
   const preparedRpc = options.rpc ?? {};
@@ -169,7 +205,7 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
   const client = {
     from,
     rpc,
-    auth: { ...auth, admin: adminAuth },
+    auth: clientAuth,
     storage: { from: storageFrom },
   };
 
@@ -192,7 +228,16 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
      * what keeps a test from breaking when two filters swap places.
      */
     callsFor(table: string): RecordedCall[] {
-      return calls.get(table) ?? [];
+      return (queries.get(table) ?? []).flat();
+    },
+    /**
+     * The same calls, grouped one array per query, in the order the queries
+     * were built. Reach for this when a table is read or written more than
+     * once and the pairing matters — which filter went with which write —
+     * rather than re-deriving it from adjacency in `callsFor`.
+     */
+    queriesFor(table: string): RecordedCall[][] {
+      return queries.get(table) ?? [];
     },
   };
 }

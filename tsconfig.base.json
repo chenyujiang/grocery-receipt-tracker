@@ -1,0 +1,23 @@
+{
+  "//": "Shared by tsconfig.app.json (src) and tsconfig.api.json (api). The two used to carry duplicate copies of this block, which let the frontend's strictness and the serverless functions' drift apart silently — the exact gap adding api/ to `tsc -b` was meant to close. Put a rule that should hold everywhere here, not in one of the two.",
+  "compilerOptions": {
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  }
+}
