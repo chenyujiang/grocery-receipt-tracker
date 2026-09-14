@@ -8,6 +8,8 @@ The document must clearly define the feature scope, core data structures, the AI
 
 Once the document is complete, it will be handed off to the development phase for implementation (implementation itself is out of scope for this planning effort).
 
+**Current leg (tickets 23–28), post-launch**: give a Store a branch, so the app knows *which* branch of a chain a Receipt came from, and narrow every price-change calculation and Price Spike alert to a single branch. Reached when the schema, the recognition flow, the existing data, and the comparison rules have all moved onto branch-level Store identity, shipped and covered by tests. Unlike the original planning legs, this one carries through to running code, not just a decision.
+
 ## Notes
 
 - Domain: personal/family expense tracking + product price monitoring.
@@ -42,7 +44,9 @@ Once the document is complete, it will be handed off to the development phase fo
 
 ## Not yet specified
 
-(None yet.)
+- **Consumption rate under branch-level Stores.** Ticket 07's sliding window of the last 5 purchases doesn't care where a Product was bought, and probably shouldn't — you consume what you bought regardless of which branch sold it. But it shares `fetchPurchaseHistories` with everything that *is* being narrowed, so once ticket 27 decides where the grouping lives, it's worth re-reading to confirm consumption stayed cross-branch on purpose rather than by accident.
+- **Merging two Stores that turn out to be the same branch.** OCR variance, or a chain rename (Countdown → Woolworths), will eventually leave one real branch sitting as two Store rows with their Purchase History split between them. The admin dashboard already merges Circles; whether branches need the same, and who may do it, isn't sharp enough to ticket until ticket 24 fixes what a Store's identity is.
+- **Whether a chain-level view survives at all.** Everything in this leg pushes toward the branch. Whether "what do I pay at Woolworths generally" remains a question the app answers, or quietly disappears, is a consequence of ticket 28's prototype rather than something to decide up front.
 
 ## Out of scope
 
@@ -61,6 +65,8 @@ Once the document is complete, it will be handed off to the development phase fo
 文档需定义清楚功能范围、核心数据结构、AI 识别（多模态大模型 OCR）方案、商品匹配与分类逻辑、月度涨幅对比、消耗速度分析、中英双语翻译机制，以及价格异常提醒、库存快用完提醒、隐性涨价识别、多店铺比价、数据导出/月度报告这几项附加功能。
 
 文档完成后交给开发阶段实现（不在本次规划范围内）。
+
+**当前这一程（ticket 23–28），上线之后**：给 Store 加上分店，让应用知道一张小票来自某连锁的**哪一家**分店，并把所有涨幅计算和价格异常提醒收窄到单一分店。达成标志：数据结构、识别流程、存量数据、比价规则全部迁到"分店级 Store 身份"之上，已上线且有测试覆盖。和最初那几程规划不同，这一程一路做到可运行的代码，而不只是一个决定。
 
 ## Notes
 
@@ -96,7 +102,9 @@ Once the document is complete, it will be handed off to the development phase fo
 
 ## Not yet specified
 
-（尚无）
+- **分店级 Store 之下的消耗速度。** ticket 07 的"最近 5 次购买滑动窗口"不关心商品是在哪买的，而且大概也不该关心——东西买回来就是要用掉的，跟哪家分店卖的无关。但它和所有正在被收窄的功能共用 `fetchPurchaseHistories`，所以等 ticket 27 定下分组放在哪一层之后，值得回头确认：消耗速度保持跨分店是有意为之，而不是漏改。
+- **合并"其实是同一家分店"的两条 Store。** OCR 措辞漂移，或者连锁改名（Countdown → Woolworths），迟早会让一家真实分店变成两条 Store 记录，价格历史被劈成两半。管理后台已经能合并 Circle 了；分店是否需要同样的能力、谁有权做，在 ticket 24 把 Store 的身份定死之前还不够清晰，开不了 ticket。
+- **连锁级视角是否还留得住。** 这一程的一切都在往"分店"推。"我在 Woolworths 整体上花多少钱"还算不算这个应用要回答的问题，是 ticket 28 原型的结果，而不是现在该先拍板的事。
 
 ## Out of scope
 
