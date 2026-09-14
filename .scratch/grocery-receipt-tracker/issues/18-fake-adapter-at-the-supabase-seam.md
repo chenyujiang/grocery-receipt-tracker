@@ -1,5 +1,5 @@
 Type: grilling
-Status: open
+Status: closed
 GitHub: #19
 
 ## Question
@@ -62,7 +62,7 @@ The schema-typing half shipped separately on 2026-09-13:
 - ~~`npm run typecheck` covers `src` only.~~ **Closed**: a third project, `tsconfig.api.json` (`"include": ["api"]`), is referenced from the root `tsconfig.json`, so `tsc -b` — and therefore both `npm run typecheck` and `npm run build` — now covers `api/` too. It matches `tsconfig.app.json`'s strictness (`strict`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`) with Node libs instead of DOM. Turning it on surfaced six real errors, all in `api/` test files: four `it.each([404, 401])` calls widening to `number` where `requireGlobalAdmin` returns `401 | 404` (fixed with `as const`), one malformed-query array that inferred `{ userId?: undefined }`, and one unused import.
 - ~~`src/types/index.ts`'s hand-written row interfaces are a second, wrong source of truth for row shapes.~~ **Closed**: deleted. Only `Role` and `CATEGORIES` remain, which is all anything imported. They were the root of the whole Bilingual Name series — a hand-written shape that disagreed with the schema — so removing them closes the class, not just the instances.
 
-With that, every follow-up this issue opened is closed. The issue's own `Status:` stays `open` until the PR merges — that is the tracker convention, not an outstanding item.
+With that, every follow-up this issue opened is closed. Merged as PR #24 on 2026-09-14 (`87dd9ad`).
 
 ## Amendments
 
@@ -138,7 +138,7 @@ Found by `/code-review` against `main` after the branch was opened, and fixed on
 - ~~`npm run typecheck` 只覆盖 `src`。~~ **已关闭**：新增第三个 project `tsconfig.api.json`（`"include": ["api"]`），并从根 `tsconfig.json` 引用，因此 `tsc -b`——也就是 `npm run typecheck` 和 `npm run build`——现在同样覆盖 `api/`。它与 `tsconfig.app.json` 的严格度一致（`strict`、`noUnusedLocals`、`noUnusedParameters`、`noFallthroughCasesInSwitch`），只是用 Node 的 lib 而非 DOM。打开后立刻暴露出 6 个真实错误，全在 `api/` 的测试文件里：4 处 `it.each([404, 401])` 把类型放宽成 `number`，而 `requireGlobalAdmin` 返回的是 `401 | 404`（用 `as const` 修正）；1 处畸形 query 数组被推断成 `{ userId?: undefined }`；以及 1 个未使用的 import。
 - ~~`src/types/index.ts` 里手写的行接口是行形状的第二个、且错误的事实来源。~~ **已关闭**：已删除。只保留 `Role` 和 `CATEGORIES`，这本就是全仓库唯一 import 的两样。它们正是整串 Bilingual Name 问题的根源——一份与 schema 不符的手写形状——所以删掉它们关闭的是这一类问题，而不只是那几个实例。
 
-至此，本 issue 开出的遗留项全部关闭。issue 自身的 `Status:` 保持 `open` 直到 PR 合并——这是 tracker 的约定，不代表还有未完成的事项。
+至此，本 issue 开出的遗留项全部关闭。已于 2026-09-14 随 PR #24 合并（`87dd9ad`）。
 
 ## 修订
 
