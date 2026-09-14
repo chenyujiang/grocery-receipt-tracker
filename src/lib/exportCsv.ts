@@ -92,9 +92,6 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
   const members = await fetchCircleMembers();
   const nameById = new Map(members.map((member) => [member.userId, member.displayName]));
 
-  // Cast at the boundary: without generated Database types, supabase-js
-  // infers these to-one embeds (receipt_items -> products, -> receipts) as
-  // arrays, though PostgREST returns single objects at runtime.
   const rows = data ?? [];
 
   return rows.map((row) => ({
