@@ -124,7 +124,14 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
         products.set(productKey, {
           productId: item.product_id,
           nameEn: item.products?.canonical_name_en ?? item.raw_name_en,
-          nameZh: item.products?.canonical_name_zh ?? item.raw_name_zh ?? "",
+          // Falls through to the English source text rather than blank — a
+          // Product whose Translation was never produced still reads back as
+          // its Source Text (CONTEXT.md, Bilingual Name).
+          nameZh:
+            item.products?.canonical_name_zh ??
+            item.raw_name_zh ??
+            item.products?.canonical_name_en ??
+            item.raw_name_en,
           total: item.subtotal,
           promoSavings: savings,
         });
@@ -173,11 +180,10 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
       throw productsError;
     }
     const productNames = new Map(
-      ((productRows ?? []) as Array<{
-        id: string;
-        canonical_name_en: string;
-        canonical_name_zh: string;
-      }>).map((row) => [row.id, { en: row.canonical_name_en, zh: row.canonical_name_zh }])
+      (productRows ?? []).map((row) => [
+        row.id,
+        { en: row.canonical_name_en, zh: row.canonical_name_zh ?? row.canonical_name_en },
+      ])
     );
 
     const histories = await fetchPurchaseHistories(supabase, [...productIds]);

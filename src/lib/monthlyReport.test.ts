@@ -230,7 +230,11 @@ describe("fetchMonthlyReport", () => {
       {
         category: "Other / Uncategorized",
         total: 8.0,
-        products: [{ productId: null, nameEn: "Mystery Snack", nameZh: "", total: 8.0, promoSavings: 0 }],
+        products: [
+          // No Product and no translated source text: the Bilingual Name still
+          // reads back as the English source text, never as blank.
+          { productId: null, nameEn: "Mystery Snack", nameZh: "Mystery Snack", total: 8.0, promoSavings: 0 },
+        ],
       },
     ]);
   });
@@ -300,6 +304,90 @@ describe("fetchMonthlyReport", () => {
             promoSavings: 2.0,
           },
         ],
+      },
+    ]);
+  });
+
+  // The Bilingual Name rule (CONTEXT.md) applies on both name paths: the
+  // category breakdown reads names off the embedded product, the leaderboard
+  // re-reads them from its own `products` query. Neither may go blank.
+  it("reads an untranslated product back as its source text on both name paths", async () => {
+    const monthResult = {
+      data: [
+        {
+          total_amount: 6.0,
+          uploaded_by: "user-1",
+          receipt_items: [
+            {
+              subtotal: 6.0,
+              quantity: 1,
+              original_price: null,
+              is_promotion: false,
+              product_id: "product-1",
+              raw_name_en: "WHITTAKERS DARK ALMOND",
+              raw_name_zh: null,
+              products: {
+                category: "Food - Snacks",
+                canonical_name_en: "Whittaker's Dark Almond",
+                canonical_name_zh: null,
+              },
+            },
+          ],
+        },
+      ],
+      error: null,
+    };
+    const historyResult = {
+      data: [
+        {
+          product_id: "product-1",
+          unit_price: 4.0,
+          quantity: 1,
+          unit_spec_value: 100,
+          unit_spec_unit: "g",
+          is_promotion: false,
+          receipts: { purchase_date: "2026-07-01" },
+        },
+        {
+          product_id: "product-1",
+          unit_price: 6.0,
+          quantity: 1,
+          unit_spec_value: 100,
+          unit_spec_unit: "g",
+          is_promotion: false,
+          receipts: { purchase_date: "2026-08-01" },
+        },
+      ],
+      error: null,
+    };
+
+    installFakeSupabase(supabase, {
+      tables: {
+        receipts: [monthResult, { data: [], error: null }],
+        alerts: { count: 0, error: null },
+        products: {
+          data: [
+            { id: "product-1", canonical_name_en: "Whittaker's Dark Almond", canonical_name_zh: null },
+          ],
+          error: null,
+        },
+        receipt_items: historyResult,
+      },
+    });
+    vi.mocked(fetchCircleMembers).mockResolvedValue([]);
+
+    const report = await fetchMonthlyReport(MONTH);
+
+    expect(report.categoryBreakdown[0].products[0]).toMatchObject({
+      nameEn: "Whittaker's Dark Almond",
+      nameZh: "Whittaker's Dark Almond",
+    });
+    expect(report.priceChangeLeaderboard).toEqual([
+      {
+        productId: "product-1",
+        nameEn: "Whittaker's Dark Almond",
+        nameZh: "Whittaker's Dark Almond",
+        changePercent: 50,
       },
     ]);
   });
