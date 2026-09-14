@@ -1,95 +1,78 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // Supabase is the external system boundary — mock it here, not the
 // behavior we're testing (Section 4: sign-up creates a circle and makes
 // the new user its owner).
-vi.mock("@/lib/supabaseClient", () => ({
-  supabase: {
-    auth: { signUp: vi.fn(), signInWithPassword: vi.fn(), signOut: vi.fn() },
-    from: vi.fn(),
-  },
-}));
+vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 import { supabase } from "@/lib/supabaseClient";
+import { installFakeSupabase } from "@/test/fakeSupabase";
 import { signUpWithEmail, signInWithEmail, signOut } from "@/lib/auth";
 
-// The circle/profile inserts deliberately don't chain .select() (see
-// auth.ts's comment — RETURNING would hit a not-yet-satisfiable RLS SELECT
-// policy for a brand-new user), so the mock only needs to resolve {error}.
-function insertChain(result: { error: unknown }) {
-  const insert = vi.fn().mockResolvedValue(result);
-  return { insert };
+// The circle/profile inserts deliberately don't chain .select() (see auth.ts's
+// comment — RETURNING would hit a not-yet-satisfiable RLS SELECT policy for a
+// brand-new user), so an insert only needs to resolve {error}.
+const INSERTED = { error: null };
+
+/** Enough dashes to satisfy crypto.randomUUID's template-literal return type. */
+function stubCircleId(id: `${string}-${string}-${string}-${string}-${string}`) {
+  vi.spyOn(crypto, "randomUUID").mockReturnValue(id);
+  return id;
 }
 
-function profilesLookupChain(existing: { data: unknown; error: unknown }) {
-  const maybeSingle = vi.fn().mockResolvedValue(existing);
-  const eq = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ eq }));
-  const insert = vi.fn().mockResolvedValue({ data: null, error: null });
-  return { select, insert };
+/** The methods a table saw, for asserting that a write did *not* happen. */
+function methodsUsed(calls: Array<[string, ...unknown[]]>) {
+  return calls.map(([method]) => method);
 }
 
 describe("signUpWithEmail", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("creates a new circle and makes the signed-up user its owner", async () => {
-    vi.spyOn(crypto, "randomUUID").mockReturnValue("circle-1" as never);
-    vi.mocked(supabase.auth.signUp).mockResolvedValue({
-      data: { user: { id: "user-1" }, session: null },
-      error: null,
-    } as never);
-
-    const circlesChain = insertChain({ error: null });
-    const profilesChain = insertChain({ error: null });
-
-    vi.mocked(supabase.from).mockImplementation((table: string) => {
-      if (table === "circles") return circlesChain as never;
-      if (table === "profiles") return profilesChain as never;
-      throw new Error(`unexpected table: ${table}`);
+    const circleId = stubCircleId("circle-0000-0000-0000-000000000001");
+    const db = installFakeSupabase(supabase, {
+      auth: { signUp: { data: { user: { id: "user-1" }, session: null }, error: null } },
+      tables: { circles: INSERTED, profiles: INSERTED },
     });
 
     const result = await signUpWithEmail("new@example.com", "hunter2pass", "New User");
 
-    expect(circlesChain.insert).toHaveBeenCalledWith({ id: "circle-1" });
-    expect(profilesChain.insert).toHaveBeenCalledWith({
-      user_id: "user-1",
-      circle_id: "circle-1",
-      role: "owner",
-      display_name: "New User",
-    });
-    expect(result).toEqual({ userId: "user-1", circleId: "circle-1", role: "owner" });
+    expect(db.callsFor("circles")).toContainEqual(["insert", { id: circleId }]);
+    expect(db.callsFor("profiles")).toContainEqual([
+      "insert",
+      {
+        user_id: "user-1",
+        circle_id: circleId,
+        role: "owner",
+        display_name: "New User",
+      },
+    ]);
+    expect(result).toEqual({ userId: "user-1", circleId, role: "owner" });
   });
 
   it("falls back to the email's local part when no display name is given", async () => {
-    vi.spyOn(crypto, "randomUUID").mockReturnValue("circle-1" as never);
-    vi.mocked(supabase.auth.signUp).mockResolvedValue({
-      data: { user: { id: "user-1" }, session: null },
-      error: null,
-    } as never);
-
-    const circlesChain = insertChain({ error: null });
-    const profilesChain = insertChain({ error: null });
-
-    vi.mocked(supabase.from).mockImplementation((table: string) => {
-      if (table === "circles") return circlesChain as never;
-      if (table === "profiles") return profilesChain as never;
-      throw new Error(`unexpected table: ${table}`);
+    stubCircleId("circle-0000-0000-0000-000000000001");
+    const db = installFakeSupabase(supabase, {
+      auth: { signUp: { data: { user: { id: "user-1" }, session: null }, error: null } },
+      tables: { circles: INSERTED, profiles: INSERTED },
     });
 
     await signUpWithEmail("new@example.com", "hunter2pass", "   ");
 
-    expect(profilesChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ display_name: "new" })
-    );
+    expect(db.callsFor("profiles")).toContainEqual([
+      "insert",
+      expect.objectContaining({ display_name: "new" }),
+    ]);
   });
 
   it("rejects when Supabase auth sign-up itself fails (e.g. email already registered)", async () => {
-    vi.mocked(supabase.auth.signUp).mockResolvedValue({
-      data: { user: null, session: null },
-      error: new Error("User already registered"),
-    } as never);
+    // No tables prepared: a sign-up that failed must not go on to write.
+    installFakeSupabase(supabase, {
+      auth: {
+        signUp: {
+          data: { user: null, session: null },
+          error: new Error("User already registered"),
+        },
+      },
+    });
 
     await expect(signUpWithEmail("taken@example.com", "hunter2pass")).rejects.toThrow(
       "User already registered"
@@ -98,18 +81,16 @@ describe("signUpWithEmail", () => {
 });
 
 describe("signInWithEmail", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("returns the session for valid credentials", async () => {
-    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-      data: { user: { id: "user-1" }, session: { access_token: "tok-1" } },
-      error: null,
-    } as never);
-    vi.mocked(supabase.from).mockImplementation(
-      () => profilesLookupChain({ data: { user_id: "user-1" }, error: null }) as never
-    );
+    installFakeSupabase(supabase, {
+      auth: {
+        signInWithPassword: {
+          data: { user: { id: "user-1" }, session: { access_token: "tok-1" } },
+          error: null,
+        },
+      },
+      tables: { profiles: { data: { user_id: "user-1" }, error: null } },
+    });
 
     const result = await signInWithEmail("returning@example.com", "hunter2pass");
 
@@ -117,10 +98,14 @@ describe("signInWithEmail", () => {
   });
 
   it("rejects with the server's message for wrong credentials", async () => {
-    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-      data: { user: null, session: null },
-      error: new Error("Invalid login credentials"),
-    } as never);
+    installFakeSupabase(supabase, {
+      auth: {
+        signInWithPassword: {
+          data: { user: null, session: null },
+          error: new Error("Invalid login credentials"),
+        },
+      },
+    });
 
     await expect(signInWithEmail("returning@example.com", "wrongpass")).rejects.toThrow(
       "Invalid login credentials"
@@ -128,74 +113,64 @@ describe("signInWithEmail", () => {
   });
 
   it("creates a circle and an owner profile if the signed-in user doesn't have one yet", async () => {
-    vi.spyOn(crypto, "randomUUID").mockReturnValue("circle-9" as never);
-    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-      data: { user: { id: "user-2" }, session: { access_token: "tok-2" } },
-      error: null,
-    } as never);
-
-    const profilesChain = profilesLookupChain({ data: null, error: null });
-    const circlesChain = insertChain({ error: null });
-
-    vi.mocked(supabase.from).mockImplementation((table: string) => {
-      if (table === "profiles") return profilesChain as never;
-      if (table === "circles") return circlesChain as never;
-      throw new Error(`unexpected table: ${table}`);
+    const circleId = stubCircleId("circle-0000-0000-0000-000000000009");
+    const db = installFakeSupabase(supabase, {
+      auth: {
+        signInWithPassword: {
+          data: { user: { id: "user-2" }, session: { access_token: "tok-2" } },
+          error: null,
+        },
+      },
+      // `profiles` is read before it is written: the lookup finds nothing,
+      // then the new owner row is inserted.
+      tables: { profiles: [{ data: null, error: null }, INSERTED], circles: INSERTED },
     });
 
     const result = await signInWithEmail("confirmed-late@example.com", "hunter2pass");
 
     expect(result).toEqual({ userId: "user-2", accessToken: "tok-2" });
-    expect(circlesChain.insert).toHaveBeenCalledWith({ id: "circle-9" });
-    expect(profilesChain.insert).toHaveBeenCalledWith({
-      user_id: "user-2",
-      circle_id: "circle-9",
-      role: "owner",
-      display_name: "confirmed-late",
-    });
+    expect(db.callsFor("circles")).toContainEqual(["insert", { id: circleId }]);
+    expect(db.callsFor("profiles")).toContainEqual([
+      "insert",
+      {
+        user_id: "user-2",
+        circle_id: circleId,
+        role: "owner",
+        display_name: "confirmed-late",
+      },
+    ]);
   });
 
   it("does not create a new circle if the signed-in user already has a profile", async () => {
-    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-      data: { user: { id: "user-3" }, session: { access_token: "tok-3" } },
-      error: null,
-    } as never);
-
-    const profilesChain = profilesLookupChain({
-      data: { user_id: "user-3" },
-      error: null,
-    });
-    const circlesInsert = vi.fn();
-
-    vi.mocked(supabase.from).mockImplementation((table: string) => {
-      if (table === "profiles") return profilesChain as never;
-      if (table === "circles") return { insert: circlesInsert } as never;
-      throw new Error(`unexpected table: ${table}`);
+    // `circles` is deliberately left unprepared: touching it at all would
+    // throw rather than pass quietly.
+    const db = installFakeSupabase(supabase, {
+      auth: {
+        signInWithPassword: {
+          data: { user: { id: "user-3" }, session: { access_token: "tok-3" } },
+          error: null,
+        },
+      },
+      tables: { profiles: [{ data: { user_id: "user-3" }, error: null }] },
     });
 
     const result = await signInWithEmail("already-set-up@example.com", "hunter2pass");
 
     expect(result).toEqual({ userId: "user-3", accessToken: "tok-3" });
-    expect(circlesInsert).not.toHaveBeenCalled();
-    expect(profilesChain.insert).not.toHaveBeenCalled();
+    expect(db.callsFor("circles")).toEqual([]);
+    expect(methodsUsed(db.callsFor("profiles"))).not.toContain("insert");
   });
 });
 
 describe("signOut", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("resolves when Supabase ends the session successfully", async () => {
-    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null } as never);
+    installFakeSupabase(supabase, { auth: { signOut: { error: null } } });
 
     await expect(signOut()).resolves.toBeUndefined();
   });
 
   it("rejects with the server's message if ending the session fails", async () => {
-    vi.mocked(supabase.auth.signOut).mockResolvedValue({
-      error: new Error("Network error"),
-    } as never);
+    installFakeSupabase(supabase, { auth: { signOut: { error: new Error("Network error") } } });
 
     await expect(signOut()).rejects.toThrow("Network error");
   });

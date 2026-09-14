@@ -1,12 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../_lib/supabaseAdmin.js", () => ({
-  supabaseAdmin: {
-    auth: { getUser: vi.fn() },
-    from: vi.fn(),
-    storage: { from: vi.fn() },
-  },
-}));
+vi.mock("../_lib/supabaseAdmin.js", () => ({ supabaseAdmin: {} }));
 
 // getAccessStatus/recordSuccess are stubbed, but FREE_TRIAL_LIMIT stays real —
 // the refusal copy is built from it, and a fake limit would make the 402
@@ -21,6 +15,7 @@ vi.mock("../_lib/recognizeReceipt.js", () => ({ recognizeReceipt: vi.fn() }));
 vi.mock("../_lib/saveDraftReceipt.js", () => ({ saveDraftReceipt: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
 import { getAccessStatus, recordSuccess, FREE_TRIAL_LIMIT } from "../_lib/userAiAccess.js";
 import { aiAccessRefusalMessage, SUPPORT_EMAIL } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
@@ -35,14 +30,6 @@ const RECOGNIZED = { receipt: { storeName: "PAK'nSAVE" }, usage: { inputTokens: 
 
 type Result = { data: unknown; error: unknown };
 
-function profilesChain(result: Result) {
-  return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve(result) }) }) };
-}
-
-function productsChain(result: Result) {
-  return { select: () => ({ eq: () => Promise.resolve(result) }) };
-}
-
 interface Wiring {
   profiles?: Result;
   products?: Result;
@@ -50,19 +37,15 @@ interface Wiring {
 }
 
 function wireSupabase({ profiles, products, uploadError = null }: Wiring = {}) {
-  vi.mocked(supabaseAdmin.auth.getUser).mockResolvedValue({
-    data: { user: USER },
-    error: null,
-  } as never);
-
-  vi.mocked(supabaseAdmin.from).mockImplementation(((table: string) =>
-    table === "profiles"
-      ? profilesChain(profiles ?? { data: { circle_id: CIRCLE_ID }, error: null })
-      : productsChain(products ?? { data: [], error: null })) as never);
-
-  const upload = vi.fn().mockResolvedValue({ error: uploadError });
-  vi.mocked(supabaseAdmin.storage.from).mockReturnValue({ upload } as never);
-  return { upload };
+  const db = installFakeSupabase(supabaseAdmin, {
+    auth: { getUser: { data: { user: USER }, error: null } },
+    tables: {
+      profiles: profiles ?? { data: { circle_id: CIRCLE_ID }, error: null },
+      products: products ?? { data: [], error: null },
+    },
+    storage: { upload: { error: uploadError } },
+  });
+  return { db, upload: db.storage.upload };
 }
 
 function recognizeRequest(overrides: Record<string, unknown> = {}) {
@@ -90,6 +73,7 @@ const ALLOWED = { allowed: true, mode: "trial" as const, spentUsd: 0, capUsd: nu
 describe("POST /api/receipts/recognize", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    installFakeSupabase(supabaseAdmin);
     vi.mocked(getAccessStatus).mockResolvedValue(ALLOWED as never);
     vi.mocked(recognizeReceipt).mockResolvedValue(RECOGNIZED as never);
     vi.mocked(calculateHaikuCost).mockReturnValue(0.0042);

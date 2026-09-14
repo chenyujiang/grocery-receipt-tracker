@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { createFakeSupabase } from "@/test/fakeSupabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
+import { createFakeSupabase, installFakeSupabase } from "@/test/fakeSupabase";
 
 // The fake is a replay-and-record stand-in for supabase-js, not a query
 // engine: it records every chained call and returns a prepared result
@@ -174,6 +176,50 @@ describe("createFakeSupabase: running dry", () => {
     const db = createFakeSupabase({ tables: {} });
 
     expect(() => db.client.from("products")).toThrow();
+  });
+});
+
+describe("installFakeSupabase", () => {
+  // Stands in for the empty object a `vi.mock` factory returns.
+  function mockedModuleClient() {
+    return {} as SupabaseClient<Database>;
+  }
+
+  it("fills the mocked client so the module under test reaches the fake", async () => {
+    const client = mockedModuleClient();
+
+    const db = installFakeSupabase(client, {
+      tables: { receipts: { data: [{ id: "r1" }], error: null } },
+    });
+    const result = await client.from("receipts").select("id");
+
+    expect(result).toEqual({ data: [{ id: "r1" }], error: null });
+    expect(db.callsFor("receipts")).toContainEqual(["select", "id"]);
+  });
+
+  it("replaces the previous fake when a second test installs its own", async () => {
+    const client = mockedModuleClient();
+    installFakeSupabase(client, { tables: { receipts: { data: [{ id: "old" }], error: null } } });
+
+    installFakeSupabase(client, { tables: { receipts: { data: [{ id: "new" }], error: null } } });
+    const result = await client.from("receipts").select("id");
+
+    expect(result).toEqual({ data: [{ id: "new" }], error: null });
+  });
+
+  it("fills auth and storage too, not just from()", async () => {
+    const client = mockedModuleClient();
+
+    installFakeSupabase(client, {
+      auth: { getUser: { data: { user: { id: "user-1" } }, error: null } },
+      storage: { remove: { data: null, error: null } },
+    });
+
+    expect((await client.auth.getUser()).data.user).toEqual({ id: "user-1" });
+    expect(await client.storage.from("receipts").remove(["a.jpg"])).toEqual({
+      data: null,
+      error: null,
+    });
   });
 });
 

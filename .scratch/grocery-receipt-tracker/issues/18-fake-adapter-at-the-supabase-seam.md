@@ -38,7 +38,7 @@ The decisions, against the four questions above:
 - **Running dry throws.** An unprepared table, or a queue consumed past its end, raises with the table name and the call index — not an empty result. A silent `{ data: [], error: null }` turns "production issued a query you did not expect", usually a real regression, into a mystery failure downstream or no failure at all. The existing nested factories at least fail loudly on a missing rung; that property has to be deliberately kept.
 - **The 22 factories all go, in one pass**, over two commits: the helper plus its own tests first, then the mechanical replacement of 20 test files. Coexistence is especially bad here, since the helper's whole value is that any test file can be read without re-learning its fake. The risk is low: replacement is test-only, and swapping order-encoding nesting for a recorder makes assertions *looser*, so nothing correct can start failing.
 
-Success is checkable: `as never` in `src` and `api` goes from 233 to 0, with the one surviving `as unknown as SupabaseClient<Database>` living inside `fakeSupabase.ts`. `vi.mock` stays at the top of each test file — hoisting aside, it is the line that declares why this test gets a fake at all, and hiding it makes that harder to trace.
+Success is checkable: every **Supabase-boundary** cast in `src` and `api` goes to zero, with the one survivor — `as unknown as SupabaseClient<Database>` — living inside `fakeSupabase.ts`. Note the repo-wide cast count (216 across 30 files) is a larger number than this change can move: `api/_lib/testHandler.ts` casts Vercel's request/response, `recognizeReceipt.test.ts` casts the Anthropic client, and much of `recognize.test.ts` casts app-internal module mocks. None of those are the Supabase seam, and none are in scope here. `vi.mock` stays at the top of each test file — hoisting aside, it is the line that declares why this test gets a fake at all, and hiding it makes that harder to trace.
 
 Deliberately **not** in scope: the four follow-ups below, `CONTEXT.md` (no new domain term — a test fake is implementation), and an ADR (test-only, cheap to reverse, no future reader will wonder why).
 
@@ -98,7 +98,7 @@ The schema-typing half shipped separately on 2026-09-13:
 - **取空即抛错。** 没准备过的表、或队列被消费超界，抛错并带上表名和第几次调用，而不是返回空结果。静默的 `{ data: [], error: null }` 会把"生产代码发了一个你没预料到的查询"——通常是真回归——变成下游某处莫名其妙的失败，或者干脆不失败。现存的嵌套式 factory 至少在缺一环时会响亮地挂掉，这个性质必须刻意保留。
 - **22 个 factory 一次性全换**，分两个 commit：先加 helper 和它自己的测试，再机械替换 20 个测试文件。这里共存尤其糟，因为 helper 的全部价值就在于"读任何一个测试文件都不用重新理解它的 fake"。风险很低：替换是纯测试改动，而且把"编码顺序的嵌套"换成 recorder 之后断言变得**更松**，本来对的东西不会开始挂。
 
-成功与否可直接验收：`src` 和 `api` 里的 `as never` 从 233 降到 0，唯一幸存的那个 `as unknown as SupabaseClient<Database>` 住在 `fakeSupabase.ts` 里面。`vi.mock` 保留在各测试文件顶部——除了 hoisting 的限制之外，它本来就是声明"这个测试为什么拿到的是 fake"的那一行，藏起来只会让这件事更难追。
+成功与否可直接验收：`src` 和 `api` 里每一处 **Supabase 边界**的 cast 归零，唯一幸存的那个 `as unknown as SupabaseClient<Database>` 住在 `fakeSupabase.ts` 里面。注意仓库里 cast 的总数（30 个文件、216 处）比本次改动能撼动的要大：`api/_lib/testHandler.ts` 转的是 Vercel 的 request/response，`recognizeReceipt.test.ts` 转的是 Anthropic client，`recognize.test.ts` 里大半转的是应用内模块的 mock。这些都不是 Supabase 那道缝，也都不在本次范围内。`vi.mock` 保留在各测试文件顶部——除了 hoisting 的限制之外，它本来就是声明"这个测试为什么拿到的是 fake"的那一行，藏起来只会让这件事更难追。
 
 刻意**不**在范围内：下面那四条遗留项、`CONTEXT.md`（没有新的领域术语——测试 fake 属于实现层）、以及 ADR（纯测试代码，推翻成本很低，未来读者不会困惑）。
 

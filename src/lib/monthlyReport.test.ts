@@ -5,11 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // assembly/wiring. Purchase history is one batched query regardless of how
 // many products are involved, so a multi-product fixture costs no extra mock
 // chains -- see the ranking test below.
-vi.mock("@/lib/supabaseClient", () => ({
-  supabase: {
-    from: vi.fn(),
-  },
-}));
+vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 // fetchCircleMembers' own Supabase behavior is already covered by
 // circleMembers.test.ts; this only checks that its result is used to label
@@ -19,45 +15,15 @@ vi.mock("@/lib/circleMembers", () => ({
 }));
 
 import { supabase } from "@/lib/supabaseClient";
+import { installFakeSupabase } from "@/test/fakeSupabase";
 import { fetchCircleMembers } from "@/lib/circleMembers";
 import { fetchMonthlyReport } from "@/lib/monthlyReport";
 
 const MONTH = new Date("2026-08-05");
 
-function monthReceiptsChain(result: { data: unknown; error: unknown }) {
-  const lte = vi.fn().mockResolvedValue(result);
-  const gte = vi.fn(() => ({ lte }));
-  const eq = vi.fn(() => ({ gte }));
-  const select = vi.fn(() => ({ eq }));
-  return { select, eq, gte, lte };
-}
-
-function prevMonthReceiptsChain(result: { data: unknown; error: unknown }) {
-  return monthReceiptsChain(result);
-}
-
-function alertsCountChain(result: { count: number | null; error: unknown }) {
-  const lt = vi.fn().mockResolvedValue(result);
-  const gte = vi.fn(() => ({ lt }));
-  const select = vi.fn(() => ({ gte }));
-  return { select, gte, lt };
-}
-
-function productsChain(result: { data: unknown; error: unknown }) {
-  const inFn = vi.fn().mockResolvedValue(result);
-  const select = vi.fn(() => ({ in: inFn }));
-  return { select, in: inFn };
-}
-
-// The leaderboard purchase history comes from fetchPurchaseHistories, which
-// batches every product into one query:
-// select...in("product_id",[...]).eq("receipts.status",...).order(...).
-function historyChain(result: { data: unknown; error: unknown }) {
-  const order = vi.fn().mockResolvedValue(result);
-  const eqStatus = vi.fn(() => ({ order }));
-  const inProducts = vi.fn(() => ({ eq: eqStatus }));
-  const select = vi.fn(() => ({ in: inProducts }));
-  return { select, inProducts, eqStatus, order };
+/** The methods a table saw, for counting repeated calls. */
+function methodsUsed(calls: Array<[string, ...unknown[]]>) {
+  return calls.map(([method]) => method);
 }
 
 describe("fetchMonthlyReport", () => {
@@ -66,7 +32,7 @@ describe("fetchMonthlyReport", () => {
   });
 
   it("assembles total spend, category breakdown, alert count, uploader spend, and the price-change leaderboard", async () => {
-    const monthChain = monthReceiptsChain({
+    const monthResult = {
       data: [
         {
           total_amount: 12.0,
@@ -90,17 +56,17 @@ describe("fetchMonthlyReport", () => {
         },
       ],
       error: null,
-    });
-    const prevChain = prevMonthReceiptsChain({
+    };
+    const prevResult = {
       data: [{ total_amount: 10.0, uploaded_by: "user-1", receipt_items: [] }],
       error: null,
-    });
-    const alertsChain = alertsCountChain({ count: 2, error: null });
-    const productsRowsChain = productsChain({
+    };
+    const alertsResult = { count: 2, error: null };
+    const productsResult = {
       data: [{ id: "product-1", canonical_name_en: "Anchor Blue Milk", canonical_name_zh: "安科蓝带牛奶" }],
       error: null,
-    });
-    const historyRowsChain = historyChain({
+    };
+    const historyResult = {
       data: [
         {
           product_id: "product-1",
@@ -122,26 +88,29 @@ describe("fetchMonthlyReport", () => {
         },
       ],
       error: null,
-    });
+    };
 
-    vi.mocked(supabase.from)
-      .mockReturnValueOnce(monthChain as never)
-      .mockReturnValueOnce(prevChain as never)
-      .mockReturnValueOnce(alertsChain as never)
-      .mockReturnValueOnce(productsRowsChain as never)
-      .mockReturnValueOnce(historyRowsChain as never);
+    const db = installFakeSupabase(supabase, {
+      tables: {
+        // `receipts` is read twice: this month, then the month before.
+        receipts: [monthResult, prevResult],
+        alerts: alertsResult,
+        products: productsResult,
+        receipt_items: historyResult,
+      },
+    });
     vi.mocked(fetchCircleMembers).mockResolvedValue([
       { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
     ]);
 
     const report = await fetchMonthlyReport(MONTH);
 
-    expect(monthChain.gte).toHaveBeenCalledWith("purchase_date", "2026-08-01");
-    expect(monthChain.lte).toHaveBeenCalledWith("purchase_date", "2026-08-31");
-    expect(prevChain.gte).toHaveBeenCalledWith("purchase_date", "2026-07-01");
-    expect(prevChain.lte).toHaveBeenCalledWith("purchase_date", "2026-07-31");
-    expect(alertsChain.gte).toHaveBeenCalledWith("created_at", "2026-08-01");
-    expect(alertsChain.lt).toHaveBeenCalledWith("created_at", "2026-09-01");
+    expect(db.callsFor("receipts")).toContainEqual(["gte", "purchase_date", "2026-08-01"]);
+    expect(db.callsFor("receipts")).toContainEqual(["lte", "purchase_date", "2026-08-31"]);
+    expect(db.callsFor("receipts")).toContainEqual(["gte", "purchase_date", "2026-07-01"]);
+    expect(db.callsFor("receipts")).toContainEqual(["lte", "purchase_date", "2026-07-31"]);
+    expect(db.callsFor("alerts")).toContainEqual(["gte", "created_at", "2026-08-01"]);
+    expect(db.callsFor("alerts")).toContainEqual(["lt", "created_at", "2026-09-01"]);
 
     expect(report.totalSpend).toBe(12.0);
     expect(report.previousMonthSpend).toBe(10.0);
@@ -172,7 +141,7 @@ describe("fetchMonthlyReport", () => {
   });
 
   it("aggregates multiple items of the same product, and falls back to the raw recognized name when unmatched", async () => {
-    const monthChain = monthReceiptsChain({
+    const monthResult = {
       data: [
         {
           total_amount: 20.0,
@@ -220,21 +189,24 @@ describe("fetchMonthlyReport", () => {
         },
       ],
       error: null,
-    });
-    const prevChain = prevMonthReceiptsChain({ data: [], error: null });
-    const alertsChain = alertsCountChain({ count: 0, error: null });
-    const productsRowsChain = productsChain({
+    };
+    const prevResult = { data: [], error: null };
+    const alertsResult = { count: 0, error: null };
+    const productsResult = {
       data: [{ id: "product-1", canonical_name_en: "Anchor Blue Milk", canonical_name_zh: "安科蓝带牛奶" }],
       error: null,
-    });
-    const historyRowsChain = historyChain({ data: [], error: null });
+    };
+    const historyResult = { data: [], error: null };
 
-    vi.mocked(supabase.from)
-      .mockReturnValueOnce(monthChain as never)
-      .mockReturnValueOnce(prevChain as never)
-      .mockReturnValueOnce(alertsChain as never)
-      .mockReturnValueOnce(productsRowsChain as never)
-      .mockReturnValueOnce(historyRowsChain as never);
+    installFakeSupabase(supabase, {
+      tables: {
+        // `receipts` is read twice: this month, then the month before.
+        receipts: [monthResult, prevResult],
+        alerts: alertsResult,
+        products: productsResult,
+        receipt_items: historyResult,
+      },
+    });
     vi.mocked(fetchCircleMembers).mockResolvedValue([
       { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
     ]);
@@ -264,7 +236,7 @@ describe("fetchMonthlyReport", () => {
   });
 
   it("sums a product's promotional savings (original price vs. what was actually paid) without touching its spend total", async () => {
-    const monthChain = monthReceiptsChain({
+    const monthResult = {
       data: [
         {
           total_amount: 8.0,
@@ -288,21 +260,24 @@ describe("fetchMonthlyReport", () => {
         },
       ],
       error: null,
-    });
-    const prevChain = prevMonthReceiptsChain({ data: [], error: null });
-    const alertsChain = alertsCountChain({ count: 0, error: null });
-    const productsRowsChain = productsChain({
+    };
+    const prevResult = { data: [], error: null };
+    const alertsResult = { count: 0, error: null };
+    const productsResult = {
       data: [{ id: "product-1", canonical_name_en: "Anchor Blue Milk", canonical_name_zh: "安科蓝带牛奶" }],
       error: null,
-    });
-    const historyRowsChain = historyChain({ data: [], error: null });
+    };
+    const historyResult = { data: [], error: null };
 
-    vi.mocked(supabase.from)
-      .mockReturnValueOnce(monthChain as never)
-      .mockReturnValueOnce(prevChain as never)
-      .mockReturnValueOnce(alertsChain as never)
-      .mockReturnValueOnce(productsRowsChain as never)
-      .mockReturnValueOnce(historyRowsChain as never);
+    installFakeSupabase(supabase, {
+      tables: {
+        // `receipts` is read twice: this month, then the month before.
+        receipts: [monthResult, prevResult],
+        alerts: alertsResult,
+        products: productsResult,
+        receipt_items: historyResult,
+      },
+    });
     vi.mocked(fetchCircleMembers).mockResolvedValue([
       { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
     ]);
@@ -330,8 +305,8 @@ describe("fetchMonthlyReport", () => {
   });
 
   it("throws when the current month's spend query fails", async () => {
-    const monthChain = monthReceiptsChain({ data: null, error: new Error("network error") });
-    vi.mocked(supabase.from).mockReturnValueOnce(monthChain as never);
+    const monthResult = { data: null, error: new Error("network error") };
+    installFakeSupabase(supabase, { tables: { receipts: [monthResult] } });
 
     await expect(fetchMonthlyReport(MONTH)).rejects.toThrow("network error");
   });
@@ -341,7 +316,7 @@ describe("fetchMonthlyReport", () => {
   // which is why the multi-product ranking path had never actually run. It is
   // now a single history chain no matter how many products are involved.
   it("ranks the leaderboard across every product that rose this month", async () => {
-    const monthChain = monthReceiptsChain({
+    const monthResult = {
       data: [
         {
           total_amount: 18.0,
@@ -393,20 +368,20 @@ describe("fetchMonthlyReport", () => {
         },
       ],
       error: null,
-    });
-    const prevChain = prevMonthReceiptsChain({ data: [], error: null });
-    const alertsChain = alertsCountChain({ count: 0, error: null });
-    const productsRowsChain = productsChain({
+    };
+    const prevResult = { data: [], error: null };
+    const alertsResult = { count: 0, error: null };
+    const productsResult = {
       data: [
         { id: "product-1", canonical_name_en: "Milk", canonical_name_zh: "牛奶" },
         { id: "product-2", canonical_name_en: "Bread", canonical_name_zh: "面包" },
         { id: "product-3", canonical_name_en: "Eggs", canonical_name_zh: "鸡蛋" },
       ],
       error: null,
-    });
+    };
     // Deliberately interleaved and out of date order, to pin down that the
     // fetch groups by product and sorts within each group.
-    const historyRowsChain = historyChain({
+    const historyResult = {
       data: [
         {
           product_id: "product-1",
@@ -464,25 +439,28 @@ describe("fetchMonthlyReport", () => {
         },
       ],
       error: null,
-    });
+    };
 
-    vi.mocked(supabase.from)
-      .mockReturnValueOnce(monthChain as never)
-      .mockReturnValueOnce(prevChain as never)
-      .mockReturnValueOnce(alertsChain as never)
-      .mockReturnValueOnce(productsRowsChain as never)
-      .mockReturnValueOnce(historyRowsChain as never);
+    const db = installFakeSupabase(supabase, {
+      tables: {
+        // `receipts` is read twice: this month, then the month before.
+        receipts: [monthResult, prevResult],
+        alerts: alertsResult,
+        products: productsResult,
+        receipt_items: historyResult,
+      },
+    });
     vi.mocked(fetchCircleMembers).mockResolvedValue([
       { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
     ]);
 
     const report = await fetchMonthlyReport(MONTH);
 
-    expect(historyRowsChain.inProducts).toHaveBeenCalledTimes(1);
-    expect(historyRowsChain.inProducts).toHaveBeenCalledWith("product_id", [
-      "product-1",
-      "product-2",
-      "product-3",
+    expect(methodsUsed(db.callsFor("receipt_items")).filter((m) => m === "in")).toHaveLength(1);
+    expect(db.callsFor("receipt_items")).toContainEqual([
+      "in",
+      "product_id",
+      ["product-1", "product-2", "product-3"],
     ]);
     // product-1 +50%, product-3 +20%, product-2 fell and is excluded.
     expect(report.priceChangeLeaderboard).toEqual([

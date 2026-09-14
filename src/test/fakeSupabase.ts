@@ -196,3 +196,23 @@ export function createFakeSupabase(options: FakeSupabaseOptions = {}) {
     },
   };
 }
+
+/**
+ * Build a fake and copy it onto an already-mocked client module.
+ *
+ * `vi.mock` is hoisted and stays at the top of each test file — it is the
+ * line that declares why this test gets a fake at all, so hiding it would
+ * make that harder to trace. This just fills the empty object that factory
+ * returned, which is what keeps the call sites free of casts:
+ *
+ *     vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
+ *     const db = installFakeSupabase(supabase, { tables: { receipts: [] } });
+ */
+export function installFakeSupabase(
+  client: SupabaseClient<Database>,
+  options: FakeSupabaseOptions = {}
+) {
+  const fake = createFakeSupabase(options);
+  Object.assign(client, fake.client);
+  return fake;
+}
