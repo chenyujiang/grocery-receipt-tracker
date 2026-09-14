@@ -1,6 +1,6 @@
 Type: task
 Status: open
-GitHub: (not mirrored yet)
+GitHub: #30
 Blocked by: 24
 
 ## Question

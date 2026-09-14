@@ -1,13 +1,13 @@
 Type: grilling
 Status: open
-GitHub: (not mirrored yet)
+GitHub: #31
 Blocked by: 24, 26
 
 ## Question
 
 Narrow every price-change calculation to one branch, and decide what gets lost in the narrowing.
 
-The current `calculatePriceChange()` in `src/lib/priceChange.ts` takes a Product's last two normal-price Purchases **regardless of Store** — so it already compares across chains, not just across branches. That is the behaviour being fixed, and it is what `CONTEXT.md`'s uncommitted **Same-Store Price Change** entry already describes but the code does not yet do.
+The current `calculatePriceChange()` in `src/lib/priceChange.ts` takes a Product's last two normal-price Purchases **regardless of Store** — so it already compares across chains, not just across branches. That is the behaviour being fixed, and it is what `CONTEXT.md`'s **Same-Store Price Change** entry already describes but the code does not yet do.
 
 In scope: the product-detail price-change figure (`productDetail.ts`), the 15% Price Spike alerts (`priceSpikeAlerts.ts`), and the monthly report's price-change leaderboard (`priceChangeLeaderboard.ts`) — all three go through the same function.
 
@@ -29,7 +29,7 @@ Open within that:
 
 把所有涨幅计算收窄到单一分店，并想清楚收窄之后会失去什么。
 
-`src/lib/priceChange.ts` 里现在的 `calculatePriceChange()` 取的是某商品最近两次正常价 Purchase，**完全不看是哪家店**——也就是说它不只跨区，连跨连锁都在比。这正是要修的行为，也正是 `CONTEXT.md` 那条尚未提交的 **Same-Store Price Change** 词条已经描述、但代码还没做到的事。
+`src/lib/priceChange.ts` 里现在的 `calculatePriceChange()` 取的是某商品最近两次正常价 Purchase，**完全不看是哪家店**——也就是说它不只跨区，连跨连锁都在比。这正是要修的行为，也正是 `CONTEXT.md` 里 **Same-Store Price Change** 词条已经描述、但代码还没做到的事。
 
 范围内：商品详情页的涨幅数字（`productDetail.ts`）、15% 的价格异常提醒（`priceSpikeAlerts.ts`）、月报的涨幅排行榜（`priceChangeLeaderboard.ts`）——这三处走的是同一个函数。
 

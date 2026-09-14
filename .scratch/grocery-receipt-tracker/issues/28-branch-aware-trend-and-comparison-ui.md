@@ -1,6 +1,6 @@
 Type: prototype
 Status: open
-GitHub: (not mirrored yet)
+GitHub: #32
 Blocked by: 24, 27
 
 ## Question

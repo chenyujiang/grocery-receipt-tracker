@@ -1,6 +1,6 @@
 Type: research
 Status: open
-GitHub: (not mirrored yet)
+GitHub: #27
 
 ## Question
 

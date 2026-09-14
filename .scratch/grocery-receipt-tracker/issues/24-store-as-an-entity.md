@@ -1,6 +1,6 @@
 Type: grilling
 Status: open
-GitHub: (not mirrored yet)
+GitHub: #28
 
 ## Question
 

@@ -1,6 +1,6 @@
 Type: grilling
 Status: open
-GitHub: (not mirrored yet)
+GitHub: #29
 Blocked by: 23, 24
 
 ## Question

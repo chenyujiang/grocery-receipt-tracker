@@ -16,7 +16,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 
 The local files are canonical; `chenyujiang/grocery-receipt-tracker` carries a mirror of each one. **The numbers do not match, and cannot be made to match**: GitHub issues and pull requests share one number sequence, PR #1 was opened before the local tickets were imported, so local `01`–`22` landed as GitHub `#2`–`#23`.
 
-**GitHub number = local number + 1.** Don't rely on that arithmetic — read the `GitHub: #NN` line in the file, which is authoritative and survives any future gap (a new PR consuming a number will shift the offset again for tickets filed after it).
+**There is no single offset.** Local `01`–`22` are GitHub `#2`–`#23` (offset +1); local `23`–`28` are GitHub `#27`–`#32` (offset +4), because PRs #24–#26 consumed numbers in between. Every new PR shifts the offset again for tickets filed after it. Always read the `GitHub: #NN` line in the file — it is the only authoritative mapping.
 
 Renumbering the local files to close the gap was considered and rejected: ~75 `issue NN` references across ~37 source, migration, and doc files cite the local numbers, and every existing commit message would permanently disagree with the new ones.
 

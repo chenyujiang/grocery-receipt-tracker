@@ -86,7 +86,7 @@ Pass `SupabaseClient<Database>`, never bare `SupabaseClient`, when a module take
 
 ### Issue tracker
 
-Issues and specs live as local markdown under `.scratch/<effort>/` (currently just `.scratch/grocery-receipt-tracker/`), and those files are canonical. Each is mirrored to a GitHub issue, linked from the file's own `GitHub: #NN` header line — **the two numbers differ** (GitHub = local + 1, because issues and PRs share one number sequence and PR #1 predates the import), so never cite a GitHub number as if it were the local one. See `docs/agents/issue-tracker.md`.
+Issues and specs live as local markdown under `.scratch/<effort>/` (currently just `.scratch/grocery-receipt-tracker/`), and those files are canonical. Each is mirrored to a GitHub issue, linked from the file's own `GitHub: #NN` header line — **the two numbers differ, by no fixed amount** (issues and PRs share one number sequence, so every merged PR widens the gap: local 01–22 are GitHub #2–#23, local 23–28 are GitHub #27–#32), so never cite a GitHub number as if it were the local one, and never compute one from the other — read the header line. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
