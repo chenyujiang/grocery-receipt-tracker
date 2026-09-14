@@ -80,7 +80,7 @@ Both clients are typed: `createClient<Database>` in `src/lib/supabaseClient.ts` 
 
 Pass `SupabaseClient<Database>`, never bare `SupabaseClient`, when a module takes its client as a parameter — the bare type defaults to an `any` schema and silently opts that module out of all of the above.
 
-Note `src/types/index.ts` still carries hand-written row interfaces (`Receipt`, `Product`, …) that predate this and are now unused and wrong about nullability; only `Role` and `CATEGORIES` are live. Reach for `Database["public"]["Tables"][...]["Row"]` instead.
+`src/types/index.ts` used to carry hand-written row interfaces (`Receipt`, `Product`, …) that predated this and were both unused and wrong about `_zh` nullability; they're deleted. Only `Role` and `CATEGORIES` live there now — for a row shape, reach for `Database["public"]["Tables"][...]["Row"]`, and don't reintroduce a hand-written one.
 
 ## Agent skills
 
