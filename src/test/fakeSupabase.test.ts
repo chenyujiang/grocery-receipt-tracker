@@ -1,0 +1,249 @@
+import { describe, it, expect } from "vitest";
+import { createFakeSupabase } from "@/test/fakeSupabase";
+
+// The fake is a replay-and-record stand-in for supabase-js, not a query
+// engine: it records every chained call and returns a prepared result
+// verbatim. It never filters, sorts, or resolves an embed — see issue 18.
+
+describe("createFakeSupabase: prepared results", () => {
+  it("returns the prepared result when the chain is awaited", async () => {
+    const db = createFakeSupabase({
+      tables: { receipts: { data: [{ id: "r1" }], error: null } },
+    });
+
+    const result = await db.client.from("receipts").select("id").eq("status", "confirmed");
+
+    expect(result).toEqual({ data: [{ id: "r1" }], error: null });
+  });
+
+  it("gives every call to a table the same result when prepared with a bare value", async () => {
+    const db = createFakeSupabase({ tables: { profiles: { data: [{ id: "p1" }], error: null } } });
+
+    const first = await db.client.from("profiles").select("id");
+    const second = await db.client.from("profiles").select("id");
+
+    expect(first).toEqual(second);
+  });
+
+  it("consumes a table's queue in order across repeated calls", async () => {
+    // fetchHomeSummary reads `receipts` twice for different things, so
+    // same-table order is semantic and the fake must answer differently.
+    const db = createFakeSupabase({
+      tables: {
+        receipts: [
+          { data: [{ id: "month" }], error: null },
+          { data: [{ id: "recent" }], error: null },
+        ],
+      },
+    });
+
+    const month = await db.client.from("receipts").select("total_amount");
+    const recent = await db.client.from("receipts").select("id").limit(5);
+
+    expect(month).toEqual({ data: [{ id: "month" }], error: null });
+    expect(recent).toEqual({ data: [{ id: "recent" }], error: null });
+  });
+
+  it("keeps each table's queue independent of the order tables are queried in", async () => {
+    // confirmReceipt writing edit_logs before alerts is an implementation
+    // detail; reordering them must not break a test.
+    const db = createFakeSupabase({
+      tables: {
+        edit_logs: [{ data: null, error: null }],
+        alerts: [{ data: [{ id: "a1" }], error: null }],
+      },
+    });
+
+    const alerts = await db.client.from("alerts").select("id");
+    const logs = await db.client
+      .from("edit_logs")
+      .insert({ field_name: "quantity", edited_by: "user-1" });
+
+    expect(alerts).toEqual({ data: [{ id: "a1" }], error: null });
+    expect(logs).toEqual({ data: null, error: null });
+  });
+
+  it("returns a prepared count for a head request", async () => {
+    const db = createFakeSupabase({ tables: { alerts: { count: 3, error: null } } });
+
+    const result = await db.client.from("alerts").select("id", { count: "exact", head: true });
+
+    expect(result).toEqual({ count: 3, error: null });
+  });
+
+  it("returns the queued value verbatim however the chain terminates", async () => {
+    // .single() gets no special treatment: the test supplies the singular
+    // shape it expects, rather than the fake unwrapping an array.
+    const db = createFakeSupabase({
+      tables: { receipts: { data: { id: "r1" }, error: null } },
+    });
+
+    const result = await db.client.from("receipts").select("id").eq("id", "r1").single();
+
+    expect(result).toEqual({ data: { id: "r1" }, error: null });
+  });
+
+  it("replays a raw PostgrestError, which is not an Error instance", async () => {
+    // This is the shape the errorMessage() convention exists for.
+    const postgrestError = {
+      message: "new row violates row-level security policy",
+      code: "42501",
+      details: "",
+      hint: null,
+    };
+    const db = createFakeSupabase({ tables: { circles: { data: null, error: postgrestError } } });
+
+    const { error } = await db.client.from("circles").insert({ name: "Home" });
+
+    expect(error).toBe(postgrestError);
+    expect(error instanceof Error).toBe(false);
+  });
+});
+
+describe("createFakeSupabase: recorded calls", () => {
+  it("records each chained method with its arguments", async () => {
+    const db = createFakeSupabase({ tables: { receipts: { data: [], error: null } } });
+
+    await db.client
+      .from("receipts")
+      .select("id, total_amount")
+      .eq("status", "confirmed")
+      .order("purchase_date", { ascending: false });
+
+    expect(db.callsFor("receipts")).toContainEqual(["select", "id, total_amount"]);
+    expect(db.callsFor("receipts")).toContainEqual(["eq", "status", "confirmed"]);
+    expect(db.callsFor("receipts")).toContainEqual(["order", "purchase_date", { ascending: false }]);
+  });
+
+  it("records a write's payload the same way as a filter", async () => {
+    const db = createFakeSupabase({ tables: { receipt_items: { data: null, error: null } } });
+
+    await db.client.from("receipt_items").update({ quantity: 2 }).eq("id", "item-1");
+
+    expect(db.callsFor("receipt_items")).toContainEqual(["update", { quantity: 2 }]);
+  });
+
+  it("does not couple assertions to the order filters were applied in", async () => {
+    const db = createFakeSupabase({ tables: { receipts: { data: [], error: null } } });
+
+    await db.client
+      .from("receipts")
+      .select("id")
+      .lte("purchase_date", "2026-08-31")
+      .gte("purchase_date", "2026-08-01");
+
+    expect(db.callsFor("receipts")).toContainEqual(["gte", "purchase_date", "2026-08-01"]);
+    expect(db.callsFor("receipts")).toContainEqual(["lte", "purchase_date", "2026-08-31"]);
+  });
+
+  it("keeps one table's calls out of another's", async () => {
+    const db = createFakeSupabase({
+      tables: { receipts: { data: [], error: null }, alerts: { data: [], error: null } },
+    });
+
+    await db.client.from("receipts").select("id").eq("status", "confirmed");
+    await db.client.from("alerts").select("id").eq("type", "price_spike");
+
+    expect(db.callsFor("receipts")).not.toContainEqual(["eq", "type", "price_spike"]);
+    expect(db.callsFor("alerts")).toContainEqual(["eq", "type", "price_spike"]);
+  });
+
+  it("reports no calls for a table that was never queried", () => {
+    const db = createFakeSupabase({ tables: { receipts: { data: [], error: null } } });
+
+    expect(db.callsFor("receipts")).toEqual([]);
+  });
+});
+
+describe("createFakeSupabase: running dry", () => {
+  it("throws, naming the table, when a query has no prepared result", () => {
+    const db = createFakeSupabase({ tables: { receipts: { data: [], error: null } } });
+
+    expect(() => db.client.from("edit_logs")).toThrow(/edit_logs/);
+  });
+
+  it("throws, naming the table and the call index, when a queue is exhausted", async () => {
+    const db = createFakeSupabase({ tables: { receipts: [{ data: [], error: null }] } });
+
+    await db.client.from("receipts").select("id");
+
+    expect(() => db.client.from("receipts")).toThrow(/receipts.*2/s);
+  });
+
+  it("throws rather than returning an empty result, so an unexpected query is loud", () => {
+    const db = createFakeSupabase({ tables: {} });
+
+    expect(() => db.client.from("products")).toThrow();
+  });
+});
+
+describe("createFakeSupabase: auth, storage and rpc", () => {
+  it("resolves auth calls to a prepared value", async () => {
+    const db = createFakeSupabase({
+      auth: { getUser: { data: { user: { id: "user-1" } }, error: null } },
+    });
+
+    const result = await db.client.auth.getUser();
+
+    expect(result).toEqual({ data: { user: { id: "user-1" } }, error: null });
+  });
+
+  it("resolves an unprepared auth call to a signed-out default", async () => {
+    const db = createFakeSupabase();
+
+    const { data, error } = await db.client.auth.getSession();
+
+    expect(data.session).toBeNull();
+    expect(error).toBeNull();
+  });
+
+  it("exposes auth spies so a test can vary the answer per call", async () => {
+    const db = createFakeSupabase({ auth: { getUser: { data: { user: null }, error: null } } });
+    db.auth.getUser.mockResolvedValueOnce({ data: { user: { id: "user-2" } }, error: null });
+
+    const first = await db.client.auth.getUser();
+    const second = await db.client.auth.getUser();
+
+    expect(first.data.user).toEqual({ id: "user-2" });
+    expect(second.data.user).toBeNull();
+  });
+
+  it("resolves an admin auth call to a prepared value", async () => {
+    const db = createFakeSupabase({
+      auth: { admin: { listUsers: { data: { users: [{ id: "user-1" }] }, error: null } } },
+    });
+
+    const { data } = await db.client.auth.admin.listUsers({ perPage: 1000 });
+
+    expect(data.users).toEqual([{ id: "user-1" }]);
+  });
+
+  it("records the storage bucket and resolves the prepared bucket operation", async () => {
+    const db = createFakeSupabase({ storage: { remove: { data: null, error: null } } });
+
+    const result = await db.client.storage.from("receipts").remove(["user-1/photo.jpg"]);
+
+    expect(db.storageFrom).toHaveBeenCalledWith("receipts");
+    expect(db.storage.remove).toHaveBeenCalledWith(["user-1/photo.jpg"]);
+    expect(result).toEqual({ data: null, error: null });
+  });
+
+  it("resolves a prepared rpc by function name", async () => {
+    const db = createFakeSupabase({
+      rpc: { merge_users_into_new_circle: { data: "circle-1", error: null } },
+    });
+
+    const result = await db.client.rpc("merge_users_into_new_circle", { p_user_ids: ["user-1"] });
+
+    expect(result).toEqual({ data: "circle-1", error: null });
+    expect(db.rpc).toHaveBeenCalledWith("merge_users_into_new_circle", { p_user_ids: ["user-1"] });
+  });
+
+  it("throws, naming the function, on an unprepared rpc", async () => {
+    const db = createFakeSupabase();
+
+    await expect(
+      db.client.rpc("merge_users_into_new_circle", { p_user_ids: ["user-1"] })
+    ).rejects.toThrow(/merge_users_into_new_circle/);
+  });
+});

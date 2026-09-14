@@ -24,7 +24,23 @@ Needs deciding:
 
 ## Answer
 
-_Not yet decided._
+**No adapter — one shared fake client, test-side only.** The seam stays exactly where it is: every `src/lib` module keeps `import { supabase }` and keeps calling `.from(...)`. What gets built is a single fake in `src/test/fakeSupabase.ts` that the 22 hand-rolled chain factories are all replaced by.
+
+The reasoning: the ~180 casts and the sequence-coupled nesting are *test-construction* costs, not production ones. A production adapter would mean re-expressing PostgREST's filter vocabulary in local types for no production benefit — the `src/lib` modules **already are** the repository layer. Note also that passing the client as a parameter (the `fetchPurchaseHistories` shape) does not by itself fix the casts: that test still writes `as unknown as SupabaseClient`. The cast count is a function of *how the fake is built*, not *how it is injected*.
+
+The decisions, against the four questions above:
+
+- **Surface** — the fake covers `from()`, `auth` and `storage`, because `receipts.ts` alone uses all three in one module; a `from()`-only fake leaves the worst file (`receipts.test.ts`, 47 casts) still hand-rolling the other two. It covers `supabaseAdmin` too (`auth.admin.*`, `rpc`) — the same shape plus two properties, against another 53 casts across 7 `api/` test files.
+- **Fidelity: replay and record, no semantics.** The fake is chainable and thenable, records every call, and on `await` returns a prepared `{ data, error }` verbatim. It does not filter, sort, or resolve embeds. A real query engine would have to parse PostgREST's select syntax — two-level nesting, `!inner`, and `.eq("receipts.status", …)` filtering *through* an embed all appear in production — and the rows a test wants are already in post-embed shape anyway. This line (**shape and bookkeeping, not semantics**) is what keeps the fake's behaviour predictable from its name.
+- **Result routing: one queue per table.** `{ receipts: [r1, r2], alerts: r3 }`; same-table calls consume in order, cross-table order is free. This matches the code: cross-table order is an implementation detail (`confirmReceipt` writing `edit_logs` before `alerts` should not break a test), while same-table order is semantic (`fetchHomeSummary` reads `receipts` twice, for different things, and must be able to answer differently). A bare value is shorthand for "every call to this table gets this". Error injection uses the same slot — put a raw `PostgrestError` object in, which is the shape the `errorMessage()` convention actually needs covered.
+- **Assertions: structured call records.** `expect(db.callsFor("receipts")).toContainEqual(["eq", "status", "confirmed"])`, not a shared bag of `vi.fn()` spies — results are routed per table, so assertions must be too. This also covers the write path for free: `insert`/`update` payloads are just args, which is what most of `receipts.test.ts`'s 19 `toHaveBeenCalledWith` are. `toContainEqual` over an array is where the call-order decoupling actually lands.
+- **Terminators are not special.** `.single()`, `.maybeSingle()` and `{ count: "exact", head: true }` all return the queued value verbatim; the test supplies the right shape. Once `.single()` starts taking the first element or raising `PGRST116`, the question "then why doesn't `.eq()` filter?" has no good answer. Which branch ran is still visible through `callsFor()`.
+- **Running dry throws.** An unprepared table, or a queue consumed past its end, raises with the table name and the call index — not an empty result. A silent `{ data: [], error: null }` turns "production issued a query you did not expect", usually a real regression, into a mystery failure downstream or no failure at all. The existing nested factories at least fail loudly on a missing rung; that property has to be deliberately kept.
+- **The 22 factories all go, in one pass**, over two commits: the helper plus its own tests first, then the mechanical replacement of 20 test files. Coexistence is especially bad here, since the helper's whole value is that any test file can be read without re-learning its fake. The risk is low: replacement is test-only, and swapping order-encoding nesting for a recorder makes assertions *looser*, so nothing correct can start failing.
+
+Success is checkable: `as never` in `src` and `api` goes from 233 to 0, with the one surviving `as unknown as SupabaseClient<Database>` living inside `fakeSupabase.ts`. `vi.mock` stays at the top of each test file — hoisting aside, it is the line that declares why this test gets a fake at all, and hiding it makes that harder to trace.
+
+Deliberately **not** in scope: the four follow-ups below, `CONTEXT.md` (no new domain term — a test fake is implementation), and an ADR (test-only, cheap to reverse, no future reader will wonder why).
 
 ## Already done (prerequisite, not this issue)
 
@@ -68,7 +84,23 @@ The schema-typing half shipped separately on 2026-09-13:
 
 ## 结论
 
-_尚未决定。_
+**不做 adapter——只在测试侧做一个共享的 fake client。** seam 原地不动：`src/lib` 每个模块照旧 `import { supabase }`、照旧调 `.from(...)`。要造的是 `src/test/fakeSupabase.ts` 里的一个 fake，用它替掉现存 22 个手写 chain factory。
+
+理由：那约 180 个 cast 和"把调用顺序编码进嵌套"的写法，是**测试构造**的成本，不是生产代码的成本。做生产 adapter 等于用本地类型重新表达一遍 PostgREST 的过滤词汇，而生产侧一无所得——`src/lib` 这些模块**本来就是** repository 层。另外注意：把 client 改成参数传入（`fetchPurchaseHistories` 那种形状）本身并不解决 cast 问题，那个测试照样写着 `as unknown as SupabaseClient`。cast 的数量取决于 **fake 怎么造**，不是 **fake 怎么注入**。
+
+对应上面四个待定问题：
+
+- **覆盖面**——fake 覆盖 `from()`、`auth`、`storage`，因为光 `receipts.ts` 一个模块就三者全用；只覆盖 `from()` 的话，最糟的那个文件（`receipts.test.ts`，47 个 cast）还得自己手搓另外两个。也覆盖 `supabaseAdmin`（`auth.admin.*`、`rpc`）——形状一样，只多两个属性，换掉 `api/` 侧 7 个测试文件里另外 53 个 cast。
+- **保真度：回放 + 记录，不做语义。** fake 可链式、本身 thenable，记录每一次调用，`await` 时原样返回预置的 `{ data, error }`。不过滤、不排序、不解析 embed。真做查询引擎就得解析 PostgREST 的 select 语法——两层嵌套、`!inner`、以及穿过 embed 的 `.eq("receipts.status", …)` 在生产代码里全都有——而测试想要的行本来就是 embed 之后的形状。这条界线（**只管形状和记账，不管语义**）正是让 fake 的行为可以从名字推断出来的东西。
+- **结果分流：每张表一个队列。** `{ receipts: [r1, r2], alerts: r3 }`；同表按序消费，跨表无序。这匹配代码的真实形状：跨表顺序是实现细节（`confirmReceipt` 先写 `edit_logs` 还是先写 `alerts` 不该弄挂测试），同表顺序才是语义（`fetchHomeSummary` 两次读 `receipts`，读的是不同东西，必须能给不同答案）。直接给一个值是简写，意思是"这张表每次调用都返回它"。错误注入走同一个口子：放一个裸的 `PostgrestError` 对象进去——那正是 `errorMessage()` 那条约定真正需要被覆盖的形状。
+- **断言：结构化的调用记录。** `expect(db.callsFor("receipts")).toContainEqual(["eq", "status", "confirmed"])`，而不是一堆混在一起的 `vi.fn()` spy——结果已经按表分流了，断言也必须分表。写路径顺带覆盖：`insert`/`update` 的 payload 就是 args，`receipts.test.ts` 里 19 处 `toHaveBeenCalledWith` 大半是这个。对数组用 `toContainEqual`（"包含"而非"等于"），顺序解耦就落在这里。
+- **终结方法不特殊对待。** `.single()`、`.maybeSingle()`、`{ count: "exact", head: true }` 一律原样返回队列里的值，形状由测试自己写对。一旦 `.single()` 开始取首元素或抛 `PGRST116`，"那 `.eq()` 为什么不过滤"就没有好答案了。走了哪条分支，仍然可以从 `callsFor()` 看到。
+- **取空即抛错。** 没准备过的表、或队列被消费超界，抛错并带上表名和第几次调用，而不是返回空结果。静默的 `{ data: [], error: null }` 会把"生产代码发了一个你没预料到的查询"——通常是真回归——变成下游某处莫名其妙的失败，或者干脆不失败。现存的嵌套式 factory 至少在缺一环时会响亮地挂掉，这个性质必须刻意保留。
+- **22 个 factory 一次性全换**，分两个 commit：先加 helper 和它自己的测试，再机械替换 20 个测试文件。这里共存尤其糟，因为 helper 的全部价值就在于"读任何一个测试文件都不用重新理解它的 fake"。风险很低：替换是纯测试改动，而且把"编码顺序的嵌套"换成 recorder 之后断言变得**更松**，本来对的东西不会开始挂。
+
+成功与否可直接验收：`src` 和 `api` 里的 `as never` 从 233 降到 0，唯一幸存的那个 `as unknown as SupabaseClient<Database>` 住在 `fakeSupabase.ts` 里面。`vi.mock` 保留在各测试文件顶部——除了 hoisting 的限制之外，它本来就是声明"这个测试为什么拿到的是 fake"的那一行，藏起来只会让这件事更难追。
+
+刻意**不**在范围内：下面那四条遗留项、`CONTEXT.md`（没有新的领域术语——测试 fake 属于实现层）、以及 ADR（纯测试代码，推翻成本很低，未来读者不会困惑）。
 
 ## 已完成（前置工作，不属于本 issue）
 
