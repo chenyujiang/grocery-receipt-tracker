@@ -42,6 +42,8 @@ Success is checkable: every **Supabase-boundary** cast in `src` and `api` goes t
 
 Deliberately **not** in scope: the four follow-ups below, `CONTEXT.md` (no new domain term — a test fake is implementation), and an ADR (test-only, cheap to reverse, no future reader will wonder why).
 
+> **Superseded during implementation.** All four follow-ups were done on this branch anyway, each authorized separately as it surfaced. That means the risk argument above no longer covers the whole change: three commits (`80123cc`, `c1f9741`, `77881d8`) alter **production** behaviour, so "replacement is test-only, nothing correct can start failing" holds for the fake itself but not for the branch. See Amendments.
+
 ## Already done (prerequisite, not this issue)
 
 The schema-typing half shipped separately on 2026-09-13:
@@ -60,7 +62,17 @@ The schema-typing half shipped separately on 2026-09-13:
 - ~~`npm run typecheck` covers `src` only.~~ **Closed**: a third project, `tsconfig.api.json` (`"include": ["api"]`), is referenced from the root `tsconfig.json`, so `tsc -b` — and therefore both `npm run typecheck` and `npm run build` — now covers `api/` too. It matches `tsconfig.app.json`'s strictness (`strict`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`) with Node libs instead of DOM. Turning it on surfaced six real errors, all in `api/` test files: four `it.each([404, 401])` calls widening to `number` where `requireGlobalAdmin` returns `401 | 404` (fixed with `as const`), one malformed-query array that inferred `{ userId?: undefined }`, and one unused import.
 - ~~`src/types/index.ts`'s hand-written row interfaces are a second, wrong source of truth for row shapes.~~ **Closed**: deleted. Only `Role` and `CATEGORIES` remain, which is all anything imported. They were the root of the whole Bilingual Name series — a hand-written shape that disagreed with the schema — so removing them closes the class, not just the instances.
 
-With that, every follow-up this issue opened is closed.
+With that, every follow-up this issue opened is closed. The issue's own `Status:` stays `open` until the PR merges — that is the tracker convention, not an outstanding item.
+
+## Amendments
+
+Found by `/code-review` against `main` after the branch was opened, and fixed on it:
+
+- **The Bilingual Name rule now has one home.** `bilingualName(sourceText, translation)` in `src/lib/bilingualName.ts`. The rule was hand-written at eleven read sites and four of them had quietly dropped the fallback — which is why this issue kept re-opening the same bug in a new file. The two four-rung chains turn out to be the same reader with composed inputs, since `??` associates. It is a module of its own rather than part of `bilingual.ts` because `api/cron/low-stock-check.ts` reaches it through `purchaseHistory.ts`, whose imports were all type-only until now.
+- **"Running dry throws" now holds for every surface, not just `from()` and `rpc`.** `auth.*` was answering an unprepared call with a signed-out default and a bucket operation with `{ data: null, error: null }` — the exact silent answer the design bullet above rejects. Removing them broke no test, so they were dead weight as well as a hole in the invariant. The unused `PreparedResult.status`/`statusText`, three `auth.admin` defaults, and two storage operations went with them.
+- **A queue slot is consumed on await, not on `from()`** — a builder constructed and then abandoned no longer eats a result.
+- **`queriesFor(table)` groups calls one array per query**; `callsFor` stays the flattened view. `low-stock-check.test.ts` was re-deriving that grouping from adjacency in the flat list.
+- **`tsconfig.base.json`** now holds what `app` and `api` share, so their strictness cannot drift — which was the whole point of adding `api/` to `tsc -b`.
 
 ---
 
@@ -106,6 +118,8 @@ With that, every follow-up this issue opened is closed.
 
 刻意**不**在范围内：下面那四条遗留项、`CONTEXT.md`（没有新的领域术语——测试 fake 属于实现层）、以及 ADR（纯测试代码，推翻成本很低，未来读者不会困惑）。
 
+> **实现过程中已被推翻。** 那四条遗留项最终还是都在本分支做掉了，每一条在浮现时单独获得授权。因此上面那条风险论证不再覆盖整个改动：有三个 commit（`80123cc`、`c1f9741`、`77881d8`）改的是**生产**行为，所以"替换只发生在测试侧，不会让原本正确的东西开始失败"对 fake 本身成立，对整条分支不成立。详见「修订」。
+
 ## 已完成（前置工作，不属于本 issue）
 
 加 schema 类型的那一半已于 2026-09-13 单独落地：
@@ -124,4 +138,14 @@ With that, every follow-up this issue opened is closed.
 - ~~`npm run typecheck` 只覆盖 `src`。~~ **已关闭**：新增第三个 project `tsconfig.api.json`（`"include": ["api"]`），并从根 `tsconfig.json` 引用，因此 `tsc -b`——也就是 `npm run typecheck` 和 `npm run build`——现在同样覆盖 `api/`。它与 `tsconfig.app.json` 的严格度一致（`strict`、`noUnusedLocals`、`noUnusedParameters`、`noFallthroughCasesInSwitch`），只是用 Node 的 lib 而非 DOM。打开后立刻暴露出 6 个真实错误，全在 `api/` 的测试文件里：4 处 `it.each([404, 401])` 把类型放宽成 `number`，而 `requireGlobalAdmin` 返回的是 `401 | 404`（用 `as const` 修正）；1 处畸形 query 数组被推断成 `{ userId?: undefined }`；以及 1 个未使用的 import。
 - ~~`src/types/index.ts` 里手写的行接口是行形状的第二个、且错误的事实来源。~~ **已关闭**：已删除。只保留 `Role` 和 `CATEGORIES`，这本就是全仓库唯一 import 的两样。它们正是整串 Bilingual Name 问题的根源——一份与 schema 不符的手写形状——所以删掉它们关闭的是这一类问题，而不只是那几个实例。
 
-至此，本 issue 开出的遗留项全部关闭。
+至此，本 issue 开出的遗留项全部关闭。issue 自身的 `Status:` 保持 `open` 直到 PR 合并——这是 tracker 的约定，不代表还有未完成的事项。
+
+## 修订
+
+分支开出之后，`/code-review` 对着 `main` 复核发现、并在本分支上修掉的：
+
+- **Bilingual Name 规则现在只有一个归属地。** `src/lib/bilingualName.ts` 里的 `bilingualName(sourceText, translation)`。这条规则原本在十一处读取点各写了一遍，其中四处悄悄漏掉了兜底——这正是本 issue 反复在新文件里重开同一个 bug 的原因。那两条四段式链条其实就是同一个 reader 加上组合过的入参，因为 `??` 满足结合律。它单独成模块而没有并入 `bilingual.ts`，是因为 `api/cron/low-stock-check.ts` 会经由 `purchaseHistory.ts` 触达它，而后者在此之前只有 type-only 的 import。
+- **「跑空就抛」现在覆盖所有面，而不只是 `from()` 和 `rpc`。** `auth.*` 原本会用一个「未登录」默认值回应未准备的调用，bucket 操作则回 `{ data: null, error: null }`——正是上面那条设计要点所拒绝的那种静默回答。删掉它们没有弄坏任何测试，说明它们既是不变量上的窟窿，也本来就是废重量。没人用的 `PreparedResult.status`/`statusText`、三个 `auth.admin` 默认值、两个 storage 操作一并删除。
+- **队列名额在 await 时消耗，而不是在 `from()` 时消耗**——构造出来却没跑的 builder 不再吃掉一个结果。
+- **`queriesFor(table)` 按查询分组返回**；`callsFor` 保持扁平视图。`low-stock-check.test.ts` 原本是从扁平列表的相邻关系里反推这个分组的。
+- **`tsconfig.base.json`** 现在持有 `app` 与 `api` 的共同项，两者的严格度不会再各自漂移——而这正是把 `api/` 纳入 `tsc -b` 的初衷。
