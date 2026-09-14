@@ -33,8 +33,12 @@ export async function fetchAlerts(): Promise<AlertListItem[]> {
     id: row.id,
     type: row.type,
     productId: row.product_id,
+    // A Product whose Translation was never produced reads back as its
+    // Source Text, never as blank (CONTEXT.md, Bilingual Name). `products`
+    // itself can only be null to the type checker — `alerts.product_id` is
+    // NOT NULL with an FK, so the embed always resolves.
     productNameEn: row.products?.canonical_name_en ?? "",
-    productNameZh: row.products?.canonical_name_zh ?? "",
+    productNameZh: row.products?.canonical_name_zh ?? row.products?.canonical_name_en ?? "",
     newPrice: row.new_price,
     changePercent: row.change_percent,
     createdAt: row.created_at,

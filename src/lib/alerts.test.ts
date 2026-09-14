@@ -50,6 +50,39 @@ describe("fetchAlerts", () => {
     ]);
   });
 
+  // The Bilingual Name rule (CONTEXT.md): reading a name in either language
+  // always yields text — a Product whose Translation was never produced reads
+  // back as its Source Text, not as blank. A blank here would render the
+  // notification list as a nameless alert in Chinese mode.
+  it("reads an untranslated product back as its source text, not as blank", async () => {
+    installFakeSupabase(supabase, {
+      tables: {
+        alerts: {
+          data: [
+            {
+              id: "alert-1",
+              type: "low_stock",
+              product_id: "product-1",
+              new_price: null,
+              change_percent: null,
+              created_at: "2026-08-05T00:00:00Z",
+              products: {
+                canonical_name_en: "Whittaker's Dark Almond",
+                canonical_name_zh: null,
+              },
+            },
+          ],
+          error: null,
+        },
+      },
+    });
+
+    const [alert] = await fetchAlerts();
+
+    expect(alert.productNameEn).toBe("Whittaker's Dark Almond");
+    expect(alert.productNameZh).toBe("Whittaker's Dark Almond");
+  });
+
   it("throws when the query fails", async () => {
     installFakeSupabase(supabase, {
       tables: { alerts: { data: null, error: new Error("network error") } },
