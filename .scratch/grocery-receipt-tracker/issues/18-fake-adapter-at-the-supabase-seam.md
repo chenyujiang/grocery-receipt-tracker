@@ -58,7 +58,9 @@ The schema-typing half shipped separately on 2026-09-13:
 
 - **New**: that cast was a Supabase-boundary `as` in *production* code, which the `as never`/`as unknown as` sweep missed. **Closed**: all three (`circleMembers.ts`, `monthlyReport.ts`'s `fetchMonthSpend`, `receiptList.ts`) are gone. `receiptList.ts`'s was a fourth Bilingual Name bug — it declared the nullable `store_name_zh` as `string`, so an untranslated store reached a `string` field as a literal `null` and rendered blank. That one the compiler could never have found, because the cast was what silenced it. (`src/lib/adminApi.ts` and the `api/` route bodies also cast, but those parse JSON responses, not Supabase rows, and are legitimate.)
 - ~~`npm run typecheck` covers `src` only.~~ **Closed**: a third project, `tsconfig.api.json` (`"include": ["api"]`), is referenced from the root `tsconfig.json`, so `tsc -b` — and therefore both `npm run typecheck` and `npm run build` — now covers `api/` too. It matches `tsconfig.app.json`'s strictness (`strict`, `noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`) with Node libs instead of DOM. Turning it on surfaced six real errors, all in `api/` test files: four `it.each([404, 401])` calls widening to `number` where `requireGlobalAdmin` returns `401 | 404` (fixed with `as const`), one malformed-query array that inferred `{ userId?: undefined }`, and one unused import.
-- `src/types/index.ts`'s hand-written row interfaces (`Circle`, `Profile`, `Receipt`, `ReceiptItem`, `Product`, `EditLog`, `ReceiptStatus`) are now **entirely unused** — only `Role` and `CATEGORIES` are imported anywhere — and they still declare the `_zh` columns non-nullable, which the database contradicts. They are a second, wrong source of truth for row shapes. Left in place rather than deleted, to keep this change scoped to the casts.
+- ~~`src/types/index.ts`'s hand-written row interfaces are a second, wrong source of truth for row shapes.~~ **Closed**: deleted. Only `Role` and `CATEGORIES` remain, which is all anything imported. They were the root of the whole Bilingual Name series — a hand-written shape that disagreed with the schema — so removing them closes the class, not just the instances.
+
+With that, every follow-up this issue opened is closed.
 
 ---
 
@@ -120,4 +122,6 @@ The schema-typing half shipped separately on 2026-09-13:
 
 - **新增**：上述 cast 是一处**生产代码**里的 Supabase 边界 `as`，此前只 grep `as never` / `as unknown as` 时漏掉了。**已关闭**：三处（`circleMembers.ts`、`monthlyReport.ts` 的 `fetchMonthSpend`、`receiptList.ts`）全部删除。其中 `receiptList.ts` 那处是第四个 Bilingual Name bug——它把可空的 `store_name_zh` 声明为 `string`，于是未翻译的门店以字面量 `null` 进入一个类型为 `string` 的字段，渲染成空白。这一处编译器永远发现不了，因为正是那个 cast 把它压住了。（`src/lib/adminApi.ts` 和 `api/` 路由里的 body 解析也用了 `as`，但那些解析的是 JSON 响应而非 Supabase 行，属于合理用法。）
 - ~~`npm run typecheck` 只覆盖 `src`。~~ **已关闭**：新增第三个 project `tsconfig.api.json`（`"include": ["api"]`），并从根 `tsconfig.json` 引用，因此 `tsc -b`——也就是 `npm run typecheck` 和 `npm run build`——现在同样覆盖 `api/`。它与 `tsconfig.app.json` 的严格度一致（`strict`、`noUnusedLocals`、`noUnusedParameters`、`noFallthroughCasesInSwitch`），只是用 Node 的 lib 而非 DOM。打开后立刻暴露出 6 个真实错误，全在 `api/` 的测试文件里：4 处 `it.each([404, 401])` 把类型放宽成 `number`，而 `requireGlobalAdmin` 返回的是 `401 | 404`（用 `as const` 修正）；1 处畸形 query 数组被推断成 `{ userId?: undefined }`；以及 1 个未使用的 import。
-- `src/types/index.ts` 里手写的行接口（`Circle`、`Profile`、`Receipt`、`ReceiptItem`、`Product`、`EditLog`、`ReceiptStatus`）现在**完全没有人用**——全仓库只 import 了 `Role` 和 `CATEGORIES`——而且它们仍把 `_zh` 列声明为非空，与数据库矛盾。它们是行形状的第二个、且错误的事实来源。为了把本次改动限制在 cast 范围内，暂未删除。
+- ~~`src/types/index.ts` 里手写的行接口是行形状的第二个、且错误的事实来源。~~ **已关闭**：已删除。只保留 `Role` 和 `CATEGORIES`，这本就是全仓库唯一 import 的两样。它们正是整串 Bilingual Name 问题的根源——一份与 schema 不符的手写形状——所以删掉它们关闭的是这一类问题，而不只是那几个实例。
+
+至此，本 issue 开出的遗留项全部关闭。
