@@ -30,7 +30,7 @@ describe("POST /api/admin/users/[userId]/ban", () => {
     expect(requireGlobalAdmin).not.toHaveBeenCalled();
   });
 
-  it.each([404, 401])("relays the guard's %i with an empty body", async (status) => {
+  it.each([404, 401] as const)("relays the guard's %i with an empty body", async (status) => {
     vi.mocked(requireGlobalAdmin).mockResolvedValue({ ok: false, status });
     const res = makeRes();
 
@@ -53,7 +53,8 @@ describe("POST /api/admin/users/[userId]/ban", () => {
   });
 
   it("400s when the route param is missing or repeated", async () => {
-    for (const query of [{}, { userId: ["a", "b"] }]) {
+    const malformed: Array<Record<string, string | string[]>> = [{}, { userId: ["a", "b"] }];
+    for (const query of malformed) {
       const res = makeRes();
 
       await handler(banReq({ banned: true }, query), res.res);

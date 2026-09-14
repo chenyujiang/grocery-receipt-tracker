@@ -39,7 +39,7 @@ describe("GET /api/admin/users", () => {
 
   // Issue 15: a non-admin gets the guard's 404, with an empty body, so the
   // route's existence isn't revealed. 401 is relayed the same silent way.
-  it.each([404, 401])("relays the guard's %i with an empty body", async (status) => {
+  it.each([404, 401] as const)("relays the guard's %i with an empty body", async (status) => {
     vi.mocked(requireGlobalAdmin).mockResolvedValue({ ok: false, status });
     const res = makeRes();
 

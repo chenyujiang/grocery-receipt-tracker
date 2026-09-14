@@ -30,7 +30,7 @@ describe("POST /api/admin/users/[userId]/grant-credit", () => {
     expect(requireGlobalAdmin).not.toHaveBeenCalled();
   });
 
-  it.each([404, 401])("relays the guard's %i with an empty body", async (status) => {
+  it.each([404, 401] as const)("relays the guard's %i with an empty body", async (status) => {
     vi.mocked(requireGlobalAdmin).mockResolvedValue({ ok: false, status });
     const res = makeRes();
 

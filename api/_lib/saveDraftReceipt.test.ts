@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 // Supabase is the external system boundary — mock it here, not the
 // behavior we're testing (Sections 3.2, 5.2, 5.3, 8, 9: writing the

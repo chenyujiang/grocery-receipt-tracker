@@ -16,6 +16,8 @@ React + TypeScript + Vite (frontend), Vercel Serverless Functions in `/api` (bac
 
 Commands: `npm run dev`, `npm run build`, `npm run typecheck`, `npm test` (vitest run).
 
+`tsc -b` spans three projects — `tsconfig.app.json` (`src`), `tsconfig.node.json` (`vite.config.ts`), and `tsconfig.api.json` (`api`) — so `typecheck` and `build` both cover the serverless functions. A new top-level directory needs its own project here, or it silently goes unchecked.
+
 ## Testing
 
 This project is built TDD-first (see the `tdd` skill). Before adding tests for a new unit, confirm the seams (the public interfaces under test) with the user — don't assume. The established boundary-mocking convention is to mock `@/lib/supabaseClient`, never Supabase internals. Tests use Vitest + Testing Library; `src/test/setup.ts` handles jest-dom matchers and DOM cleanup between tests.
