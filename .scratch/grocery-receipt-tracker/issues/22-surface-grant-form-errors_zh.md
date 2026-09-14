@@ -1,5 +1,5 @@
 Type: bug
-Status: ready-for-agent
+Status: resolved
 
 ## 问题
 
@@ -42,3 +42,18 @@ async function withBusy(action: () => Promise<void>) {
 4. 让 `adminApi.ts` 的各个 helper 在非 2xx 时把服务端的 `{ error }` 内容带进抛出的错误里，使管理员读到的就是后端那句 "capUsd must be a positive number"。动手前先确认 `grantAdminCredit`/`setAdminUserBanned`/`mergeUsersIntoCircle` 目前在非 2xx 时到底抛的是什么。
 
 需要和用户确认：前端是否也应在发请求前拒绝非有限数（即用 `Number.isFinite`，与后端一致），还是让那个 400 成为唯一的判定来源——可以是一道关卡也可以是两道，但不能是互相打架的两道。
+
+## 处理结果
+
+第 1–3 点已在 `src/pages/AdminDashboard.tsx` 中完成。第 4 点无需改动：`authorizedFetch` 本来就抛 `new Error(body?.error ?? …)`，服务端的消息一直都传到了前端——只是被那个缺失的 `catch` 丢掉了。
+
+合并按钮位于页面上而非卡片内，因此单独给了它一个 `mergeError` 错误位，而没有复用页面的 `error` state：`error` 会刻意隐藏整个用户列表，而合并失败时应当把已选中的用户留在屏幕上，方便重试或调整。
+
+**待定问题，结论：两道互相一致的关卡。** 前端保留请求前的校验。前端无论如何都需要一道关卡——空输入框或 `abc` 不该浪费一次往返——所以真正要选的从来不是「一道还是两道」，而是这两道是否一致。现在它们一致了：判断条件是 `Number.isFinite(amount) && amount > 0`，与 `grant-credit.ts` 完全相同。文案则是故意不同的：管理员读到的是 "Enter a grant amount greater than 0."，而后端那句 `capUsd must be a positive number` 点的是请求字段名，万一真有非法金额到了后端，显示出来的就是它。
+
+解析用的是 `Number(text.trim())` 而非 `parseFloat`。`parseFloat` 的宽松正是后端**无法**兜住的那一类：`parseFloat("5abc")` 等于 `5`，于是一个笔误会变成一个完全合法的请求，把用户的额度重置成谁也没输入过的数字——恰恰是本 issue 要堵住的那种失败。`Number()` 则会整串拒绝。
+
+另有两点限制，与其留作言外之意，不如写下来：
+
+- 每个用户的错误消息由页面持有（`cardErrors`，以 user id 为键），而不是放在 `UserCard` 内部。一个被标记的用户会渲染成**两张**卡片——一张在「需要关注」队列里，一张在圈子名单里——若用卡片本地 state，失败只会显示在被点击的那张上，另一张看上去像什么都没发生。
+- 「管理员读到的就是后端的消息」只对那些 400 成立，对鉴权失败不成立：`requireGlobalAdmin` 被拒时返回的是 `res.status(auth.status).json({})`，没有 `error` 字段，所以这类失败显示为 `Request failed with status 401`。这种不透露信息是刻意的，未作改动。

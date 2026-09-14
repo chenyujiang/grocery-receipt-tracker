@@ -27,19 +27,29 @@ interface UserCardProps {
   onChange: () => void;
   selected: boolean;
   onToggleSelect: () => void;
+  error: string | null;
+  onError: (message: string | null) => void;
 }
 
-function UserCard({ user, onChange, selected, onToggleSelect }: UserCardProps) {
+function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: UserCardProps) {
   const [showCustom, setShowCustom] = useState(false);
   const [customAmount, setCustomAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const flagged = needsAttention(user);
 
+  // Issue 22: every action here is consequential — a grant is a reset, not a
+  // top-up (issue 15 decision 4) — so a failure must never look like a dead
+  // button. The message is held per *user* by the page rather than per card,
+  // because a flagged user is rendered twice (needs-attention queue and circle
+  // roster); card-local state would leave the other copy looking untouched.
   async function withBusy(action: () => Promise<void>) {
     setBusy(true);
+    onError(null);
     try {
       await action();
       onChange();
+    } catch (err) {
+      onError(errorMessage(err, "Action failed"));
     } finally {
       setBusy(false);
     }
@@ -127,8 +137,17 @@ function UserCard({ user, onChange, selected, onToggleSelect }: UserCardProps) {
             className="btn-sm"
             disabled={busy}
             onClick={() => {
-              const amount = parseFloat(customAmount);
-              if (Number.isNaN(amount) || amount <= 0) return;
+              // Number(), not parseFloat(): parseFloat("5abc") is 5, and since a
+              // grant is a reset, that would quietly cap the user at an amount
+              // nobody typed. What survives this is what grant-credit.ts accepts
+              // (finite and positive), so the two guards agree rather than letting
+              // "Infinity" through to come back as an unexplained 400. The typed
+              // text is left in the box so it can be corrected, not retyped.
+              const amount = Number(customAmount.trim());
+              if (!Number.isFinite(amount) || amount <= 0) {
+                onError("Enter a grant amount greater than 0.");
+                return;
+              }
               void withBusy(async () => {
                 await grantAdminCredit(user.userId, amount);
                 setCustomAmount("");
@@ -152,6 +171,8 @@ function UserCard({ user, onChange, selected, onToggleSelect }: UserCardProps) {
           {user.banned ? "Unban account" : "Ban account"}
         </button>
       </div>
+
+      {error && <p role="alert">{error}</p>}
     </li>
   );
 }
@@ -163,6 +184,12 @@ export default function AdminDashboard() {
   const [expandedCircles, setExpandedCircles] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [merging, setMerging] = useState(false);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [cardErrors, setCardErrors] = useState<Record<string, string | null>>({});
+
+  function setCardError(userId: string, message: string | null) {
+    setCardErrors((prev) => ({ ...prev, [userId]: message }));
+  }
 
   function load() {
     setError(null);
@@ -183,6 +210,9 @@ export default function AdminDashboard() {
   }
 
   function toggleSelected(userId: string) {
+    // The message sits next to the merge button, which disappears below two
+    // selected users — so changing the selection has to take it down with it.
+    setMergeError(null);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) next.delete(userId);
@@ -193,10 +223,16 @@ export default function AdminDashboard() {
 
   async function mergeSelected() {
     setMerging(true);
+    setMergeError(null);
     try {
       await mergeUsersIntoCircle([...selected]);
       setSelected(new Set());
       load();
+    } catch (err) {
+      // Kept out of `error`, which hides the whole roster: a failed merge should
+      // leave the selection on screen to retry or adjust. merge_users_into_new_circle
+      // refuses a multi-member circle, and that reason is worth reading.
+      setMergeError(errorMessage(err, "Failed to merge users"));
     } finally {
       setMerging(false);
     }
@@ -241,11 +277,15 @@ export default function AdminDashboard() {
                     onChange={load}
                     selected={selected.has(user.userId)}
                     onToggleSelect={() => toggleSelected(user.userId)}
+                    error={cardErrors[user.userId] ?? null}
+                    onError={(message) => setCardError(user.userId, message)}
                   />
                 ))}
               </ul>
             )}
           </section>
+
+          {mergeError && <p role="alert">{mergeError}</p>}
 
           {selected.size >= 2 && (
             <div className="receipt-card-actions-row" style={{ marginBottom: 14 }}>
@@ -261,7 +301,10 @@ export default function AdminDashboard() {
                 type="button"
                 className="btn-secondary"
                 disabled={merging}
-                onClick={() => setSelected(new Set())}
+                onClick={() => {
+                  setMergeError(null);
+                  setSelected(new Set());
+                }}
               >
                 Clear selection
               </button>
@@ -291,6 +334,8 @@ export default function AdminDashboard() {
                           onChange={load}
                           selected={selected.has(user.userId)}
                           onToggleSelect={() => toggleSelected(user.userId)}
+                          error={cardErrors[user.userId] ?? null}
+                          onError={(message) => setCardError(user.userId, message)}
                         />
                       ))}
                     </ul>

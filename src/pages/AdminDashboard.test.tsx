@@ -57,6 +57,12 @@ function renderPage() {
   );
 }
 
+function openCustomGrant(amount: string) {
+  fireEvent.click(screen.getByRole("button", { name: "Custom…" }));
+  fireEvent.change(screen.getByPlaceholderText("e.g. 5.00"), { target: { value: amount } });
+  fireEvent.click(screen.getByRole("button", { name: "Grant" }));
+}
+
 describe("AdminDashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -149,5 +155,160 @@ describe("AdminDashboard", () => {
     expect(mergeUsersIntoCircle).toHaveBeenCalledWith(["u1", "u3"]);
     await waitFor(() => expect(fetchAdminUsers).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole("button", { name: /merge/i })).not.toBeInTheDocument();
+  });
+
+  // Issue 22: a grant is a reset, never a top-up, so an admin must never be
+  // left guessing whether one landed. Every failure path gets a visible message.
+  it("refuses an unparseable custom amount with a visible message, without calling the backend", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([BEN_BLOCKED]);
+
+    renderPage();
+    await screen.findByText("Ben Wu");
+
+    openCustomGrant("abc");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/greater than 0/i);
+    expect(grantAdminCredit).not.toHaveBeenCalled();
+  });
+
+  // parseFloat("Infinity") is a number and passes a NaN/<=0 guard, but the
+  // backend refuses it (issue 21) — the frontend guard matches isFinite so the
+  // two agree on which inputs are invalid.
+  it("refuses a non-finite custom amount without calling the backend", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([BEN_BLOCKED]);
+
+    renderPage();
+    await screen.findByText("Ben Wu");
+
+    openCustomGrant("Infinity");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/greater than 0/i);
+    expect(grantAdminCredit).not.toHaveBeenCalled();
+  });
+
+  it("keeps the typed amount so a rejected grant can be corrected rather than retyped", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([BEN_BLOCKED]);
+
+    renderPage();
+    await screen.findByText("Ben Wu");
+
+    fireEvent.click(screen.getByRole("button", { name: "Custom…" }));
+    const input = screen.getByPlaceholderText("e.g. 5.00");
+    fireEvent.change(input, { target: { value: "-5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Grant" }));
+
+    await screen.findByRole("alert");
+    expect(input).toHaveValue("-5");
+  });
+
+  it("surfaces the server's message when a grant fails", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([BEN_BLOCKED]);
+    vi.mocked(grantAdminCredit).mockRejectedValue(new Error("capUsd must be a positive number"));
+
+    renderPage();
+    await screen.findByText("Ben Wu");
+
+    fireEvent.click(screen.getByRole("button", { name: "Grant $1" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("capUsd must be a positive number");
+  });
+
+  // Supabase's PostgrestError is a plain object, not an Error (CLAUDE.md), so
+  // the card must read it through errorMessage() rather than instanceof Error.
+  it("surfaces a plain-object rejection's message when a ban fails", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([ALICE]);
+    vi.mocked(setAdminUserBanned).mockRejectedValue({ message: "permission denied for table users" });
+
+    renderPage();
+    fireEvent.click(await screen.findByText(/Chen Family \(1\)/));
+    await screen.findByText("Alice Chen");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ban account" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("permission denied for table users");
+  });
+
+  it("clears a card's error once a later action succeeds", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([BEN_BLOCKED]);
+    vi.mocked(grantAdminCredit).mockRejectedValueOnce(new Error("grant blew up")).mockResolvedValue(undefined);
+
+    renderPage();
+    await screen.findByText("Ben Wu");
+
+    fireEvent.click(screen.getByRole("button", { name: "Grant $1" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("grant blew up");
+
+    fireEvent.click(screen.getByRole("button", { name: "Grant $1" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("surfaces a failed merge without hiding the roster", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([ALICE, CARL]);
+    vi.mocked(mergeUsersIntoCircle).mockRejectedValue(new Error("cannot merge a multi-member circle"));
+
+    renderPage();
+    fireEvent.click(await screen.findByText(/Chen Family \(2\)/));
+    await screen.findByText("Alice Chen");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /select alice chen/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /select carl wu/i }));
+    fireEvent.click(screen.getByRole("button", { name: /merge 2 users into a circle/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("cannot merge a multi-member circle");
+    // The selection survives so the admin can retry or adjust it.
+    expect(screen.getByRole("button", { name: /merge 2 users into a circle/i })).toBeInTheDocument();
+    expect(screen.getByText("Alice Chen")).toBeInTheDocument();
+  });
+
+  // parseFloat("5abc") is 5, so a typo'd amount would silently reset the user's
+  // cap to a number they never typed — the exact failure class issue 15
+  // decision 4 (a grant is a reset, not a top-up) makes expensive.
+  it("refuses a custom amount with trailing junk rather than granting the number it starts with", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([BEN_BLOCKED]);
+
+    renderPage();
+    await screen.findByText("Ben Wu");
+
+    openCustomGrant("5abc");
+
+    expect(await screen.findAllByRole("alert")).not.toHaveLength(0);
+    expect(grantAdminCredit).not.toHaveBeenCalled();
+  });
+
+  // A flagged user is rendered twice — once in the needs-attention queue, once
+  // in the circle roster — so the failure has to reach both copies, or the
+  // admin can scroll to a card that looks like nothing went wrong.
+  it("shows a failed action on every card for that user, not just the clicked one", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([BEN_BLOCKED]);
+    vi.mocked(grantAdminCredit).mockRejectedValue(new Error("grant blew up"));
+
+    renderPage();
+    fireEvent.click(await screen.findByText(/Chen Family \(1\)/));
+    await waitFor(() => expect(screen.getAllByText("Ben Wu")).toHaveLength(2));
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Grant $1" })[0]);
+
+    await waitFor(() => expect(screen.getAllByRole("alert")).toHaveLength(2));
+    for (const alert of screen.getAllByRole("alert")) {
+      expect(alert).toHaveTextContent("grant blew up");
+    }
+  });
+
+  it("drops a stale merge error once the selection behind it is cleared", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([ALICE, CARL]);
+    vi.mocked(mergeUsersIntoCircle).mockRejectedValue(new Error("cannot merge a multi-member circle"));
+
+    renderPage();
+    fireEvent.click(await screen.findByText(/Chen Family \(2\)/));
+    await screen.findByText("Alice Chen");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /select alice chen/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /select carl wu/i }));
+    fireEvent.click(screen.getByRole("button", { name: /merge 2 users into a circle/i }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /clear selection/i }));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
