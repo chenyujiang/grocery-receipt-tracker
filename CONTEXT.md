@@ -16,6 +16,10 @@ _Avoid_: Superuser, site admin, owner
 
 ## Buying
 
+**Store**:
+Where a Receipt was rung up. The app keeps no record of a Store beyond the name printed on the Receipts that name it, so two Receipts are from the same Store exactly when they carry the same Source Text.
+_Avoid_: Supermarket, retailer, merchant, vendor, shop
+
 **Receipt**:
 One shopping trip at one store, captured as a photo and the line items extracted from it.
 _Avoid_: Transaction, bill, docket
@@ -35,6 +39,14 @@ _Avoid_: Buy, acquisition, sale
 **Purchase History**:
 Every Purchase of one Product, oldest first. The single input that price trends, store comparison, consumption rate, and alerts all start from.
 _Avoid_: Price history, timeline, purchase log
+
+**Same-Store Price Change**:
+What a Product's price did between its two most recent normal-price Purchases **at one Store**. A promotional Purchase is never either end of the comparison, and a Product with fewer than two normal-price Purchases at that Store has no Same-Store Price Change at all — not a change of zero. A price difference between two Stores is not a price change; that is Store Comparison, a different question.
+_Avoid_: Price change, price increase, price delta, inflation
+
+**Store Comparison**:
+What one Product costs at each Store that has sold it to the Circle, each Store represented by its latest normal-price Purchase. Answers "where is this cheapest", never "did this get more expensive".
+_Avoid_: Price comparison, store ranking, best price
 
 **Bilingual Name**:
 The name of a Product, Store, or Receipt Item held in both languages at once: an English **Source Text**, read off the receipt, and a Chinese **Translation** of it. Reading a Bilingual Name in either language always yields text — a Product whose Translation was never produced reads back as its Source Text, not as blank.
@@ -70,6 +82,10 @@ _Avoid_: Balance, top-up, budget, spend limit
 A notice raised for a Circle about one Product — that its price spiked, or that stock is running low. Raised by the app, not by a user.
 _Avoid_: Notification, warning, flag
 
+**Price Spike**:
+A Same-Store Price Change big enough to be worth telling the Circle about. Judged the moment a Receipt is confirmed, against earlier Purchases at that Receipt's own Store. Unlike Low Stock it cannot arise from the passing of time — only a new Purchase can raise one.
+_Avoid_: Price alert, price jump, spike
+
 **Low Stock**:
 The state of a Product whose estimated days remaining, derived from its Purchase History, has run down. It decays with time alone, which is why it's re-checked on a schedule rather than on new Purchases.
 _Avoid_: Out of stock, running out, depleted
@@ -96,6 +112,10 @@ _避免_：超级用户、站点管理员、所有者
 
 ## 购买
 
+**Store（门店）**：
+Receipt 结账的地方。除了印在提到它的那些 Receipt 上的名称之外，应用不为 Store 保留任何记录；因此两张 Receipt 来自同一家 Store，当且仅当它们带有相同的 Source Text。
+_避免_：超市、零售商、商家、店铺
+
 **Receipt（小票）**：
 在一家店的一次购物，以一张照片及从中提取的行项目的形式留存。
 _避免_：交易、账单、收据单
@@ -115,6 +135,14 @@ _避免_：购买动作、获取、销售
 **Purchase History（购入历史）**：
 某个 Product 的全部 Purchase，按时间从旧到新。价格趋势、门店比价、消耗速度和提醒，全都从它出发。
 _避免_：价格历史、时间线、购买日志
+
+**Same-Store Price Change（同店涨幅）**：
+某个 Product 的价格在**同一家 Store** 最近两次正常价 Purchase 之间的变化。促销价的 Purchase 永远不会成为对比的任何一端；某个 Product 在那家 Store 的正常价 Purchase 不足两次，就根本没有 Same-Store Price Change——而不是变化为零。两家 Store 之间的价格差异不是涨幅；那是 Store Comparison，另一个问题。
+_避免_：涨幅、涨价、价格变动、通胀
+
+**Store Comparison（门店比价）**：
+某个 Product 在每一家卖给过这个 Circle 的 Store 分别卖多少钱，每家 Store 以其最近一次正常价 Purchase 为代表。它回答「哪里最便宜」，绝不回答「是不是涨价了」。
+_避免_：比价、门店排行、最低价
 
 **Bilingual Name（双语名称）**：
 Product、门店或 Receipt Item 同时以两种语言持有的名称：英文的 **Source Text（原文）**，从小票上读取；以及它的中文 **Translation（译文）**。用任一语言读取 Bilingual Name 都必然得到文字——某个 Product 若从未产出过 Translation，读回来的是它的 Source Text，而不是空白。
@@ -149,6 +177,10 @@ _避免_：余额、充值、预算、消费上限
 **Alert（提醒）**：
 就某个 Product 向一个 Circle 发出的通知——价格异常上涨，或库存即将耗尽。由应用发出，而非用户发出。
 _避免_：通知、警告、标记
+
+**Price Spike（价格异常上涨）**：
+大到值得告知整个 Circle 的 Same-Store Price Change。在 Receipt 被确认的那一刻判定，对比的是那张 Receipt 自己那家 Store 的既往 Purchase。与 Low Stock 不同，它不会仅因时间流逝而出现——只有新的 Purchase 才能引发它。
+_避免_：价格提醒、价格跳涨、异常
 
 **Low Stock（库存偏低）**：
 某个 Product 的状态：由其 Purchase History 推算出的预计可用天数已经见底。它仅随时间流逝就会逼近，因此需要定时重新检查，而不是在有新 Purchase 时才检查。
