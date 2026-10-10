@@ -4,6 +4,7 @@ import type { Database } from "@/types/database.types";
 // `api/` imports at runtime (api/cron/low-stock-check.ts), and the alias is
 // a bundler concern the serverless build should not have to resolve.
 import { bilingualName } from "./bilingualName.js";
+import { storeName } from "./storeName.js";
 
 // One confirmed ReceiptItem, flattened together with its Receipt's date and
 // store — the shared shape every price/consumption feature reads from.
@@ -12,6 +13,12 @@ import { bilingualName } from "./bilingualName.js";
 // structurally assignable to either, so callers pass it straight through.
 export interface Purchase {
   purchaseDate: string; // "YYYY-MM-DD"
+  // The Store this was bought at. Null only for a receipt confirmed before
+  // stores existed and not yet backfilled (issue 29).
+  storeId: string | null;
+  // The Store's own chain and branch — not the receipt's printed header,
+  // which is only how one receipt spelled it. The header stands in only when
+  // there's no Store.
   storeNameEn: string;
   storeNameZh: string;
   unitPrice: number;
@@ -28,7 +35,7 @@ export interface PurchaseHistory {
 }
 
 const PURCHASE_SELECT =
-  "product_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_name_en, store_name_zh, status)";
+  "product_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_id, store_name_en, store_name_zh, status, stores(chain_name_en, chain_name_zh, branch_name_en, branch_name_zh))";
 
 // Sections 10-13: price change, price trend, store comparison, consumption
 // rate, price-spike alerts and low-stock alerts all start from the same
@@ -76,11 +83,14 @@ export async function fetchPurchaseHistories(
     if (row.product_id == null || row.unit_spec_value == null || !row.unit_spec_unit) {
       continue;
     }
-    const storeName = bilingualName(row.receipts.store_name_en, row.receipts.store_name_zh);
+    const name = row.receipts.stores
+      ? storeName(row.receipts.stores)
+      : bilingualName(row.receipts.store_name_en, row.receipts.store_name_zh);
     byProduct.get(row.product_id)?.push({
       purchaseDate: row.receipts.purchase_date,
-      storeNameEn: storeName.en,
-      storeNameZh: storeName.zh,
+      storeId: row.receipts.store_id,
+      storeNameEn: name.en,
+      storeNameZh: name.zh,
       unitPrice: row.unit_price,
       quantity: row.quantity,
       specValue: row.unit_spec_value,

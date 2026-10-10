@@ -11,6 +11,7 @@ vi.mock("@/lib/receipts", () => ({
   fetchReceiptDraft: vi.fn(),
   confirmReceipt: vi.fn(),
   deleteReceipt: vi.fn(),
+  fetchStores: vi.fn(),
   // Pure field strip, not a Supabase call — stubbed with the real behavior so
   // the page's save payload stays meaningful. The strip itself is pinned down
   // in receipts.test.ts.
@@ -20,7 +21,7 @@ vi.mock("@/lib/duplicateCheck", () => ({
   findDuplicateReceipt: vi.fn(),
 }));
 
-import { fetchReceiptDraft, confirmReceipt, deleteReceipt } from "@/lib/receipts";
+import { fetchReceiptDraft, confirmReceipt, deleteReceipt, fetchStores } from "@/lib/receipts";
 import { findDuplicateReceipt } from "@/lib/duplicateCheck";
 import ReceiptReview from "@/pages/ReceiptReview";
 
@@ -29,6 +30,9 @@ const SAMPLE_DRAFT = {
   uploadedBy: "user-1",
   storeNameEn: "Countdown Newmarket",
   storeNameZh: "倒数超市 Newmarket 店",
+  storeDisplayName: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
+  recognizedStore: null,
+  storeId: null,
   purchaseDate: "2026-08-01",
   totalAmount: 4.5,
   status: "pending_review",
@@ -51,6 +55,28 @@ const SAMPLE_DRAFT = {
   ],
 };
 
+// SAMPLE_DRAFT predates the AI's chain/branch split, so the picker starts on
+// its printed header as the chain, with the branch unknown.
+const HEADER_AS_CHAIN = {
+  chain: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
+  branch: { en: "", zh: null },
+};
+
+const HORNBY_STORE = {
+  id: "store-hornby",
+  chainNameEn: "Woolworths",
+  chainNameZh: "沃尔沃斯",
+  branchNameEn: "Hornby",
+  branchNameZh: "霍恩比",
+};
+const ALBANY_STORE = {
+  id: "store-albany",
+  chainNameEn: "PAK'nSAVE",
+  chainNameZh: "派克储蓄",
+  branchNameEn: "Albany",
+  branchNameZh: "奥尔巴尼",
+};
+
 function renderReviewPage() {
   return render(
     <MemoryRouter initialEntries={["/receipts/receipt-1/review"]}>
@@ -66,6 +92,7 @@ describe("ReceiptReview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(findDuplicateReceipt).mockResolvedValue(null);
+    vi.mocked(fetchStores).mockResolvedValue([]);
   });
 
   it("loads and displays the draft's items", async () => {
@@ -93,7 +120,179 @@ describe("ReceiptReview", () => {
     expect(await screen.findByText("Home stub")).toBeInTheDocument();
     expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", [
       expect.objectContaining({ id: "item-1", quantity: 2 }),
+    ], HEADER_AS_CHAIN);
+  });
+
+  // Issue 29: the store picker sits where the store name used to, pre-filled
+  // with what the AI read off the header; the Store itself is resolved (or
+  // created) by confirmReceipt, never on the page.
+  it("pre-fills the store picker with the AI's chain and branch, and confirms with them", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue({
+      ...SAMPLE_DRAFT,
+      recognizedStore: {
+        chain: { en: "Woolworths", zh: "沃尔沃斯" },
+        branch: { en: "Hornby", zh: "霍恩比" },
+      },
+    });
+    vi.mocked(confirmReceipt).mockResolvedValue(undefined);
+
+    renderReviewPage();
+
+    expect(await screen.findByLabelText(/chain|连锁/i)).toHaveValue("Woolworths");
+    expect(screen.getByLabelText(/branch|分店/i)).toHaveValue("Hornby");
+    await userEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", expect.any(Array), {
+      chain: { en: "Woolworths", zh: "沃尔沃斯" },
+      branch: { en: "Hornby", zh: "霍恩比" },
+    });
+  });
+
+  it("starts a draft with no recognized chain/branch on its printed header as the chain, branch unknown", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
+
+    renderReviewPage();
+
+    expect(await screen.findByLabelText(/store|门店/i)).toHaveValue("unknown");
+    expect(screen.getByLabelText(/chain|连锁/i)).toHaveValue("Countdown Newmarket");
+  });
+
+  // The AI's Chinese names were translations of what it read; once the user
+  // retypes a name they no longer match, so it goes in with no Translation.
+  it("confirms with the user's edited chain and branch, dropping their stale translations", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue({
+      ...SAMPLE_DRAFT,
+      recognizedStore: {
+        chain: { en: "Wolworths", zh: "沃尔沃斯" },
+        branch: { en: "Hornbv", zh: "霍恩比" },
+      },
+    });
+    vi.mocked(confirmReceipt).mockResolvedValue(undefined);
+
+    renderReviewPage();
+
+    const chain = await screen.findByLabelText(/chain|连锁/i);
+    await userEvent.clear(chain);
+    await userEvent.type(chain, "Woolworths");
+    const branch = screen.getByLabelText(/branch|分店/i);
+    await userEvent.clear(branch);
+    await userEvent.type(branch, "Hornby");
+    await userEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", expect.any(Array), {
+      chain: { en: "Woolworths", zh: null },
+      branch: { en: "Hornby", zh: null },
+    });
+  });
+
+  // Matching is on the normalized keys, so the AI's "Pak n Save" finds the
+  // Circle's PAK'nSAVE row — and the Store's own names win over the AI's.
+  it("pre-selects the existing Store the AI's chain and branch match, and confirms with that Store's names", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue({
+      ...SAMPLE_DRAFT,
+      recognizedStore: {
+        chain: { en: "Pak n Save", zh: "帕克超市" },
+        branch: { en: "Albany", zh: "阿尔巴尼" },
+      },
+    });
+    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, ALBANY_STORE]);
+    vi.mocked(confirmReceipt).mockResolvedValue(undefined);
+
+    renderReviewPage();
+
+    expect(await screen.findByLabelText(/store|门店/i)).toHaveValue("store-albany");
+    // The new-branch fields only show for "new branch".
+    expect(screen.queryByLabelText(/chain|连锁/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", expect.any(Array), {
+      chain: { en: "PAK'nSAVE", zh: "派克储蓄" },
+      branch: { en: "Albany", zh: "奥尔巴尼" },
+    });
+  });
+
+  it("confirms with the names of whichever existing Store the user picks instead", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue({
+      ...SAMPLE_DRAFT,
+      recognizedStore: {
+        chain: { en: "Pak n Save", zh: "帕克超市" },
+        branch: { en: "Albany", zh: "阿尔巴尼" },
+      },
+    });
+    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, ALBANY_STORE]);
+    vi.mocked(confirmReceipt).mockResolvedValue(undefined);
+
+    renderReviewPage();
+
+    await userEvent.selectOptions(await screen.findByLabelText(/store|门店/i), "store-hornby");
+    await userEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", expect.any(Array), {
+      chain: { en: "Woolworths", zh: "沃尔沃斯" },
+      branch: { en: "Hornby", zh: "霍恩比" },
+    });
+  });
+
+  it("labels an existing Store with no branch as branch unknown", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
+    vi.mocked(fetchStores).mockResolvedValue([
+      {
+        id: "store-costco",
+        chainNameEn: "Costco",
+        chainNameZh: "好市多",
+        branchNameEn: null,
+        branchNameZh: null,
+      },
     ]);
+
+    renderReviewPage();
+
+    expect(
+      await screen.findByRole("option", { name: "Costco (Branch unknown)" })
+    ).toHaveValue("store-costco");
+  });
+
+  // For a header whose branch the AI misread and the user can't tell either:
+  // the receipt still lands on the chain, as its unknown-branch Store.
+  it("confirms with the chain and no branch when the user picks branch unknown", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue({
+      ...SAMPLE_DRAFT,
+      recognizedStore: {
+        chain: { en: "Woolworths", zh: "沃尔沃斯" },
+        branch: { en: "Hornbv", zh: "霍恩比" },
+      },
+    });
+    vi.mocked(confirmReceipt).mockResolvedValue(undefined);
+
+    renderReviewPage();
+
+    await userEvent.selectOptions(await screen.findByLabelText(/store|门店/i), "Branch unknown");
+    expect(screen.getByLabelText(/chain|连锁/i)).toHaveValue("Woolworths");
+    expect(screen.queryByLabelText(/branch|分店/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", expect.any(Array), {
+      chain: { en: "Woolworths", zh: "沃尔沃斯" },
+      branch: { en: "", zh: null },
+    });
+  });
+
+  // The header named no branch, so this isn't a new branch — and the picker
+  // shouldn't say it is.
+  it("starts on branch unknown when the AI read no branch and no Store matches", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue({
+      ...SAMPLE_DRAFT,
+      recognizedStore: {
+        chain: { en: "Costco", zh: "好市多" },
+        branch: { en: "", zh: null },
+      },
+    });
+    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE]);
+
+    renderReviewPage();
+
+    expect(await screen.findByLabelText(/store|门店/i)).toHaveValue("unknown");
+    expect(screen.getByLabelText(/chain|连锁/i)).toHaveValue("Costco");
   });
 
   // Issue 17: the weight/volume spec used to be read-only here and editable
@@ -113,7 +312,7 @@ describe("ReceiptReview", () => {
 
     expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", [
       expect.objectContaining({ unitSpecValue: 1, unitSpecUnit: "kg" }),
-    ]);
+    ], HEADER_AS_CHAIN);
   });
 
   it("shows an error if the draft can't be loaded", async () => {

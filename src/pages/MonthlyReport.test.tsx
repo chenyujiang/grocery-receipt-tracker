@@ -33,7 +33,15 @@ const SAMPLE_REPORT = {
     },
   ],
   priceChangeLeaderboard: [
-    { productId: "product-1", nameEn: "Anchor Blue Milk", nameZh: "安科蓝带牛奶", changePercent: 25 },
+    {
+      productId: "product-1",
+      nameEn: "Anchor Blue Milk",
+      nameZh: "安科蓝带牛奶",
+      storeId: "store-hornby",
+      storeNameEn: "Woolworths Hornby",
+      storeNameZh: "沃尔沃斯 霍恩比店",
+      changePercent: 25,
+    },
   ],
   alertCount: 3,
   spendByUploader: [{ userId: "user-1", displayName: "eason", total: 120.5 }],

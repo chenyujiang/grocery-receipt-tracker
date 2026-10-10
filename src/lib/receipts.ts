@@ -1,9 +1,11 @@
 import { supabase } from "@/lib/supabaseClient";
-import { detectPriceSpikes } from "@/lib/priceSpikeAlerts";
+import { detectPriceSpikes, type SpikeCheckReceipt } from "@/lib/priceSpikeAlerts";
+import { listStores, resolveStore, type BilingualText, type Store } from "@/lib/stores";
 import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
-import { bilingualName } from "@/lib/bilingualName";
+import { bilingualName, type BilingualName } from "@/lib/bilingualName";
+import { storeName } from "@/lib/storeName";
 
 export interface UploadReceiptResult {
   receiptId: string;
@@ -67,8 +69,19 @@ export function toItemUpdate(item: DraftItem): ConfirmReceiptItemUpdate {
 export interface ReceiptDraft {
   id: string;
   uploadedBy: string;
+  // The store name as printed on the receipt header.
   storeNameEn: string;
   storeNameZh: string;
+  // What to call the receipt: its Store's own chain and branch, or the
+  // printed header while it has no Store (issue 29).
+  storeDisplayName: BilingualName;
+  // The chain/branch split the AI read off the header, in the shape
+  // confirmReceipt takes its Store in. Null for a draft recognized before
+  // the split existed (issue 29).
+  recognizedStore: { chain: BilingualText; branch: BilingualText } | null;
+  // The Store a confirmed receipt points at; null for a draft, which gets
+  // its Store only on confirm.
+  storeId: string | null;
   purchaseDate: string;
   totalAmount: number;
   status: string;
@@ -76,15 +89,21 @@ export interface ReceiptDraft {
   items: DraftItem[];
 }
 
+// The preview screen's store picker options: the Circle's Stores, scoped by RLS.
+export function fetchStores(): Promise<Store[]> {
+  return listStores(supabase);
+}
+
 // Section 6: the preview/confirm screen reads the AI-generated draft —
 // category comes from the matched Product, not from ReceiptItem itself
 // (spec.md Section 5.2). `uploadedBy` drives issue 16's edit-permission
 // check (only the uploader may edit a confirmed receipt).
+
 export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft> {
   const { data: receiptRow, error: receiptError } = await supabase
     .from("receipts")
     .select(
-      "id, uploaded_by, store_name_en, store_name_zh, purchase_date, total_amount, status, original_image_url"
+      "id, uploaded_by, store_id, store_name_en, store_name_zh, recognized_chain_en, recognized_chain_zh, recognized_branch_en, recognized_branch_zh, purchase_date, total_amount, status, original_image_url, stores(chain_name_en, chain_name_zh, branch_name_en, branch_name_zh)"
     )
     .eq("id", receiptId)
     .single();
@@ -104,13 +123,25 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
 
   const items = itemRows ?? [];
 
-  const storeName = bilingualName(receiptRow.store_name_en, receiptRow.store_name_zh);
+  const header = bilingualName(receiptRow.store_name_en, receiptRow.store_name_zh);
 
   return {
     id: receiptRow.id,
     uploadedBy: receiptRow.uploaded_by,
-    storeNameEn: storeName.en,
-    storeNameZh: storeName.zh,
+    storeNameEn: header.en,
+    storeNameZh: header.zh,
+    storeDisplayName: receiptRow.stores ? storeName(receiptRow.stores) : header,
+    recognizedStore:
+      receiptRow.recognized_chain_en == null
+        ? null
+        : {
+            chain: { en: receiptRow.recognized_chain_en, zh: receiptRow.recognized_chain_zh },
+            branch: {
+              en: receiptRow.recognized_branch_en ?? "",
+              zh: receiptRow.recognized_branch_zh,
+            },
+          },
+    storeId: receiptRow.store_id,
     purchaseDate: receiptRow.purchase_date,
     totalAmount: receiptRow.total_amount,
     status: receiptRow.status,
@@ -220,9 +251,16 @@ async function updateReceiptItemsWithLog(
 // Section 6: user reviews/corrects each field, then confirms. Every changed
 // field is logged to EditLog (Section 5.4) before the update is applied,
 // diffed against whatever Supabase currently holds for that item.
+//
+// Issue 29: `store` is the chain/branch the user confirmed on the preview
+// screen — an existing Store picked from the list resolves back to itself.
+// The Store row is created here, on confirm, never on draft save, and is
+// written in the same update as the status so a confirmed receipt never
+// lacks one.
 export async function confirmReceipt(
   receiptId: string,
-  items: ConfirmReceiptItemUpdate[]
+  items: ConfirmReceiptItemUpdate[],
+  store: { chain: BilingualText; branch: BilingualText }
 ): Promise<void> {
   const {
     data: { user },
@@ -234,17 +272,33 @@ export async function confirmReceipt(
 
   await updateReceiptItemsWithLog(items, user.id);
 
+  const { data: receiptCircle, error: circleError } = await supabase
+    .from("receipts")
+    .select("circle_id")
+    .eq("id", receiptId)
+    .single();
+  if (circleError || !receiptCircle) {
+    throw circleError ?? new Error("Receipt not found");
+  }
+
+  const { id: storeId } = await resolveStore(supabase, receiptCircle.circle_id, store);
+
   const { data: receiptRow, error: statusError } = await supabase
     .from("receipts")
-    .update({ status: "confirmed" })
+    .update({ status: "confirmed", store_id: storeId })
     .eq("id", receiptId)
-    .select("circle_id")
+    .select("purchase_date")
     .single();
   if (statusError || !receiptRow) {
     throw statusError ?? new Error("Failed to confirm receipt");
   }
 
-  await recordPriceSpikeAlerts(receiptRow.circle_id, receiptId, items);
+  await recordPriceSpikeAlerts(
+    receiptCircle.circle_id,
+    receiptId,
+    { storeId, purchaseDate: receiptRow.purchase_date },
+    items
+  );
 }
 
 // Issue 16: fixing a mistake on an already-confirmed receipt — the uploader
@@ -256,7 +310,8 @@ export async function confirmReceipt(
 export async function editConfirmedReceipt(
   receiptId: string,
   purchaseDate: string,
-  items: ConfirmReceiptItemUpdate[]
+  items: ConfirmReceiptItemUpdate[],
+  store: { chain: BilingualText; branch: BilingualText }
 ): Promise<void> {
   const {
     data: { user },
@@ -270,31 +325,45 @@ export async function editConfirmedReceipt(
 
   const { data: existingReceipt, error: fetchError } = await supabase
     .from("receipts")
-    .select("purchase_date")
+    .select("purchase_date, circle_id, store_id")
     .eq("id", receiptId)
     .single();
   if (fetchError || !existingReceipt) {
     throw fetchError ?? new Error("Receipt not found");
   }
 
-  if (existingReceipt.purchase_date === purchaseDate) {
+  // Issue 29: moving a receipt to another Store is logged by id, and — like
+  // every edit — neither re-raises nor withdraws alerts.
+  const { id: storeId } = await resolveStore(supabase, existingReceipt.circle_id, store);
+
+  const changes: { purchase_date?: string; store_id?: string } = {};
+  const logs: Array<{ field_name: string; old_value: string | null; new_value: string }> = [];
+  if (existingReceipt.store_id !== storeId) {
+    changes.store_id = storeId;
+    logs.push({ field_name: "store_id", old_value: existingReceipt.store_id, new_value: storeId });
+  }
+  if (existingReceipt.purchase_date !== purchaseDate) {
+    changes.purchase_date = purchaseDate;
+    logs.push({
+      field_name: "purchase_date",
+      old_value: existingReceipt.purchase_date,
+      new_value: purchaseDate,
+    });
+  }
+  if (logs.length === 0) {
     return;
   }
 
-  const { error: logError } = await supabase.from("edit_logs").insert({
-    receipt_id: receiptId,
-    field_name: "purchase_date",
-    old_value: existingReceipt.purchase_date,
-    new_value: purchaseDate,
-    edited_by: user.id,
-  });
+  const { error: logError } = await supabase
+    .from("edit_logs")
+    .insert(logs.map((log) => ({ receipt_id: receiptId, ...log, edited_by: user.id })));
   if (logError) {
     throw logError;
   }
 
   const { error: updateError } = await supabase
     .from("receipts")
-    .update({ purchase_date: purchaseDate })
+    .update(changes)
     .eq("id", receiptId);
   if (updateError) {
     throw updateError;
@@ -303,10 +372,12 @@ export async function editConfirmedReceipt(
 
 // Section 13: after confirming, check each item's product for a >15% price
 // spike against its recent normal-price history (now including this
-// receipt, since it just flipped to confirmed) and log an alert.
+// receipt, since it just flipped to confirmed) and log an alert. Only the
+// receipt's own Store's history counts (issue 29).
 async function recordPriceSpikeAlerts(
   circleId: string,
   receiptId: string,
+  receipt: SpikeCheckReceipt,
   items: ConfirmReceiptItemUpdate[]
 ): Promise<void> {
   const productIds = [
@@ -322,7 +393,7 @@ async function recordPriceSpikeAlerts(
 
   const histories = await fetchPurchaseHistories(supabase, productIds);
 
-  const spikes = detectPriceSpikes(histories);
+  const spikes = detectPriceSpikes(histories, receipt);
   if (spikes.length === 0) {
     return;
   }

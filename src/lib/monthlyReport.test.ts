@@ -478,7 +478,12 @@ describe("fetchMonthlyReport", () => {
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-20", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-20",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
         {
           product_id: "product-2",
@@ -487,7 +492,12 @@ describe("fetchMonthlyReport", () => {
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-02", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-02",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
         {
           product_id: "product-3",
@@ -496,7 +506,12 @@ describe("fetchMonthlyReport", () => {
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-20", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-20",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
         {
           product_id: "product-1",
@@ -505,7 +520,12 @@ describe("fetchMonthlyReport", () => {
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-02", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-02",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
         {
           product_id: "product-3",
@@ -514,7 +534,12 @@ describe("fetchMonthlyReport", () => {
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-02", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-02",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
         {
           product_id: "product-2",
@@ -523,7 +548,12 @@ describe("fetchMonthlyReport", () => {
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-20", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-20",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
       ],
       error: null,
@@ -550,10 +580,12 @@ describe("fetchMonthlyReport", () => {
       "product_id",
       ["product-1", "product-2", "product-3"],
     ]);
-    // product-1 +50%, product-3 +20%, product-2 fell and is excluded.
+    // product-1 +50%, product-3 +20%, product-2 fell and is excluded. All at
+    // one Store, which each row names.
+    const AT_COUNTDOWN = { storeId: "store-countdown", storeNameEn: "Countdown", storeNameZh: "倒数超市" };
     expect(report.priceChangeLeaderboard).toEqual([
-      { productId: "product-1", nameEn: "Milk", nameZh: "牛奶", changePercent: 50 },
-      { productId: "product-3", nameEn: "Eggs", nameZh: "鸡蛋", changePercent: 20 },
+      { productId: "product-1", nameEn: "Milk", nameZh: "牛奶", ...AT_COUNTDOWN, changePercent: 50 },
+      { productId: "product-3", nameEn: "Eggs", nameZh: "鸡蛋", ...AT_COUNTDOWN, changePercent: 20 },
     ]);
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   fetchReceiptDraft,
+  fetchStores,
   confirmReceipt,
   deleteReceipt,
   toItemUpdate,
@@ -13,11 +14,14 @@ import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
+import StorePicker, { initialStorePick, pickedStore, type StorePick } from "@/components/StorePicker";
+import type { Store } from "@/lib/stores";
 
 // Section 6, 15 page 2 (preview/confirm): the review step is the safety net
 // for OCR errors — user edits each field before it counts toward statistics.
 // The per-item controls are ReceiptItemFields, shared with ReceiptDetail's
-// post-confirm edit mode (issue 17).
+// post-confirm edit mode (issue 17); the store picker is StorePicker, shared
+// the same way (issue 29).
 export default function ReceiptReview() {
   const { language, t } = useLanguage();
   const { receiptId } = useParams<{ receiptId: string }>();
@@ -25,6 +29,8 @@ export default function ReceiptReview() {
 
   const [draft, setDraft] = useState<ReceiptDraft | null>(null);
   const [items, setItems] = useState<DraftItem[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [storePick, setStorePick] = useState<StorePick | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
@@ -34,10 +40,12 @@ export default function ReceiptReview() {
 
   useEffect(() => {
     if (!receiptId) return;
-    fetchReceiptDraft(receiptId)
-      .then((loaded) => {
+    Promise.all([fetchReceiptDraft(receiptId), fetchStores()])
+      .then(([loaded, circleStores]) => {
         setDraft(loaded);
         setItems(loaded.items);
+        setStores(circleStores);
+        setStorePick(initialStorePick(circleStores, loaded));
         return findDuplicateReceipt({
           storeNameEn: loaded.storeNameEn,
           purchaseDate: loaded.purchaseDate,
@@ -69,11 +77,11 @@ export default function ReceiptReview() {
   }
 
   async function handleConfirm() {
-    if (!receiptId) return;
+    if (!receiptId || !storePick) return;
     setError(null);
     setConfirming(true);
     try {
-      await confirmReceipt(receiptId, items.map(toItemUpdate));
+      await confirmReceipt(receiptId, items.map(toItemUpdate), pickedStore(stores, storePick));
       navigate("/");
     } catch (err) {
       setError(errorMessage(err, "Failed to confirm receipt"));
@@ -90,7 +98,7 @@ export default function ReceiptReview() {
     );
   }
 
-  if (!draft) {
+  if (!draft || !storePick) {
     return (
       <div className="page">
         <p>{t("common.loading")}</p>
@@ -104,6 +112,8 @@ export default function ReceiptReview() {
       <p>
         {pickText(draft.storeNameEn, draft.storeNameZh, language)} · {draft.purchaseDate}
       </p>
+
+      <StorePicker stores={stores} value={storePick} onChange={setStorePick} />
 
       {duplicate && !duplicateDismissed && (
         <section>

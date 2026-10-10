@@ -45,3 +45,42 @@ export function calculatePriceChange(records: PurchaseRecord[]): PriceChange | n
     current,
   };
 }
+
+export interface StorePurchaseRecord extends PurchaseRecord {
+  storeId: string | null;
+}
+
+export interface StorePriceChange {
+  storeId: string;
+  change: PriceChange;
+}
+
+// The Same-Store Price Change rule, in its one home: purchases are grouped by
+// Store before calculatePriceChange ever sees them, so two purchases at two
+// different Stores are never compared. calculatePriceChange stays
+// store-unaware — it answers "what did these purchases do", this decides
+// which purchases belong together. Stores come back in order of first
+// appearance. A purchase with no Store is skipped: nothing can prove two of
+// them were at the same Store.
+export function calculatePriceChangesByStore(
+  records: StorePurchaseRecord[]
+): StorePriceChange[] {
+  const recordsByStore = new Map<string, StorePurchaseRecord[]>();
+  for (const record of records) {
+    if (record.storeId === null) {
+      continue;
+    }
+    const storeRecords = recordsByStore.get(record.storeId) ?? [];
+    storeRecords.push(record);
+    recordsByStore.set(record.storeId, storeRecords);
+  }
+
+  const changes: StorePriceChange[] = [];
+  for (const [storeId, storeRecords] of recordsByStore) {
+    const change = calculatePriceChange(storeRecords);
+    if (change) {
+      changes.push({ storeId, change });
+    }
+  }
+  return changes;
+}

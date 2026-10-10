@@ -19,6 +19,7 @@ function row(overrides: Record<string, unknown> = {}) {
     is_promotion: false,
     receipts: {
       purchase_date: "2026-08-01",
+      store_id: "store-countdown-newmarket",
       store_name_en: "Countdown",
       store_name_zh: "倒数超市",
     },
@@ -105,6 +106,7 @@ describe("fetchPurchaseHistories", () => {
 
     expect(history.purchases[0]).toEqual({
       purchaseDate: "2026-08-01",
+      storeId: "store-countdown-newmarket",
       storeNameEn: "Countdown",
       storeNameZh: "倒数超市",
       unitPrice: 5,
@@ -113,6 +115,59 @@ describe("fetchPurchaseHistories", () => {
       specUnit: "g",
       isPromotion: true,
     });
+  });
+
+  // Issue 29: the header is only how one receipt happened to print the Store,
+  // so every feature that names a Store — comparison, trend legend,
+  // leaderboard — reads the Store's own chain and branch instead.
+  it("names a purchase after its Store's own chain and branch, not the receipt's printed header", async () => {
+    const mock = fakeClient({
+      data: [
+        row({
+          receipts: {
+            purchase_date: "2026-08-01",
+            store_id: "store-albany",
+            store_name_en: "Pak n Save Albany",
+            store_name_zh: "帕克超市 阿尔巴尼",
+            stores: {
+              chain_name_en: "PAK'nSAVE",
+              chain_name_zh: "派克储蓄",
+              branch_name_en: "Albany",
+              branch_name_zh: "奥尔巴尼",
+            },
+          },
+        }),
+      ],
+      error: null,
+    });
+
+    const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
+
+    expect(history.purchases[0]).toMatchObject({
+      storeNameEn: "PAK'nSAVE Albany",
+      storeNameZh: "派克储蓄 奥尔巴尼",
+    });
+  });
+
+  it("names a purchase at an unknown-branch Store after its chain alone", async () => {
+    const mock = fakeClient({
+      data: [
+        row({
+          receipts: {
+            purchase_date: "2026-08-01",
+            store_id: "store-costco",
+            store_name_en: "COSTCO WHOLESALE NZ LTD",
+            store_name_zh: "好市多批发",
+            stores: { chain_name_en: "Costco", chain_name_zh: "好市多", branch_name_en: null, branch_name_zh: null },
+          },
+        }),
+      ],
+      error: null,
+    });
+
+    const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
+
+    expect(history.purchases[0]).toMatchObject({ storeNameEn: "Costco", storeNameZh: "好市多" });
   });
 
   it("drops rows with no unit spec, since no consumer can normalize them", async () => {

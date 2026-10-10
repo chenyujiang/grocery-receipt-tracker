@@ -61,6 +61,11 @@ export const translations = {
     "review.promotion": "Promotion",
     "review.confirming": "Confirming…",
     "review.confirm": "Confirm",
+    "review.store": "Store",
+    "review.newBranch": "New branch",
+    "review.branchUnknown": "Branch unknown",
+    "review.chain": "Chain",
+    "review.branch": "Branch",
 
     "receiptList.title": "Receipts",
     "receiptList.store": "Store",
@@ -204,6 +209,11 @@ export const translations = {
     "review.promotion": "促销价",
     "review.confirming": "确认中…",
     "review.confirm": "确认",
+    "review.store": "门店",
+    "review.newBranch": "新分店",
+    "review.branchUnknown": "分店未知",
+    "review.chain": "连锁",
+    "review.branch": "分店",
 
     "receiptList.title": "小票列表",
     "receiptList.store": "店铺",

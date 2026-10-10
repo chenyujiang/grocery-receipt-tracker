@@ -56,6 +56,7 @@ const SAMPLE_DETAIL = {
   purchaseHistory: [
     {
       purchaseDate: "2026-07-01",
+      storeId: "store-countdown",
       storeNameEn: "Countdown",
       storeNameZh: "城内城外",
       unitPrice: 5.0,
