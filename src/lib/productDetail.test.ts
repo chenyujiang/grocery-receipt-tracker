@@ -31,6 +31,7 @@ function historyRow(overrides: Record<string, unknown> = {}) {
     is_promotion: false,
     receipts: {
       purchase_date: "2026-07-01",
+      store_id: "store-countdown",
       store_name_en: "Countdown",
       store_name_zh: "城内城外",
     },
@@ -50,6 +51,7 @@ describe("fetchProductDetail", () => {
               unit_price: 4.0,
               receipts: {
                 purchase_date: "2026-07-10",
+                store_id: "store-paknsave",
                 store_name_en: "Pak'nSave",
                 store_name_zh: "帕克超市",
               },
@@ -84,6 +86,7 @@ describe("fetchProductDetail", () => {
     expect(detail.purchaseHistory).toEqual([
       {
         purchaseDate: "2026-07-01",
+        storeId: "store-countdown",
         storeNameEn: "Countdown",
         storeNameZh: "城内城外",
         unitPrice: 5.0,
@@ -94,6 +97,7 @@ describe("fetchProductDetail", () => {
       },
       {
         purchaseDate: "2026-07-10",
+        storeId: "store-paknsave",
         storeNameEn: "Pak'nSave",
         storeNameZh: "帕克超市",
         unitPrice: 4.0,

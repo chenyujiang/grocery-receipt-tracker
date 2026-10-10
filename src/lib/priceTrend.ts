@@ -1,6 +1,9 @@
 import { normalizeUnitPrice, type UnitBasis } from "@/lib/units";
 
 export interface PriceTrendRecord {
+  storeId: string | null;
+  storeNameEn: string;
+  storeNameZh: string;
   purchaseDate: string;
   unitPrice: number;
   specValue: number;
@@ -9,6 +12,10 @@ export interface PriceTrendRecord {
 }
 
 export interface PriceTrendPoint {
+  // The chart draws one line per Store (issue 29), named in its legend.
+  storeId: string | null;
+  storeNameEn: string;
+  storeNameZh: string;
   purchaseDate: string;
   basis: UnitBasis;
   value: number;
@@ -22,6 +29,9 @@ export function buildPriceTrend(records: PriceTrendRecord[]): PriceTrendPoint[] 
   return records.map((record) => {
     const normalized = normalizeUnitPrice(record.unitPrice, record.specValue, record.specUnit);
     return {
+      storeId: record.storeId,
+      storeNameEn: record.storeNameEn,
+      storeNameZh: record.storeNameZh,
       purchaseDate: record.purchaseDate,
       basis: normalized.basis,
       value: normalized.value,
