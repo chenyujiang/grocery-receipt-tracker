@@ -143,6 +143,50 @@ export interface Database {
           },
         ];
       };
+      stores: {
+        Row: {
+          id: string;
+          circle_id: string;
+          chain_name_en: string;
+          chain_name_zh: string | null;
+          branch_name_en: string | null;
+          branch_name_zh: string | null;
+          chain_key: string;
+          branch_key: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          circle_id: string;
+          chain_name_en: string;
+          chain_name_zh?: string | null;
+          branch_name_en?: string | null;
+          branch_name_zh?: string | null;
+          chain_key: string;
+          branch_key?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          circle_id?: string;
+          chain_name_en?: string;
+          chain_name_zh?: string | null;
+          branch_name_en?: string | null;
+          branch_name_zh?: string | null;
+          chain_key?: string;
+          branch_key?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stores_circle_id_fkey";
+            columns: ["circle_id"];
+            isOneToOne: false;
+            referencedRelation: "circles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       receipts: {
         Row: {
           id: string;
@@ -155,6 +199,11 @@ export interface Database {
           original_image_url: string | null;
           uploaded_at: string;
           status: "pending_review" | "confirmed";
+          store_id: string | null;
+          recognized_chain_en: string | null;
+          recognized_chain_zh: string | null;
+          recognized_branch_en: string | null;
+          recognized_branch_zh: string | null;
         };
         Insert: {
           id?: string;
@@ -167,6 +216,11 @@ export interface Database {
           original_image_url?: string | null;
           uploaded_at?: string;
           status?: "pending_review" | "confirmed";
+          store_id?: string | null;
+          recognized_chain_en?: string | null;
+          recognized_chain_zh?: string | null;
+          recognized_branch_en?: string | null;
+          recognized_branch_zh?: string | null;
         };
         Update: {
           id?: string;
@@ -179,6 +233,11 @@ export interface Database {
           original_image_url?: string | null;
           uploaded_at?: string;
           status?: "pending_review" | "confirmed";
+          store_id?: string | null;
+          recognized_chain_en?: string | null;
+          recognized_chain_zh?: string | null;
+          recognized_branch_en?: string | null;
+          recognized_branch_zh?: string | null;
         };
         Relationships: [
           {
@@ -187,6 +246,13 @@ export interface Database {
             isOneToOne: false;
             referencedRelation: "circles";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "receipts_store_id_circle_id_fkey";
+            columns: ["store_id", "circle_id"];
+            isOneToOne: false;
+            referencedRelation: "stores";
+            referencedColumns: ["id", "circle_id"];
           },
         ];
       };
