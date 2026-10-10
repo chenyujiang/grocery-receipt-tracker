@@ -73,7 +73,20 @@ export function storeChoiceOf(store: Store): { chain: BilingualText; branch: Bil
   };
 }
 
-const STORE_SELECT = "id, chain_name_en, chain_name_zh, branch_name_en, branch_name_zh";
+// The existing Store a chain/branch pair names, compared by the same
+// normalized keys resolveStore matches on.
+export function matchingStore(
+  stores: Store[],
+  { chain, branch }: { chain: BilingualText; branch: BilingualText }
+): Store | undefined {
+  const wanted = storeKey(chain.en, branch.en);
+  return stores.find((store) => {
+    const key = storeKey(store.chainNameEn, store.branchNameEn ?? "");
+    return key.chainKey === wanted.chainKey && key.branchKey === wanted.branchKey;
+  });
+}
+
+const STORE_SELECT ="id, chain_name_en, chain_name_zh, branch_name_en, branch_name_zh";
 
 function toStore(
   row: Pick<

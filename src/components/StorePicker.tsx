@@ -2,7 +2,7 @@ import type { ReceiptDraft } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, type Language } from "@/lib/bilingual";
 import { bilingualName } from "@/lib/bilingualName";
-import { storeChoiceOf, storeKey, type Store } from "@/lib/stores";
+import { matchingStore, storeChoiceOf, storeKey, type Store } from "@/lib/stores";
 
 type StoreChoice = NonNullable<ReceiptDraft["recognizedStore"]>;
 
@@ -29,16 +29,6 @@ function initialStore(draft: ReceiptDraft): StoreChoice {
       branch: { en: "", zh: null },
     }
   );
-}
-
-// The existing Store the AI's reading names, compared by the same normalized
-// keys resolveStore matches on.
-function matchingStore(stores: Store[], choice: StoreChoice): Store | undefined {
-  const wanted = storeKey(choice.chain.en, choice.branch.en);
-  return stores.find((store) => {
-    const key = storeKey(store.chainNameEn, store.branchNameEn ?? "");
-    return key.chainKey === wanted.chainKey && key.branchKey === wanted.branchKey;
-  });
 }
 
 // Where the picker starts: the Store a confirmed receipt already points at;
