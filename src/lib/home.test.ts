@@ -115,4 +115,54 @@ describe("fetchHomeSummary", () => {
 
     expect(summary.recentReceipts[0].storeNameZh).toBe("Four Square");
   });
+
+  // Issue 29, same rule as the receipt list: a receipt that points at a Store
+  // is named by that Store; a draft, which has none yet, by its printed header.
+  it("names a recent receipt by its Store's chain and branch, and a draft with no Store by its printed header", async () => {
+    installFakeSupabase(supabase, {
+      tables: {
+        receipts: [
+          NO_RECEIPTS,
+          {
+            data: [
+              {
+                id: "receipt-1",
+                store_name_en: "Pak n Save Albany",
+                store_name_zh: "派克储蓄奥尔巴尼",
+                purchase_date: "2026-08-04",
+                total_amount: 25.5,
+                status: "confirmed",
+                stores: {
+                  chain_name_en: "PAK'nSAVE",
+                  chain_name_zh: "派克储蓄",
+                  branch_name_en: "Albany",
+                  branch_name_zh: "奥尔巴尼",
+                },
+              },
+              {
+                id: "receipt-2",
+                store_name_en: "New World Hobsonville",
+                store_name_zh: "新世界霍布森维尔",
+                purchase_date: "2026-08-03",
+                total_amount: 12,
+                status: "draft",
+                stores: null,
+              },
+            ],
+            error: null,
+          },
+        ],
+        alerts: NO_ALERTS,
+      },
+    });
+
+    const summary = await fetchHomeSummary(TODAY);
+
+    expect(
+      summary.recentReceipts.map(({ storeNameEn, storeNameZh }) => ({ storeNameEn, storeNameZh }))
+    ).toEqual([
+      { storeNameEn: "PAK'nSAVE Albany", storeNameZh: "派克储蓄 奥尔巴尼" },
+      { storeNameEn: "New World Hobsonville", storeNameZh: "新世界霍布森维尔" },
+    ]);
+  });
 });

@@ -16,6 +16,8 @@ describe("rowsToCsv", () => {
         purchaseDate: "2026-08-04",
         storeNameEn: "Countdown",
         storeNameZh: "城内城外",
+        branchNameEn: null,
+        branchNameZh: null,
         productNameEn: "Anchor Blue Milk",
         productNameZh: "安科蓝带牛奶",
         category: "Food - Dairy & Bakery",
@@ -30,10 +32,10 @@ describe("rowsToCsv", () => {
 
     const lines = csv.split("\r\n");
     expect(lines[0]).toBe(
-      "purchase_date,store_name_en,store_name_zh,product_name_en,product_name_zh,category,quantity,spec_value,spec_unit,unit_price,is_promotion,uploader"
+      "purchase_date,store_name_en,store_name_zh,branch_name_en,branch_name_zh,product_name_en,product_name_zh,category,quantity,spec_value,spec_unit,unit_price,is_promotion,uploader"
     );
     expect(lines[1]).toBe(
-      "2026-08-04,Countdown,城内城外,Anchor Blue Milk,安科蓝带牛奶,Food - Dairy & Bakery,1,2,L,4.5,false,eason"
+      "2026-08-04,Countdown,城内城外,,,Anchor Blue Milk,安科蓝带牛奶,Food - Dairy & Bakery,1,2,L,4.5,false,eason"
     );
   });
 
@@ -43,6 +45,8 @@ describe("rowsToCsv", () => {
         purchaseDate: "2026-08-04",
         storeNameEn: 'Pak"nSave, Newmarket',
         storeNameZh: "帕克超市",
+        branchNameEn: null,
+        branchNameZh: null,
         productNameEn: "Milk",
         productNameZh: "牛奶",
         category: "Food - Dairy & Bakery",
@@ -67,6 +71,8 @@ describe("rowsToCsv", () => {
         purchaseDate: "2026-08-04",
         storeNameEn: "Countdown",
         storeNameZh: "城内城外",
+        branchNameEn: null,
+        branchNameZh: null,
         productNameEn: "Avocado",
         productNameZh: "牛油果",
         category: "Food - Fruits",
@@ -81,7 +87,39 @@ describe("rowsToCsv", () => {
 
     const lines = csv.split("\r\n");
     expect(lines[1]).toBe(
-      "2026-08-04,Countdown,城内城外,Avocado,牛油果,Food - Fruits,3,,,1.5,false,eason"
+      "2026-08-04,Countdown,城内城外,,,Avocado,牛油果,Food - Fruits,3,,,1.5,false,eason"
+    );
+  });
+
+  // Issue 29: the branch columns sit right after the printed store columns.
+  it("writes each row's branch after the store columns, blank when it has none", () => {
+    const row = {
+      purchaseDate: "2026-08-04",
+      storeNameEn: "Pak n Save Albany",
+      storeNameZh: "派克储蓄奥尔巴尼",
+      branchNameEn: "Albany",
+      branchNameZh: "奥尔巴尼",
+      productNameEn: "Milk",
+      productNameZh: "牛奶",
+      category: "Food - Dairy & Bakery",
+      quantity: 1,
+      specValue: 2,
+      specUnit: "L",
+      unitPrice: 4.5,
+      isPromotion: false,
+      uploader: "eason",
+    };
+
+    const lines = rowsToCsv([row, { ...row, branchNameEn: null, branchNameZh: null }]).split("\r\n");
+
+    expect(lines[0]).toBe(
+      "purchase_date,store_name_en,store_name_zh,branch_name_en,branch_name_zh,product_name_en,product_name_zh,category,quantity,spec_value,spec_unit,unit_price,is_promotion,uploader"
+    );
+    expect(lines[1]).toBe(
+      "2026-08-04,Pak n Save Albany,派克储蓄奥尔巴尼,Albany,奥尔巴尼,Milk,牛奶,Food - Dairy & Bakery,1,2,L,4.5,false,eason"
+    );
+    expect(lines[2]).toBe(
+      "2026-08-04,Pak n Save Albany,派克储蓄奥尔巴尼,,,Milk,牛奶,Food - Dairy & Bakery,1,2,L,4.5,false,eason"
     );
   });
 
@@ -138,6 +176,8 @@ describe("fetchExportRows", () => {
         purchaseDate: "2026-08-04",
         storeNameEn: "Countdown",
         storeNameZh: "倒数超市",
+        branchNameEn: null,
+        branchNameZh: null,
         productNameEn: "Anchor Blue Milk",
         productNameZh: "安佳蓝牛奶",
         category: "Food - Dairy & Bakery",
@@ -207,6 +247,51 @@ describe("fetchExportRows", () => {
     expect(untranslated.productNameZh).toBe("Anchor Blue Milk");
 
     expect(storeUntranslated.storeNameZh).toBe("Countdown");
+  });
+
+  // Issue 29: the store columns stay the printed header, exactly as the
+  // receipt read; the branch comes from the receipt's Store. A receipt with
+  // no Store, or a Store whose branch is unknown, has no branch to export.
+  it("gives each row its Store's branch, blank when there is no Store or the branch is unknown", async () => {
+    const store = {
+      chain_name_en: "PAK'nSAVE",
+      chain_name_zh: "派克储蓄",
+      branch_name_en: "Albany",
+      branch_name_zh: "奥尔巴尼",
+    };
+    installFakeSupabase(supabase, {
+      tables: {
+        receipt_items: {
+          data: [
+            { ...FULL_ROW, receipts: { ...FULL_ROW.receipts, stores: store } },
+            {
+              ...FULL_ROW,
+              receipts: { ...FULL_ROW.receipts, stores: { ...store, branch_name_zh: null } },
+            },
+            {
+              ...FULL_ROW,
+              receipts: {
+                ...FULL_ROW.receipts,
+                stores: { ...store, branch_name_en: null, branch_name_zh: null },
+              },
+            },
+            { ...FULL_ROW, receipts: { ...FULL_ROW.receipts, stores: null } },
+          ],
+          error: null,
+        },
+        profiles: MEMBERS,
+      },
+    });
+
+    const rows = await fetchExportRows(RANGE);
+
+    expect(rows.map(({ branchNameEn, branchNameZh }) => ({ branchNameEn, branchNameZh }))).toEqual([
+      { branchNameEn: "Albany", branchNameZh: "奥尔巴尼" },
+      { branchNameEn: "Albany", branchNameZh: "Albany" },
+      { branchNameEn: null, branchNameZh: null },
+      { branchNameEn: null, branchNameZh: null },
+    ]);
+    expect(rows[0].storeNameEn).toBe("Countdown");
   });
 
   // An uploader who has since left the circle has no `profiles` row, so there
