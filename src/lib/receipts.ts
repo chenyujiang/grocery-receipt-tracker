@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { detectPriceSpikes, type SpikeCheckReceipt } from "@/lib/priceSpikeAlerts";
-import { listStores, resolveStore, type BilingualText, type Store } from "@/lib/stores";
+import { listStores, resolveStore, type Store, type StoreChoice } from "@/lib/stores";
 import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
@@ -78,7 +78,7 @@ export interface ReceiptDraft {
   // The chain/branch split the AI read off the header, in the shape
   // confirmReceipt takes its Store in. Null for a draft recognized before
   // the split existed (issue 29).
-  recognizedStore: { chain: BilingualText; branch: BilingualText } | null;
+  recognizedStore: StoreChoice | null;
   // The Store a confirmed receipt points at; null for a draft, which gets
   // its Store only on confirm.
   storeId: string | null;
@@ -260,7 +260,7 @@ async function updateReceiptItemsWithLog(
 export async function confirmReceipt(
   receiptId: string,
   items: ConfirmReceiptItemUpdate[],
-  store: { chain: BilingualText; branch: BilingualText }
+  store: StoreChoice
 ): Promise<void> {
   const {
     data: { user },
@@ -311,7 +311,7 @@ export async function editConfirmedReceipt(
   receiptId: string,
   purchaseDate: string,
   items: ConfirmReceiptItemUpdate[],
-  store: { chain: BilingualText; branch: BilingualText }
+  store: StoreChoice
 ): Promise<void> {
   const {
     data: { user },

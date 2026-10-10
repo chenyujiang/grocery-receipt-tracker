@@ -50,9 +50,20 @@ export function storeKey(chainEn: string, branchEn: string): StoreKey {
   return { chainKey: CHAIN_ALIASES[chain] ?? chain, branchKey: normalize(branchEn) || null };
 }
 
+// A name on its way in, not read back: zh is null when there's no
+// Translation, and is stored as null. Distinct from BilingualName, whose zh
+// is never blank — filling it in here would write the Source Text into the
+// _zh column as if it were a Translation.
 export interface BilingualText {
   en: string;
   zh: string | null;
+}
+
+// A Store named by its chain and branch, as a page picks or types it — what
+// resolveStore takes. An empty branch means branch unknown.
+export interface StoreChoice {
+  chain: BilingualText;
+  branch: BilingualText;
 }
 
 // A Store as the app sees it: one branch of one chain, in one Circle.
@@ -66,7 +77,7 @@ export interface Store {
 
 // A Store as the chain/branch names resolveStore takes — what a page passes
 // to confirm or edit a receipt at that Store.
-export function storeChoiceOf(store: Store): { chain: BilingualText; branch: BilingualText } {
+export function storeChoiceOf(store: Store): StoreChoice {
   return {
     chain: { en: store.chainNameEn, zh: store.chainNameZh },
     branch: { en: store.branchNameEn ?? "", zh: store.branchNameZh },
@@ -77,7 +88,7 @@ export function storeChoiceOf(store: Store): { chain: BilingualText; branch: Bil
 // normalized keys resolveStore matches on.
 export function matchingStore(
   stores: Store[],
-  { chain, branch }: { chain: BilingualText; branch: BilingualText }
+  { chain, branch }: StoreChoice
 ): Store | undefined {
   const wanted = storeKey(chain.en, branch.en);
   return stores.find((store) => {
@@ -109,7 +120,7 @@ function toStore(
 export async function resolveStore(
   client: SupabaseClient<Database>,
   circleId: string,
-  { chain, branch }: { chain: BilingualText; branch: BilingualText }
+  { chain, branch }: StoreChoice
 ): Promise<Store> {
   const { chainKey, branchKey } = storeKey(chain.en, branch.en);
   const chainStores = client

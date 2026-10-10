@@ -2,9 +2,7 @@ import type { ReceiptDraft } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, type Language } from "@/lib/bilingual";
 import { bilingualName } from "@/lib/bilingualName";
-import { matchingStore, storeChoiceOf, storeKey, type Store } from "@/lib/stores";
-
-type StoreChoice = NonNullable<ReceiptDraft["recognizedStore"]>;
+import { matchingStore, storeChoiceOf, storeKey, type Store, type StoreChoice } from "@/lib/stores";
 
 // The picker's values for "create this as a new branch" and "branch
 // unknown"; any other value is an existing Store's id.
