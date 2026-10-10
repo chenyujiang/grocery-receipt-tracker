@@ -159,4 +159,43 @@ describe("detectPriceSpikes", () => {
 
     expect(spikes).toEqual([{ productId: "product-1", newPrice: 5.0, changePercent: 25 }]);
   });
+  // A Receipt confirmed late, dated before purchases already confirmed at its
+  // Store, is judged against what came before it — not against later
+  // purchases it has nothing to do with.
+  it("judges a backdated Receipt against earlier purchases, not the later ones already confirmed", () => {
+    const spikes = detectPriceSpikes(
+      [
+        {
+          productId: "product-1",
+          purchases: [
+            purchase({ purchaseDate: "2026-07-01", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            // The backdated Receipt: +5% on July, nowhere near a spike.
+            purchase({ purchaseDate: "2026-08-01", unitPrice: 4.2, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ purchaseDate: "2026-09-01", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
+          ],
+        },
+      ],
+      { storeId: "hornby", purchaseDate: "2026-08-01" }
+    );
+
+    expect(spikes).toEqual([]);
+  });
+  it("still flags a backdated Receipt that rose past 15% on the purchase before it, at its own price", () => {
+    const spikes = detectPriceSpikes(
+      [
+        {
+          productId: "product-1",
+          purchases: [
+            purchase({ purchaseDate: "2026-07-01", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            // The backdated Receipt: +25% on July.
+            purchase({ purchaseDate: "2026-08-01", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ purchaseDate: "2026-09-01", unitPrice: 5.1, specValue: 2, specUnit: "L", isPromotion: false }),
+          ],
+        },
+      ],
+      { storeId: "hornby", purchaseDate: "2026-08-01" }
+    );
+
+    expect(spikes).toEqual([{ productId: "product-1", newPrice: 5.0, changePercent: 25 }]);
+  });
 });

@@ -39,14 +39,19 @@ export function detectPriceSpikes(
   const spikes: PriceSpike[] = [];
 
   for (const history of histories) {
-    const storeChange = calculatePriceChangesByStore(history.purchases).find(
+    // Only purchases up to the Receipt's own date: a Receipt confirmed late
+    // is judged against what came before it, not later purchases at its Store.
+    const upToReceipt = history.purchases.filter(
+      (purchase) => purchase.purchaseDate <= receipt.purchaseDate
+    );
+    const storeChange = calculatePriceChangesByStore(upToReceipt).find(
       ({ storeId }) => storeId === receipt.storeId
     );
     if (!storeChange || storeChange.change.changePercent <= SPIKE_THRESHOLD_PERCENT) {
       continue;
     }
 
-    const normalPurchases = history.purchases.filter(
+    const normalPurchases = upToReceipt.filter(
       (purchase) => purchase.storeId === receipt.storeId && !purchase.isPromotion
     );
     const [baseline, latest] = normalPurchases.slice(-2);
