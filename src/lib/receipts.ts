@@ -98,7 +98,6 @@ export function fetchStores(): Promise<Store[]> {
 // category comes from the matched Product, not from ReceiptItem itself
 // (spec.md Section 5.2). `uploadedBy` drives issue 16's edit-permission
 // check (only the uploader may edit a confirmed receipt).
-
 export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft> {
   const { data: receiptRow, error: receiptError } = await supabase
     .from("receipts")
