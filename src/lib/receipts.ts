@@ -5,7 +5,7 @@ import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
 import { bilingualName, type BilingualName } from "@/lib/bilingualName";
-import { storeName } from "@/lib/storeName";
+import { receiptStoreName, STORE_NAMES_EMBED } from "@/lib/storeName";
 
 export interface UploadReceiptResult {
   receiptId: string;
@@ -103,7 +103,7 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
   const { data: receiptRow, error: receiptError } = await supabase
     .from("receipts")
     .select(
-      "id, uploaded_by, store_id, store_name_en, store_name_zh, recognized_chain_en, recognized_chain_zh, recognized_branch_en, recognized_branch_zh, purchase_date, total_amount, status, original_image_url, stores(chain_name_en, chain_name_zh, branch_name_en, branch_name_zh)"
+      `id, uploaded_by, store_id, store_name_en, store_name_zh, recognized_chain_en, recognized_chain_zh, recognized_branch_en, recognized_branch_zh, purchase_date, total_amount, status, original_image_url, ${STORE_NAMES_EMBED}`
     )
     .eq("id", receiptId)
     .single();
@@ -130,7 +130,7 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
     uploadedBy: receiptRow.uploaded_by,
     storeNameEn: header.en,
     storeNameZh: header.zh,
-    storeDisplayName: receiptRow.stores ? storeName(receiptRow.stores) : header,
+    storeDisplayName: receiptStoreName(receiptRow),
     recognizedStore:
       receiptRow.recognized_chain_en == null
         ? null

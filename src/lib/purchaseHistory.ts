@@ -3,8 +3,8 @@ import type { Database } from "@/types/database.types";
 // Relative + `.js`, not the `@/` alias: this is the one src/lib module that
 // `api/` imports at runtime (api/cron/low-stock-check.ts), and the alias is
 // a bundler concern the serverless build should not have to resolve.
-import { bilingualName, type BilingualName } from "./bilingualName.js";
-import { storeName, storeShortName } from "./storeName.js";
+import type { BilingualName } from "./bilingualName.js";
+import { receiptStoreName, STORE_NAMES_EMBED, storeShortName } from "./storeName.js";
 
 // One confirmed ReceiptItem, flattened together with its Receipt's date and
 // store — the shared shape every price/consumption feature reads from.
@@ -37,8 +37,10 @@ export interface PurchaseHistory {
   purchases: Purchase[];
 }
 
+// `as const` keeps the interpolated string a literal type, which is what
+// supabase-js parses to type the rows; a plain template widens to `string`.
 const PURCHASE_SELECT =
-  "product_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_id, store_name_en, store_name_zh, status, stores(chain_name_en, chain_name_zh, branch_name_en, branch_name_zh))";
+  `product_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
 
 // Sections 10-13: price change, price trend, store comparison, consumption
 // rate, price-spike alerts and low-stock alerts all start from the same
@@ -86,14 +88,13 @@ export async function fetchPurchaseHistories(
     if (row.product_id == null || row.unit_spec_value == null || !row.unit_spec_unit) {
       continue;
     }
-    const header = bilingualName(row.receipts.store_name_en, row.receipts.store_name_zh);
-    const name = row.receipts.stores ? storeName(row.receipts.stores) : header;
+    const name = receiptStoreName(row.receipts);
     byProduct.get(row.product_id)?.push({
       purchaseDate: row.receipts.purchase_date,
       storeId: row.receipts.store_id,
       storeNameEn: name.en,
       storeNameZh: name.zh,
-      storeShortName: row.receipts.stores ? storeShortName(row.receipts.stores) : header,
+      storeShortName: row.receipts.stores ? storeShortName(row.receipts.stores) : name,
       unitPrice: row.unit_price,
       quantity: row.quantity,
       specValue: row.unit_spec_value,

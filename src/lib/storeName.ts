@@ -20,6 +20,22 @@ export function storeName(store: StoreNames): BilingualName {
   return { en: `${chain.en} ${branch.en}`, zh: `${chain.zh} ${branch.zh}` };
 }
 
+// What storeName reads, embedded from a receipt's Store. Every select that
+// names a receipt by its Store interpolates this, so they all embed alike.
+export const STORE_NAMES_EMBED = "stores(chain_name_en, chain_name_zh, branch_name_en, branch_name_zh)";
+
+// A receipt named by its Store, or by its Receipt Header when it has none —
+// a draft, or one confirmed before Stores existed and not yet backfilled.
+export function receiptStoreName(receipt: {
+  store_name_en: string;
+  store_name_zh: string | null;
+  stores: StoreNames | null;
+}): BilingualName {
+  return receipt.stores
+    ? storeName(receipt.stores)
+    : bilingualName(receipt.store_name_en, receipt.store_name_zh);
+}
+
 // A Store's name short enough for a phone-width chart legend: its branch
 // alone, or its chain when the branch is unknown.
 export function storeShortName(store: StoreNames): BilingualName {

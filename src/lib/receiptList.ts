@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-import { bilingualName } from "@/lib/bilingualName";
-import { storeName } from "@/lib/storeName";
+import { receiptStoreName, STORE_NAMES_EMBED } from "@/lib/storeName";
 
 export interface ReceiptFilters {
   storeQuery?: string;
@@ -32,7 +31,7 @@ function sanitizeSearchTerm(value: string): string {
 export async function fetchReceipts(filters: ReceiptFilters = {}): Promise<ReceiptListItem[]> {
   let query = supabase
     .from("receipts")
-    .select("id, store_name_en, store_name_zh, purchase_date, total_amount, status, uploaded_by, stores(chain_name_en, chain_name_zh, branch_name_en, branch_name_zh)");
+    .select(`id, store_name_en, store_name_zh, purchase_date, total_amount, status, uploaded_by, ${STORE_NAMES_EMBED}`);
 
   if (filters.storeQuery) {
     const term = sanitizeSearchTerm(filters.storeQuery);
@@ -75,9 +74,7 @@ export async function fetchReceipts(filters: ReceiptFilters = {}): Promise<Recei
   const rows = data ?? [];
 
   return rows.map((row) => {
-    const name = row.stores
-      ? storeName(row.stores)
-      : bilingualName(row.store_name_en, row.store_name_zh);
+    const name = receiptStoreName(row);
     return {
       id: row.id,
       storeNameEn: name.en,
