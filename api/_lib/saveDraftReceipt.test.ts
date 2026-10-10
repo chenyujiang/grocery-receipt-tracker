@@ -14,6 +14,10 @@ function baseReceipt(overrides: Partial<RecognizedReceipt> = {}): RecognizedRece
   return {
     storeNameEn: "Countdown Newmarket",
     storeNameZh: "倒数超市 Newmarket 店",
+    chainNameEn: "Countdown",
+    chainNameZh: "倒数超市",
+    branchNameEn: "Newmarket",
+    branchNameZh: "Newmarket 店",
     purchaseDate: "2026-08-01",
     totalAmount: 4.5,
     items: [
@@ -36,6 +40,38 @@ function baseReceipt(overrides: Partial<RecognizedReceipt> = {}): RecognizedRece
 }
 
 describe("saveDraftReceipt", () => {
+  // Issue 29: no Store is created on draft save — only what the AI read is
+  // kept, so the preview screen's store picker can pre-fill it later.
+  it("saves the AI's chain/branch split with the draft, without resolving a Store", async () => {
+    const db = installFakeSupabase(supabaseAdmin, {
+      tables: {
+        receipts: { data: { id: "receipt-1" }, error: null },
+        receipt_items: { error: null },
+      },
+    });
+
+    await saveDraftReceipt({
+      circleId: "circle-1",
+      uploadedBy: "eason@example.com",
+      originalImageUrl: null,
+      receipt: baseReceipt(),
+    });
+
+    expect(db.callsFor("receipts")).toContainEqual([
+      "insert",
+      expect.objectContaining({
+        recognized_chain_en: "Countdown",
+        recognized_chain_zh: "倒数超市",
+        recognized_branch_en: "Newmarket",
+        recognized_branch_zh: "Newmarket 店",
+      }),
+    ]);
+    expect(db.callsFor("receipts")).not.toContainEqual([
+      "insert",
+      expect.objectContaining({ store_id: expect.anything() }),
+    ]);
+  });
+
   it("saves the receipt as pending_review and reuses matchedProductId when already matched", async () => {
     // `products` is left unprepared: an already-matched item must not
     // create a Product, and reaching for the table at all would throw.
@@ -61,6 +97,10 @@ describe("saveDraftReceipt", () => {
       uploaded_by: "eason@example.com",
       store_name_en: "Countdown Newmarket",
       store_name_zh: "倒数超市 Newmarket 店",
+      recognized_chain_en: "Countdown",
+      recognized_chain_zh: "倒数超市",
+      recognized_branch_en: "Newmarket",
+      recognized_branch_zh: "Newmarket 店",
       purchase_date: "2026-08-01",
       total_amount: 4.5,
       original_image_url: "https://storage.example/receipt-1.jpg",

@@ -99,6 +99,83 @@ describe("recognizeReceipt", () => {
     });
   });
 
+  // Issue 29: the header's chain and branch come back as separate bilingual
+  // fields, alongside the raw store name, which stays as the header evidence.
+  it("returns the chain and the branch separately when the header names a branch", async () => {
+    mockClaudeResponse({
+      ...SAMPLE_PARSED,
+      store_name_en: "Woolworths Hornby",
+      store_name_zh: "沃尔沃斯 霍恩比店",
+      chain_name_en: "Woolworths",
+      chain_name_zh: "沃尔沃斯",
+      branch_name_en: "Hornby",
+      branch_name_zh: "霍恩比",
+    });
+
+    const result = await recognizeReceipt({
+      imageBase64: "base64-image-data",
+      mediaType: "image/jpeg",
+      existingProducts: [],
+    });
+
+    expect(result.receipt).toMatchObject({
+      storeNameEn: "Woolworths Hornby",
+      storeNameZh: "沃尔沃斯 霍恩比店",
+      chainNameEn: "Woolworths",
+      chainNameZh: "沃尔沃斯",
+      branchNameEn: "Hornby",
+      branchNameZh: "霍恩比",
+    });
+    // The real model only returns what the schema asks for.
+    const call = vi.mocked(anthropicClient.messages.create).mock.calls[0][0] as never as {
+      output_config: { format: { schema: { required: string[] } } };
+    };
+    expect(call.output_config.format.schema.required).toEqual(
+      expect.arrayContaining(["chain_name_en", "chain_name_zh", "branch_name_en", "branch_name_zh"])
+    );
+  });
+
+  it("returns an empty branch when the header names none, and tells Claude not to guess one", async () => {
+    mockClaudeResponse({
+      ...SAMPLE_PARSED,
+      store_name_en: "Woolworths",
+      store_name_zh: "沃尔沃斯",
+      chain_name_en: "Woolworths",
+      chain_name_zh: "沃尔沃斯",
+      branch_name_en: "",
+      branch_name_zh: "",
+    });
+
+    const result = await recognizeReceipt({
+      imageBase64: "base64-image-data",
+      mediaType: "image/jpeg",
+      existingProducts: [],
+    });
+
+    expect(result.receipt).toMatchObject({ chainNameEn: "Woolworths", branchNameEn: "", branchNameZh: "" });
+    const call = vi.mocked(anthropicClient.messages.create).mock.calls[0][0] as never as {
+      messages: Array<{ content: Array<{ type: string; text?: string }> }>;
+    };
+    const prompt = call.messages[0].content.find((block) => block.type === "text")?.text ?? "";
+    expect(prompt).toMatch(/no branch.*empty/i);
+    expect(prompt).toMatch(/never guess/i);
+  });
+
+  it("throws a clear error, not a JSON SyntaxError, when Claude's response is cut off mid-JSON", async () => {
+    vi.mocked(anthropicClient.messages.create).mockResolvedValue({
+      content: [{ type: "text", text: '{"store_name_en": "Woolworths", "chain_name_en": "Wool' }],
+      usage: { input_tokens: 1200, output_tokens: 4096 },
+    } as never);
+
+    await expect(
+      recognizeReceipt({
+        imageBase64: "base64-image-data",
+        mediaType: "image/jpeg",
+        existingProducts: [],
+      })
+    ).rejects.toThrow(/couldn't read this as a grocery receipt/i);
+  });
+
   it("throws a clear error when Claude couldn't find a valid date on the photo", async () => {
     mockClaudeResponse({ ...SAMPLE_PARSED, purchase_date: "" });
 

@@ -47,6 +47,12 @@ export async function saveDraftReceipt(
       uploaded_by: params.uploadedBy,
       store_name_en: params.receipt.storeNameEn,
       store_name_zh: params.receipt.storeNameZh,
+      // Issue 29: what the AI read, for the store picker to pre-fill. The
+      // Store itself is only resolved on confirm.
+      recognized_chain_en: params.receipt.chainNameEn,
+      recognized_chain_zh: params.receipt.chainNameZh,
+      recognized_branch_en: params.receipt.branchNameEn,
+      recognized_branch_zh: params.receipt.branchNameZh,
       purchase_date: params.receipt.purchaseDate,
       total_amount: params.receipt.totalAmount,
       original_image_url: params.originalImageUrl,
