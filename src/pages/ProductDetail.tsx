@@ -94,14 +94,13 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
       </svg>
       <ul className="price-trend-legend" aria-label={t("product.trendLegend")}>
         {storeIds.map((storeId) => {
-          // Named as the Store's latest receipt prints it.
-          const latest = [...points].reverse().find((point) => point.storeId === storeId)!;
+          const { storeShortName } = points.find((point) => point.storeId === storeId)!;
           return (
             <li key={storeId}>
               <svg width="10" height="10" aria-hidden="true">
                 <circle cx="5" cy="5" r="5" fill={colourOf(storeId)} />
               </svg>
-              {pickText(latest.storeNameEn, latest.storeNameZh, language)}
+              {pickText(storeShortName.en, storeShortName.zh, language)}
             </li>
           );
         })}

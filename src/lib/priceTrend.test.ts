@@ -1,11 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { buildPriceTrend } from "@/lib/priceTrend";
 
-const AT_HORNBY = { storeId: "hornby", storeNameEn: "Woolworths Hornby", storeNameZh: "沃尔沃斯 霍恩比店" };
+const AT_HORNBY = {
+  storeId: "hornby",
+  storeNameEn: "Woolworths Hornby",
+  storeNameZh: "沃尔沃斯 霍恩比店",
+  storeShortName: { en: "Hornby", zh: "霍恩比店" },
+};
 const AT_RICCARTON = {
   storeId: "riccarton",
   storeNameEn: "Woolworths Riccarton",
   storeNameZh: "沃尔沃斯 里卡顿店",
+  storeShortName: { en: "Riccarton", zh: "里卡顿店" },
 };
 
 describe("buildPriceTrend", () => {
@@ -46,7 +52,11 @@ describe("buildPriceTrend", () => {
       { ...AT_HORNBY, purchaseDate: "2026-07-01", unitPrice: 4.0, specValue: 500, specUnit: "g", isPromotion: false },
     ]);
 
-    expect(point).toMatchObject({ storeNameEn: "Woolworths Hornby", storeNameZh: "沃尔沃斯 霍恩比店" });
+    expect(point).toMatchObject({
+      storeNameEn: "Woolworths Hornby",
+      storeNameZh: "沃尔沃斯 霍恩比店",
+      storeShortName: { en: "Hornby", zh: "霍恩比店" },
+    });
   });
 
   it("returns an empty array for no purchase history", () => {
