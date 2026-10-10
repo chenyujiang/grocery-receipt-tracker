@@ -99,6 +99,7 @@ Several of these decide a question that wayfinder tickets 24–28 had left open.
 - The backfill deliberately does **not** try to split a suburb out of a name like "Countdown Hornby". A wrong split would silently fabricate a branch and corrupt the history it was meant to preserve; leaving it as one unknown-branch Store is recoverable, and the user can correct it by editing receipts afterwards.
 - The practical effect is smaller than it first appears: receipts that shared a store name still share a Store, so their comparisons keep working. What stops immediately is comparison *across* names — which is the bug being fixed.
 - Before writing the migration, count the existing receipts and distinct store names per Circle and report them. If the numbers are small enough that manual branch assignment is realistic, that is worth raising before the automated backfill is the only option.
+  - **Amended during implementation: the backfill uses a hand-confirmed mapping, not the automatic rule above.** The count came back small — 18 confirmed receipts under 11 distinct store names, all in one Circle — so manual assignment was raised, as this bullet asks, and the user confirmed a mapping by hand. It differs from the automatic rule in two ways, both because the user knew where each receipt was actually bought. Spellings of one shop are merged: "Pak n Save Albany", "Pak'nSave Albany" and a bare "PAK'nSAVE" become one Store, where the automatic rule would have split one shop's history three ways. And branches are assigned, including to headers that print the chain alone ("New World" → Hobsonville, "Costco Wholesale" → Westgate) — not by splitting a suburb out of the text, which stays ruled out, but because the user said which branch it was. Names the user couldn't place keep an unknown branch. The mapping is pinned to that one Circle, so a confirmed receipt anywhere else stops the migration rather than inheriting these branches.
 
 ### Presentation
 
@@ -241,6 +242,7 @@ A good test here asserts what a caller can observe: given this purchase history,
 - 回填**有意不去**从 "Countdown Hornby" 这样的名字里拆出区名。拆错会凭空捏造一家分店，把本来要保住的历史反而弄脏；留作一条未知分店的 Store 是可挽回的，用户之后可以通过编辑小票来更正。
 - 实际影响比乍看要小：原本店名相同的小票仍然共享同一条 Store，它们之间的比价照常工作。立刻停止的是**跨店名**的比价——而那正是要修的 bug。
 - 在写迁移之前，先统计每个 Circle 的现有小票数和不同店名数并报出来。如果数量小到人工指定分店是可行的，那值得在"自动回填是唯一选项"之前先提出来。
+  - **实现时修订：回填用的是手工确认的映射，而不是上面的自动规则。** 统计结果很小——11 个不同店名下共 18 张已确认小票，全在同一个 Circle——所以按这一条的要求提出了人工指定，用户手工确认了一份映射。它和自动规则有两处不同，都是因为用户知道每张小票实际是在哪里买的。同一家店的不同拼写被合并："Pak n Save Albany"、"Pak'nSave Albany" 和只印了 "PAK'nSAVE" 的小票归为一条 Store，而自动规则会把同一家店的历史拆成三份。分店也被指定了，包括只印了连锁名的抬头（"New World" → Hobsonville，"Costco Wholesale" → Westgate）——这不是从文字里拆出区名（那依然不做），而是因为用户说了是哪家分店。用户确认不了的店名保留未知分店。映射限定在那一个 Circle，所以其他任何地方的已确认小票都会让迁移中止，而不是继承这些分店。
 
 ### 呈现
 

@@ -13,18 +13,28 @@
 -- header is the chain alone (e.g. the one printed just "PAK'nSAVE"); branch
 -- names are transliterated. Drafts are left alone: they get a Store when
 -- they're confirmed.
+--
+-- The mapping is pinned to the one Circle it was drawn up for (all 18
+-- receipts were in it). A confirmed receipt in any other Circle is therefore
+-- unmapped, and the check below stops the migration rather than handing it
+-- this Circle's branches.
 
 create temporary table store_backfill_map (
-  store_name_en text primary key,
+  circle_id uuid not null,
+  store_name_en text not null,
   chain_name_en text not null,
   chain_zh_from text not null,
   branch_name_en text,
   branch_name_zh text,
   chain_key text not null,
-  branch_key text
+  branch_key text,
+  primary key (circle_id, store_name_en)
 );
 
-insert into store_backfill_map values
+insert into store_backfill_map
+select c.circle_id, m.*
+from (values ('3f2a9c1e-7b4d-4e8a-9c2f-1a5b6d7e8f90'::uuid)) as c(circle_id)
+cross join (values
   ('Pak n Save Albany',        'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'pak''nsave',                'albany'),
   ('Pak''nSave Albany',        'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'pak''nsave',                'albany'),
   ('PAK''nSAVE',               'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'pak''nsave',                'albany'),
@@ -35,11 +45,12 @@ insert into store_backfill_map values
   ('Foodie Asian Supermarket', 'Foodie Asian Supermarket',  'Foodie Asian Supermarket',  null,          null,         'foodie asian supermarket',  null),
   ('D.H. Supermarket',         'D.H. Supermarket',          'D.H. Supermarket',          null,          null,         'dh supermarket',            null),
   ('Golden Apple Supermarket', 'Golden Apple Supermarket',  'Golden Apple Supermarket',  null,          null,         'golden apple supermarket',  null),
-  ('Yimai Trading Ltd',        'Yimai Trading Ltd',         'Yimai Trading Ltd',         null,          null,         'yimai trading ltd',         null);
+  ('Yimai Trading Ltd',        'Yimai Trading Ltd',         'Yimai Trading Ltd',         null,          null,         'yimai trading ltd',         null)
+) as m(store_name_en, chain_name_en, chain_zh_from, branch_name_en, branch_name_zh, chain_key, branch_key);
 
 -- Checked before anything is written: a receipt confirmed since the mapping
--- was drawn up may carry a name it doesn't cover, and it would otherwise be
--- left silently pointing at no Store.
+-- was drawn up may carry a name it doesn't cover, or sit in another Circle,
+-- and it would otherwise be left silently pointing at no Store.
 do $$
 declare
   v_unmapped text;
@@ -49,10 +60,13 @@ begin
   from receipts r
   where r.status = 'confirmed'
     and r.store_id is null
-    and not exists (select 1 from store_backfill_map m where m.store_name_en = r.store_name_en);
+    and not exists (
+      select 1 from store_backfill_map m
+      where m.circle_id = r.circle_id and m.store_name_en = r.store_name_en
+    );
 
   if v_unmapped is not null then
-    raise exception 'store backfill: confirmed receipts with store names not in the mapping: %', v_unmapped;
+    raise exception 'store backfill: confirmed receipts not in the mapping for their Circle: %', v_unmapped;
   end if;
 end;
 $$;
@@ -76,7 +90,9 @@ select distinct on (r.circle_id, m.chain_key, m.branch_key)
   m.chain_key,
   m.branch_key
 from receipts r
-join store_backfill_map m on m.store_name_en = r.store_name_en
+join store_backfill_map m
+  on m.circle_id = r.circle_id
+  and m.store_name_en = r.store_name_en
 where r.status = 'confirmed'
   and r.store_id is null
 on conflict on constraint stores_circle_chain_branch_key do nothing;
@@ -85,10 +101,11 @@ update receipts r
 set store_id = s.id
 from store_backfill_map m
 join stores s
-  on s.chain_key = m.chain_key
+  on s.circle_id = m.circle_id
+  and s.chain_key = m.chain_key
   and s.branch_key is not distinct from m.branch_key
-where m.store_name_en = r.store_name_en
-  and s.circle_id = r.circle_id
+where m.circle_id = r.circle_id
+  and m.store_name_en = r.store_name_en
   and r.status = 'confirmed'
   and r.store_id is null;
 
