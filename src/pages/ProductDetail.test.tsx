@@ -31,6 +31,9 @@ const SAMPLE_DETAIL = {
     changePercent: -20,
     baseline: { basis: "per_100g" as const, value: 1 },
     current: { basis: "per_100g" as const, value: 0.8 },
+    storeId: "store-paknsave",
+    storeNameEn: "Pak'nSave",
+    storeNameZh: "帕克超市",
   },
   priceTrend: [
     { storeId: "store-countdown", storeNameEn: "Countdown", storeNameZh: "城内城外", purchaseDate: "2026-07-01", basis: "per_100g" as const, value: 1, isPromotion: false },
@@ -99,6 +102,26 @@ describe("ProductDetail", () => {
     // The trend legend names Stores too, so look in the comparison itself.
     const comparison = screen.getByRole("heading", { name: /compare stores/i }).closest("section")!;
     expect(within(comparison).getByText(/Pak'nSave/)).toBeInTheDocument();
+  });
+
+  // Issue 29: the headline is one Store's Same-Store Price Change, so it says
+  // which Store — otherwise "+10%" reads as the product's price everywhere.
+  it("names the Store the headline price change is for", async () => {
+    vi.mocked(fetchProductDetail).mockResolvedValue({
+      ...SAMPLE_DETAIL,
+      priceChange: {
+        ...SAMPLE_DETAIL.priceChange,
+        storeId: "store-hornby",
+        storeNameEn: "Woolworths Hornby",
+        storeNameZh: "沃尔沃斯 霍恩比",
+      },
+    });
+
+    renderPage();
+
+    const heading = await screen.findByRole("heading", { name: /price change/i });
+    const headline = heading.closest("section")!;
+    expect(within(headline).getByText(/Woolworths Hornby/)).toBeInTheDocument();
   });
 
   // Issue 29: one line per Store, so a branch drifting dearer than its

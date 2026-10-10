@@ -150,7 +150,8 @@ export default function ProductDetail() {
               >
                 {detail.priceChange.changePercent > 0 ? "+" : ""}
                 {detail.priceChange.changePercent}% — now ${detail.priceChange.current.value.toFixed(2)}
-                {PRICE_BASIS_LABEL[detail.priceChange.current.basis]}
+                {PRICE_BASIS_LABEL[detail.priceChange.current.basis]} ·{" "}
+                {pickText(detail.priceChange.storeNameEn, detail.priceChange.storeNameZh, language)}
               </p>
             )}
           </section>
