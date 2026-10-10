@@ -18,7 +18,7 @@ The answer feeds directly into whether "chain + branch as two text fields" is en
 
 ## Answer
 
-Full findings, with a confidence label on every claim and all sources cited: `.scratch/grocery-receipt-tracker/research/nz-receipt-store-headers.md`, on the throwaway branch `research/nz-receipt-store-headers` (not merged, not pushed).
+Full findings, with a confidence label on every claim and all sources cited: `.scratch/grocery-receipt-tracker/research/nz-receipt-store-headers.md` (on `main`).
 
 **"Chain + branch as two AI-extracted text fields" is not sufficient on its own.** The branch needs a normalization step plus the human confirmation step ticket 25 already proposes — this research says that confirmation is load-bearing, not a nicety.
 
@@ -59,7 +59,7 @@ Left unanswered by public sources: how the header differs between staffed checko
 
 ## 答案
 
-完整结论（每条都标了置信度、来源齐全）见 `.scratch/grocery-receipt-tracker/research/nz-receipt-store-headers.md`，位于一次性分支 `research/nz-receipt-store-headers`（未合并、未推送）。
+完整结论（每条都标了置信度、来源齐全）见 `.scratch/grocery-receipt-tracker/research/nz-receipt-store-headers.md`（已在 `main` 上）。
 
 **"连锁 + 分店两个 AI 提取的文本字段"单靠自己不够。** 分店需要一层归一化，再加上 ticket 25 已经提出的人工确认步骤——本研究的结论是：那个确认步骤是**承重**的，不是锦上添花。
 
