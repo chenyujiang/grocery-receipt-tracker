@@ -39,6 +39,7 @@ function purchase(overrides: Record<string, unknown> = {}) {
     purchaseDate: "2026-09-01",
     storeNameEn: "Countdown",
     storeNameZh: "Countdown",
+    storeShortName: { en: "Countdown", zh: "Countdown" },
     unitPrice: 5,
     quantity: 1,
     specValue: 2,

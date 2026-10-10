@@ -64,6 +64,7 @@ const SAMPLE_DETAIL = {
       storeId: "store-countdown",
       storeNameEn: "Countdown",
       storeNameZh: "城内城外",
+      storeShortName: { en: "Countdown", zh: "城内城外" },
       unitPrice: 5.0,
       quantity: 1,
       specValue: 500,

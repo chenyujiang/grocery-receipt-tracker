@@ -109,6 +109,7 @@ describe("fetchPurchaseHistories", () => {
       storeId: "store-countdown-newmarket",
       storeNameEn: "Countdown",
       storeNameZh: "倒数超市",
+      storeShortName: { en: "Countdown", zh: "倒数超市" },
       unitPrice: 5,
       quantity: 2,
       specValue: 500,
@@ -168,6 +169,90 @@ describe("fetchPurchaseHistories", () => {
     const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
 
     expect(history.purchases[0]).toMatchObject({ storeNameEn: "Costco", storeNameZh: "好市多" });
+  });
+
+  // Spec: legend entries use the branch name, so labels stay short on a phone.
+  it("gives a purchase a short Store label of its branch name alone", async () => {
+    const mock = fakeClient({
+      data: [
+        row({
+          receipts: {
+            purchase_date: "2026-08-01",
+            store_id: "store-albany",
+            store_name_en: "Pak n Save Albany",
+            store_name_zh: "帕克超市 阿尔巴尼",
+            stores: {
+              chain_name_en: "PAK'nSAVE",
+              chain_name_zh: "派克储蓄",
+              branch_name_en: "Albany",
+              branch_name_zh: "奥尔巴尼",
+            },
+          },
+        }),
+      ],
+      error: null,
+    });
+
+    const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
+
+    expect(history.purchases[0].storeShortName).toEqual({ en: "Albany", zh: "奥尔巴尼" });
+  });
+
+  it("falls back to the chain for the short label when the Store's branch is unknown", async () => {
+    const mock = fakeClient({
+      data: [
+        row({
+          receipts: {
+            purchase_date: "2026-08-01",
+            store_id: "store-costco",
+            store_name_en: "COSTCO WHOLESALE NZ LTD",
+            store_name_zh: "好市多批发",
+            stores: { chain_name_en: "Costco", chain_name_zh: "好市多", branch_name_en: null, branch_name_zh: null },
+          },
+        }),
+      ],
+      error: null,
+    });
+
+    const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
+
+    expect(history.purchases[0].storeShortName).toEqual({ en: "Costco", zh: "好市多" });
+  });
+
+  it("falls back to the receipt header for the short label when there's no Store", async () => {
+    const mock = fakeClient({
+      data: [
+        row({
+          receipts: { purchase_date: "2026-08-01", store_id: null, store_name_en: "Four Square", store_name_zh: "四方超市" },
+        }),
+      ],
+      error: null,
+    });
+
+    const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
+
+    expect(history.purchases[0].storeShortName).toEqual({ en: "Four Square", zh: "四方超市" });
+  });
+
+  it("reads a branch with no Chinese translation back as its English source text in the short label", async () => {
+    const mock = fakeClient({
+      data: [
+        row({
+          receipts: {
+            purchase_date: "2026-08-01",
+            store_id: "store-hornby",
+            store_name_en: "WOOLWORTHS HORNBY",
+            store_name_zh: null,
+            stores: { chain_name_en: "Woolworths", chain_name_zh: "沃尔沃斯", branch_name_en: "Hornby", branch_name_zh: null },
+          },
+        }),
+      ],
+      error: null,
+    });
+
+    const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
+
+    expect(history.purchases[0].storeShortName).toEqual({ en: "Hornby", zh: "Hornby" });
   });
 
   it("drops rows with no unit spec, since no consumer can normalize them", async () => {
