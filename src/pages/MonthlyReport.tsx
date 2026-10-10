@@ -314,7 +314,8 @@ export default function MonthlyReport() {
               <ul>
                 {report.priceChangeLeaderboard.map((entry) => (
                   <li key={entry.productId}>
-                    {pickText(entry.nameEn, entry.nameZh, language)} — +{entry.changePercent}%
+                    {pickText(entry.nameEn, entry.nameZh, language)} — +{entry.changePercent}% ·{" "}
+                    {pickText(entry.storeNameEn, entry.storeNameZh, language)}
                   </li>
                 ))}
               </ul>

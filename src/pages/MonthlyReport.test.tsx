@@ -65,6 +65,18 @@ describe("MonthlyReport", () => {
     expect(screen.getByText(/3 alerts triggered/)).toBeInTheDocument();
   });
 
+  // Issue 29: a leaderboard row is one Store's Same-Store Price Change, so it
+  // names the branch the price rose at.
+  it("names the Store each leaderboard row's price rose at", async () => {
+    vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
+
+    render(<MonthlyReport />);
+
+    const heading = await screen.findByRole("heading", { name: /price increase/i });
+    const leaderboard = heading.closest("section")!;
+    expect(within(leaderboard).getByText(/Woolworths Hornby/)).toBeInTheDocument();
+  });
+
   it("expands a category to reveal its product breakdown, and collapses again", async () => {
     vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
 
