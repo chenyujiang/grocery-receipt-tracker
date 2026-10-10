@@ -33,7 +33,7 @@ insert into store_backfill_map values
   ('Costco Wholesale',         'Costco',                    'Costco Wholesale',          'Westgate',    '韦斯特盖特', 'costco',                    'westgate'),
   ('Woolworths',               'Woolworths',                'Woolworths',                null,          null,         'woolworths',                null),
   ('Foodie Asian Supermarket', 'Foodie Asian Supermarket',  'Foodie Asian Supermarket',  null,          null,         'foodie asian supermarket',  null),
-  ('D.H. Supermarket',         'D.H. Supermarket',          'D.H. Supermarket',          null,          null,         'd.h. supermarket',          null),
+  ('D.H. Supermarket',         'D.H. Supermarket',          'D.H. Supermarket',          null,          null,         'dh supermarket',            null),
   ('Golden Apple Supermarket', 'Golden Apple Supermarket',  'Golden Apple Supermarket',  null,          null,         'golden apple supermarket',  null),
   ('Yimai Trading Ltd',        'Yimai Trading Ltd',         'Yimai Trading Ltd',         null,          null,         'yimai trading ltd',         null);
 

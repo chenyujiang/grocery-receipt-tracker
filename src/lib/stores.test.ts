@@ -28,6 +28,17 @@ describe("storeKey", () => {
     expect(storeKey("Woolworths", "Lincoln Road").branchKey).toBe("lincoln road");
   });
 
+  it("spells out the other common street abbreviations too — St, Ave, Dr", () => {
+    expect(storeKey("New World", "Smith St")).toEqual(storeKey("New World", "Smith Street"));
+    expect(storeKey("New World", "Dominion Ave.")).toEqual(storeKey("New World", "Dominion Avenue"));
+    expect(storeKey("New World", "Lincoln Dr")).toEqual(storeKey("New World", "Lincoln Drive"));
+  });
+
+  it("drops full stops, so an initialism printed D.H. keys the same as DH", () => {
+    expect(storeKey("D.H. Supermarket", "")).toEqual(storeKey("DH Supermarket", ""));
+    expect(storeKey("Woolworths", "St. Lukes")).toEqual(storeKey("Woolworths", "St Lukes"));
+  });
+
   it("treats hyphens, dashes, commas and slashes between parts of a branch as a plain space", () => {
     for (const branch of [
       "Sylvia Park - Mt Wellington",

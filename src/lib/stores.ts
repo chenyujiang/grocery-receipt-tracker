@@ -10,6 +10,16 @@ export interface StoreKey {
   branchKey: string | null;
 }
 
+// Street-type abbreviations, spelled out so "Smith St" and "Smith Street"
+// key alike. "St" also abbreviates Saint ("St Lukes"); that's harmless, since
+// it's expanded the same way wherever it's printed.
+const STREET_ABBREVIATIONS: Record<string, string> = {
+  rd: "road",
+  st: "street",
+  ave: "avenue",
+  dr: "drive",
+};
+
 function normalize(text: string): string {
   return (
     text
@@ -17,8 +27,10 @@ function normalize(text: string): string {
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "")
       .toLowerCase()
+      // "D.H." and "DH", "Rd." and "Rd" are the same thing printed differently.
+      .replace(/\./g, "")
       .replace(/[-–—,/]/g, " ")
-      .replace(/\brd\b\.?/g, "road")
+      .replace(/\b(rd|st|ave|dr)\b/g, (_, abbreviation: string) => STREET_ABBREVIATIONS[abbreviation])
       .trim()
       .replace(/\s+/g, " ")
   );
