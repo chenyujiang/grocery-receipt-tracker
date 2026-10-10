@@ -1,0 +1,241 @@
+import { describe, it, expect } from "vitest";
+import { createFakeSupabase } from "@/test/fakeSupabase";
+import { listStores, resolveStore, storeKey } from "@/lib/stores";
+
+describe("storeKey", () => {
+  it("ignores case and collapses whitespace in both the chain and the branch", () => {
+    expect(storeKey("  WOOLWORTHS ", "Church   Corner\t")).toEqual({
+      chainKey: "woolworths",
+      branchKey: "church corner",
+    });
+  });
+
+  it("gives a null branch key when the branch is empty, meaning branch unknown", () => {
+    expect(storeKey("Woolworths", "")).toEqual({ chainKey: "woolworths", branchKey: null });
+    expect(storeKey("Woolworths", "   ")).toEqual({ chainKey: "woolworths", branchKey: null });
+  });
+
+  it("drops macrons, since a thermal printer likely prints Māngere as Mangere", () => {
+    expect(storeKey("Woolworths", "Māngere Ōtāhuhu")).toEqual({
+      chainKey: "woolworths",
+      branchKey: "mangere otahuhu",
+    });
+  });
+
+  it("spells out Rd as road, with or without a trailing full stop", () => {
+    expect(storeKey("Woolworths", "Lincoln Rd").branchKey).toBe("lincoln road");
+    expect(storeKey("Woolworths", "Lincoln Rd.").branchKey).toBe("lincoln road");
+    expect(storeKey("Woolworths", "Lincoln Road").branchKey).toBe("lincoln road");
+  });
+
+  it("treats hyphens, dashes, commas and slashes between parts of a branch as a plain space", () => {
+    for (const branch of [
+      "Sylvia Park - Mt Wellington",
+      "Sylvia Park – Mt Wellington",
+      "Sylvia Park, Mt Wellington",
+      "Sylvia Park/Mt Wellington",
+      "Sylvia Park Mt Wellington",
+    ]) {
+      expect(storeKey("Woolworths", branch).branchKey).toBe("sylvia park mt wellington");
+    }
+  });
+
+  it("keys a Countdown receipt to Woolworths, since the rebrand left one branch under two chain names", () => {
+    expect(storeKey("Countdown", "Newmarket")).toEqual({
+      chainKey: "woolworths",
+      branchKey: "newmarket",
+    });
+    expect(storeKey("COUNTDOWN ", "Newmarket").chainKey).toBe("woolworths");
+  });
+
+  it("keys every printed spelling of PAK'nSAVE to one chain", () => {
+    for (const chain of ["PAK'nSAVE", "Pak'nSave", "Pak n Save"]) {
+      expect(storeKey(chain, "Albany").chainKey).toBe("pak'nsave");
+    }
+  });
+});
+
+describe("resolveStore", () => {
+  const hornbyRow = {
+    id: "store-hornby",
+    circle_id: "circle-1",
+    chain_name_en: "Woolworths",
+    chain_name_zh: "沃尔沃斯",
+    branch_name_en: "Hornby",
+    branch_name_zh: "霍恩比",
+    chain_key: "woolworths",
+    branch_key: "hornby",
+    created_at: "2026-10-01T00:00:00Z",
+  };
+
+  it("returns the circle's existing Store for that branch without creating another", async () => {
+    const db = createFakeSupabase({ tables: { stores: { data: hornbyRow, error: null } } });
+
+    const store = await resolveStore(db.client, "circle-1", {
+      chain: { en: "WOOLWORTHS", zh: "沃尔沃斯" },
+      branch: { en: " Hornby ", zh: "霍恩比" },
+    });
+
+    expect(store).toEqual({
+      id: "store-hornby",
+      chainNameEn: "Woolworths",
+      chainNameZh: "沃尔沃斯",
+      branchNameEn: "Hornby",
+      branchNameZh: "霍恩比",
+    });
+    // The fake doesn't filter, so pin that the lookup is by normalized key.
+    const calls = db.callsFor("stores");
+    expect(calls).toContainEqual(["eq", "circle_id", "circle-1"]);
+    expect(calls).toContainEqual(["eq", "chain_key", "woolworths"]);
+    expect(calls).toContainEqual(["eq", "branch_key", "hornby"]);
+    expect(calls.map(([method]) => method)).not.toContain("insert");
+  });
+
+  it("creates and returns a new Store when the circle has never seen that branch", async () => {
+    const riccartonRow = {
+      ...hornbyRow,
+      id: "store-riccarton",
+      branch_name_en: "Riccarton",
+      branch_name_zh: "里卡顿",
+      branch_key: "riccarton",
+    };
+    const db = createFakeSupabase({
+      tables: {
+        stores: [
+          { data: null, error: null },
+          { data: riccartonRow, error: null },
+        ],
+      },
+    });
+
+    const store = await resolveStore(db.client, "circle-1", {
+      chain: { en: "Woolworths", zh: "沃尔沃斯" },
+      branch: { en: "Riccarton", zh: "里卡顿" },
+    });
+
+    expect(store).toEqual({
+      id: "store-riccarton",
+      chainNameEn: "Woolworths",
+      chainNameZh: "沃尔沃斯",
+      branchNameEn: "Riccarton",
+      branchNameZh: "里卡顿",
+    });
+    expect(db.callsFor("stores")).toContainEqual([
+      "insert",
+      {
+        circle_id: "circle-1",
+        chain_name_en: "Woolworths",
+        chain_name_zh: "沃尔沃斯",
+        branch_name_en: "Riccarton",
+        branch_name_zh: "里卡顿",
+        chain_key: "woolworths",
+        branch_key: "riccarton",
+      },
+    ]);
+  });
+
+  it("looks up, and if need be creates, the chain's unknown-branch Store when no branch was printed", async () => {
+    const unknownBranchRow = {
+      ...hornbyRow,
+      id: "store-woolworths-unknown",
+      branch_name_en: null,
+      branch_name_zh: null,
+      branch_key: null,
+    };
+    const db = createFakeSupabase({
+      tables: {
+        stores: [
+          { data: null, error: null },
+          { data: unknownBranchRow, error: null },
+        ],
+      },
+    });
+
+    const store = await resolveStore(db.client, "circle-1", {
+      chain: { en: "Woolworths", zh: "沃尔沃斯" },
+      branch: { en: "", zh: "" },
+    });
+
+    expect(store).toMatchObject({ id: "store-woolworths-unknown", branchNameEn: null });
+    const [lookup, insert] = db.queriesFor("stores");
+    // `eq` with null never matches in PostgREST; an unknown branch needs `is`.
+    expect(lookup).toContainEqual(["is", "branch_key", null]);
+    expect(lookup.filter(([method, column]) => method === "eq" && column === "branch_key")).toEqual([]);
+    expect(insert).toContainEqual([
+      "insert",
+      expect.objectContaining({ branch_name_en: null, branch_name_zh: null, branch_key: null }),
+    ]);
+  });
+
+  it("stores the names without the stray leading and trailing spaces OCR left on them", async () => {
+    const db = createFakeSupabase({
+      tables: {
+        stores: [
+          { data: null, error: null },
+          { data: hornbyRow, error: null },
+        ],
+      },
+    });
+
+    await resolveStore(db.client, "circle-1", {
+      chain: { en: "  Woolworths ", zh: " 沃尔沃斯" },
+      branch: { en: " Hornby\t", zh: "霍恩比 " },
+    });
+
+    expect(db.callsFor("stores")).toContainEqual([
+      "insert",
+      expect.objectContaining({
+        chain_name_en: "Woolworths",
+        chain_name_zh: "沃尔沃斯",
+        branch_name_en: "Hornby",
+        branch_name_zh: "霍恩比",
+      }),
+    ]);
+  });
+});
+
+describe("listStores", () => {
+  function storeRow(id: string, chainEn: string, chainKey: string, branchEn: string | null) {
+    return {
+      id,
+      chain_name_en: chainEn,
+      chain_name_zh: null,
+      branch_name_en: branchEn,
+      branch_name_zh: null,
+      chain_key: chainKey,
+      branch_key: branchEn?.toLowerCase() ?? null,
+    };
+  }
+
+  it("lists the circle's Stores by chain then branch, with the unknown branch last in its chain", async () => {
+    const db = createFakeSupabase({
+      tables: {
+        stores: {
+          data: [
+            storeRow("woolworths-riccarton", "Woolworths", "woolworths", "Riccarton"),
+            storeRow("woolworths-unknown", "Woolworths", "woolworths", null),
+            storeRow("paknsave-albany", "PAK'nSAVE", "pak'nsave", "Albany"),
+            storeRow("woolworths-hornby", "Woolworths", "woolworths", "Hornby"),
+          ],
+          error: null,
+        },
+      },
+    });
+
+    const stores = await listStores(db.client);
+
+    expect(stores.map(({ id }) => id)).toEqual([
+      "paknsave-albany",
+      "woolworths-hornby",
+      "woolworths-riccarton",
+      "woolworths-unknown",
+    ]);
+    expect(stores[0]).toEqual({
+      id: "paknsave-albany",
+      chainNameEn: "PAK'nSAVE",
+      chainNameZh: null,
+      branchNameEn: "Albany",
+      branchNameZh: null,
+    });
+  });
+});
