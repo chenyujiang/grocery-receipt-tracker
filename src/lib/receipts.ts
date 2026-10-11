@@ -271,11 +271,12 @@ function recognizedStoreOf(receipt: RecognizedStoreColumns): StoreChoice | null 
 
 // The Store the store picker starts a receipt on (StorePicker's
 // initialStorePick): the receipt's own Store if it has one, else storeAsRead.
-function startingStore(receipt: RecognizedStoreColumns & {
-  store_name_en: string;
-  store_name_zh: string | null;
-  stores?: StoreNames | null;
-}): StoreChoice {
+function startingStore(
+  receipt: RecognizedStoreColumns &
+    Pick<Database["public"]["Tables"]["receipts"]["Row"], "store_name_en" | "store_name_zh"> & {
+      stores?: StoreNames | null;
+    }
+): StoreChoice {
   if (receipt.stores) {
     return storeChoiceOfNames(receipt.stores);
   }
