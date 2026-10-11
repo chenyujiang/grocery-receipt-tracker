@@ -99,17 +99,17 @@ export function storeNameOf(store: Store): BilingualName {
   });
 }
 
-// The existing Store a chain/branch pair names, compared by the same
+// Whether two chain/branch pairs name the same Store, compared by the same
 // normalized keys resolveStore matches on.
-export function matchingStore(
-  stores: Store[],
-  { chain, branch }: StoreChoice
-): Store | undefined {
-  const wanted = storeKey(chain.en, branch?.en ?? null);
-  return stores.find((store) => {
-    const key = storeKey(store.chainNameEn, store.branchNameEn);
-    return key.chainKey === wanted.chainKey && key.branchKey === wanted.branchKey;
-  });
+export function sameStoreKey(a: StoreChoice, b: StoreChoice): boolean {
+  const aKey = storeKey(a.chain.en, a.branch?.en ?? null);
+  const bKey = storeKey(b.chain.en, b.branch?.en ?? null);
+  return aKey.chainKey === bKey.chainKey && aKey.branchKey === bKey.branchKey;
+}
+
+// The existing Store a chain/branch pair names.
+export function matchingStore(stores: Store[], choice: StoreChoice): Store | undefined {
+  return stores.find((store) => sameStoreKey(storeChoiceOf(store), choice));
 }
 
 // The candidates for a near-miss: every Store of the same chain, for the
