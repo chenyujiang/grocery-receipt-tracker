@@ -384,13 +384,17 @@ async function writeConfirmation(
 // update_receipt_with_log takes it.
 type ReceiptLog = Database["public"]["Functions"]["update_receipt_with_log"]["Args"]["p_logs"][number];
 
+// What update_receipt_with_log changes on a receipt; an absent field is left
+// as it is.
+type ReceiptChanges = { status?: "confirmed"; storeId?: string; purchaseDate?: string };
+
 // Changes the receipt and writes its EditLog rows in one transaction
 // (update_receipt_with_log): EditLog is append-only, so a row logged for a
 // change that then failed could never be taken back, and a retry would log it
 // again. Returns the receipt's purchase date.
 async function updateReceiptWithLog(
   receiptId: string,
-  changes: { status?: "confirmed"; storeId?: string; purchaseDate?: string },
+  changes: ReceiptChanges,
   logs: ReceiptLog[]
 ): Promise<string> {
   const { data: purchaseDate, error } = await supabase.rpc("update_receipt_with_log", {
@@ -437,7 +441,7 @@ export async function editConfirmedReceipt(
     throw fetchError ?? new Error("Receipt not found");
   }
 
-  const changes: { storeId?: string; purchaseDate?: string } = {};
+  const changes: Omit<ReceiptChanges, "status"> = {};
   const logs: ReceiptLog[] = [];
   let createdStoreId: string | null = null;
   // Issue 29: moving a receipt to another Store is logged by the Stores'
