@@ -19,4 +19,13 @@ describe("storeName / storeShortName", () => {
     expect(storeName(emptyBranch)).toEqual({ en: "Woolworths", zh: "沃尔沃斯" });
     expect(storeShortName(emptyBranch)).toEqual({ en: "Woolworths", zh: "沃尔沃斯" });
   });
+
+  // A branch read as punctuation alone (".", "-") keys to no branch at all
+  // (storeKey), so it names no branch either — the two can't disagree.
+  it("names a Store whose branch name is only punctuation by its chain alone", () => {
+    const punctuationBranch = { ...WOOLWORTHS, branch_name_en: " . ", branch_name_zh: "。" };
+
+    expect(storeName(punctuationBranch)).toEqual({ en: "Woolworths", zh: "沃尔沃斯" });
+    expect(storeShortName(punctuationBranch)).toEqual({ en: "Woolworths", zh: "沃尔沃斯" });
+  });
 });

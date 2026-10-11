@@ -1,6 +1,7 @@
 // Relative + `.js`, not the `@/` alias: src/lib/purchaseHistory.ts imports
 // this, and `api/` imports that at runtime (api/cron/low-stock-check.ts).
 import { bilingualName, type BilingualName } from "./bilingualName.js";
+import { branchKey } from "./storeKey.js";
 
 // A Store's four name columns, as stored.
 export interface StoreNames {
@@ -11,10 +12,12 @@ export interface StoreNames {
 }
 
 // Whether a branch name names a branch — the one place that decides a
-// Store's branch is unknown: no name at all, or the empty text the AI writes
-// for a branch it couldn't read.
+// Store's branch is unknown, by its match key (branchKey): no name at all,
+// the empty text the AI writes for a branch it couldn't read, or text that
+// keys to nothing, like a stray ".". So a branch is named exactly when it's
+// matched as one.
 export function isKnownBranch(branchNameEn: string | null): branchNameEn is string {
-  return Boolean(branchNameEn);
+  return branchKey(branchNameEn) !== null;
 }
 
 // A Store's name as one line: its chain, then its branch if it has one —

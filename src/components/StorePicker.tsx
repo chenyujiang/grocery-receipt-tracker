@@ -9,7 +9,6 @@ import {
   nearMissStores,
   storeAsRead,
   storeChoiceOf,
-  storeKey,
   storeNameOf,
   type Store,
   type StoreChoice,
@@ -37,9 +36,9 @@ export function initialStorePick(stores: Store[], draft: ReceiptDraft): StorePic
     stores.find((store) => store.id === draft.storeId) ?? matchingStore(stores, typed);
   const pickedStoreId = match
     ? match.id
-    : storeKey(typed.chain.en, typed.branch?.en ?? null).branchKey === null
-      ? UNKNOWN_BRANCH
-      : NEW_BRANCH;
+    : isKnownBranch(typed.branch?.en ?? null)
+      ? NEW_BRANCH
+      : UNKNOWN_BRANCH;
   return { pickedStoreId, typed };
 }
 
