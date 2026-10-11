@@ -28,8 +28,7 @@ import ReceiptReview from "@/pages/ReceiptReview";
 const SAMPLE_DRAFT = {
   id: "receipt-1",
   uploadedBy: "user-1",
-  storeNameEn: "Countdown Newmarket",
-  storeNameZh: "倒数超市 Newmarket 店",
+  receiptHeader: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
   storeDisplayName: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
   recognizedStore: null,
   storeId: null,

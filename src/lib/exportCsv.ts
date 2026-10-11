@@ -4,9 +4,9 @@ import { bilingualName } from "@/lib/bilingualName";
 
 export interface ExportRow {
   purchaseDate: string;
-  // The store name as printed on the receipt header.
-  storeNameEn: string;
-  storeNameZh: string;
+  // The Receipt Header: the store name exactly as the receipt printed it.
+  receiptHeaderEn: string;
+  receiptHeaderZh: string;
   // The receipt's Store's branch; null when it has no Store or the branch
   // is unknown (issue 29).
   branchNameEn: string | null;
@@ -57,8 +57,8 @@ export function rowsToCsv(rows: ExportRow[]): string {
     lines.push(
       [
         row.purchaseDate,
-        row.storeNameEn,
-        row.storeNameZh,
+        row.receiptHeaderEn,
+        row.receiptHeaderZh,
         row.branchNameEn,
         row.branchNameZh,
         row.productNameEn,
@@ -105,7 +105,7 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
   const rows = data ?? [];
 
   return rows.map((row) => {
-    const storeName = bilingualName(row.receipts.store_name_en, row.receipts.store_name_zh);
+    const header = bilingualName(row.receipts.store_name_en, row.receipts.store_name_zh);
     const productName = bilingualName(
       row.products?.canonical_name_en ?? row.raw_name_en,
       row.products?.canonical_name_zh ?? row.raw_name_zh
@@ -115,8 +115,8 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
       branchEn === null ? null : bilingualName(branchEn, row.receipts.stores?.branch_name_zh);
     return {
       purchaseDate: row.receipts.purchase_date,
-      storeNameEn: storeName.en,
-      storeNameZh: storeName.zh,
+      receiptHeaderEn: header.en,
+      receiptHeaderZh: header.zh,
       branchNameEn: branch?.en ?? null,
       branchNameZh: branch?.zh ?? null,
       productNameEn: productName.en,

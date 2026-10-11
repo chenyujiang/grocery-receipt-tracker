@@ -157,7 +157,7 @@ describe("fetchReceiptDraft", () => {
   });
 
   // Issue 29, same rule as the receipt list and Home: the detail page names a
-  // receipt by its Store. storeNameEn/Zh stay the printed header — the preview
+  // receipt by its Store. receiptHeader stays the printed header — the preview
   // screen and the duplicate check read that.
   it("names a receipt by its Store's chain and branch, and a draft with no Store by its printed header", async () => {
     const header = {
@@ -201,7 +201,7 @@ describe("fetchReceiptDraft", () => {
     const draft = await fetchReceiptDraft("receipt-1");
 
     expect(confirmed.storeDisplayName).toEqual({ en: "PAK'nSAVE Albany", zh: "派克储蓄 奥尔巴尼" });
-    expect(confirmed.storeNameEn).toBe("Pak n Save Albany");
+    expect(confirmed.receiptHeader.en).toBe("Pak n Save Albany");
     expect(draft.storeDisplayName).toEqual({ en: "Pak n Save Albany", zh: "派克储蓄奥尔巴尼" });
   });
 
@@ -244,7 +244,7 @@ describe("fetchReceiptDraft", () => {
 
     const draft = await fetchReceiptDraft("receipt-1");
 
-    expect(draft.storeNameEn).toBe("Countdown Newmarket");
+    expect(draft.receiptHeader.en).toBe("Countdown Newmarket");
     expect(draft.status).toBe("pending_review");
     expect(draft.items).toEqual([
       {
@@ -339,7 +339,7 @@ describe("fetchReceiptDraft", () => {
 
     const draft = await fetchReceiptDraft("receipt-1");
 
-    expect(draft.storeNameZh).toBe("Four Square");
+    expect(draft.receiptHeader.zh).toBe("Four Square");
     expect(draft.items[0].rawNameZh).toBe("Anchor Blue Milk 2L");
     // Recognized before the chain/branch split existed.
     expect(draft.recognizedStore).toBeNull();

@@ -47,7 +47,7 @@ export default function ReceiptReview() {
         setStores(circleStores);
         setStorePick(initialStorePick(circleStores, loaded));
         return findDuplicateReceipt({
-          storeNameEn: loaded.storeNameEn,
+          storeNameEn: loaded.receiptHeader.en,
           purchaseDate: loaded.purchaseDate,
           totalAmount: loaded.totalAmount,
           excludeReceiptId: loaded.id,
@@ -110,7 +110,7 @@ export default function ReceiptReview() {
     <div className="page">
       <h1>{t("review.title")}</h1>
       <p>
-        {pickText(draft.storeNameEn, draft.storeNameZh, language)} · {draft.purchaseDate}
+        {pickText(draft.receiptHeader.en, draft.receiptHeader.zh, language)} · {draft.purchaseDate}
       </p>
 
       <StorePicker stores={stores} value={storePick} onChange={setStorePick} />

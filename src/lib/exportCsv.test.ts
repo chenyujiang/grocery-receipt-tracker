@@ -14,8 +14,8 @@ describe("rowsToCsv", () => {
     const csv = rowsToCsv([
       {
         purchaseDate: "2026-08-04",
-        storeNameEn: "Countdown",
-        storeNameZh: "城内城外",
+        receiptHeaderEn: "Countdown",
+        receiptHeaderZh: "城内城外",
         branchNameEn: null,
         branchNameZh: null,
         productNameEn: "Anchor Blue Milk",
@@ -43,8 +43,8 @@ describe("rowsToCsv", () => {
     const csv = rowsToCsv([
       {
         purchaseDate: "2026-08-04",
-        storeNameEn: 'Pak"nSave, Newmarket',
-        storeNameZh: "帕克超市",
+        receiptHeaderEn: 'Pak"nSave, Newmarket',
+        receiptHeaderZh: "帕克超市",
         branchNameEn: null,
         branchNameZh: null,
         productNameEn: "Milk",
@@ -69,8 +69,8 @@ describe("rowsToCsv", () => {
     const csv = rowsToCsv([
       {
         purchaseDate: "2026-08-04",
-        storeNameEn: "Countdown",
-        storeNameZh: "城内城外",
+        receiptHeaderEn: "Countdown",
+        receiptHeaderZh: "城内城外",
         branchNameEn: null,
         branchNameZh: null,
         productNameEn: "Avocado",
@@ -95,8 +95,8 @@ describe("rowsToCsv", () => {
   it("writes each row's branch after the store columns, blank when it has none", () => {
     const row = {
       purchaseDate: "2026-08-04",
-      storeNameEn: "Pak n Save Albany",
-      storeNameZh: "派克储蓄奥尔巴尼",
+      receiptHeaderEn: "Pak n Save Albany",
+      receiptHeaderZh: "派克储蓄奥尔巴尼",
       branchNameEn: "Albany",
       branchNameZh: "奥尔巴尼",
       productNameEn: "Milk",
@@ -174,8 +174,8 @@ describe("fetchExportRows", () => {
     expect(rows).toEqual([
       {
         purchaseDate: "2026-08-04",
-        storeNameEn: "Countdown",
-        storeNameZh: "倒数超市",
+        receiptHeaderEn: "Countdown",
+        receiptHeaderZh: "倒数超市",
         branchNameEn: null,
         branchNameZh: null,
         productNameEn: "Anchor Blue Milk",
@@ -246,7 +246,7 @@ describe("fetchExportRows", () => {
     // No translation anywhere: both name columns fall back to the English.
     expect(untranslated.productNameZh).toBe("Anchor Blue Milk");
 
-    expect(storeUntranslated.storeNameZh).toBe("Countdown");
+    expect(storeUntranslated.receiptHeaderZh).toBe("Countdown");
   });
 
   // Issue 29: the store columns stay the printed header, exactly as the
@@ -291,7 +291,7 @@ describe("fetchExportRows", () => {
       { branchNameEn: null, branchNameZh: null },
       { branchNameEn: null, branchNameZh: null },
     ]);
-    expect(rows[0].storeNameEn).toBe("Countdown");
+    expect(rows[0].receiptHeaderEn).toBe("Countdown");
   });
 
   // An uploader who has since left the circle has no `profiles` row, so there

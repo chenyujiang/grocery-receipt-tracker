@@ -23,7 +23,7 @@ export interface StorePick {
 function initialStore(draft: ReceiptDraft): StoreChoice {
   return (
     draft.recognizedStore ?? {
-      chain: { en: draft.storeNameEn, zh: draft.storeNameZh },
+      chain: { en: draft.receiptHeader.en, zh: draft.receiptHeader.zh },
       branch: { en: "", zh: null },
     }
   );

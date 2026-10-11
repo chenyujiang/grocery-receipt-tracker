@@ -56,8 +56,7 @@ const COUNT_ITEM = {
 const SAMPLE_DRAFT = {
   id: "receipt-1",
   uploadedBy: "user-1",
-  storeNameEn: "Countdown Newmarket",
-  storeNameZh: "倒数超市 Newmarket 店",
+  receiptHeader: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
   storeDisplayName: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
   recognizedStore: null,
   storeId: "store-hornby",
@@ -125,8 +124,7 @@ describe("ReceiptDetail", () => {
   it("names the receipt in its header by its Store, not by the printed header", async () => {
     vi.mocked(fetchReceiptDraft).mockResolvedValue({
       ...SAMPLE_DRAFT,
-      storeNameEn: "WOOLWORTHS HORNBY 0123",
-      storeNameZh: "沃尔沃斯 霍恩比 0123",
+      receiptHeader: { en: "WOOLWORTHS HORNBY 0123", zh: "沃尔沃斯 霍恩比 0123" },
       storeDisplayName: { en: "Woolworths Hornby", zh: "沃尔沃斯 霍恩比" },
     });
 

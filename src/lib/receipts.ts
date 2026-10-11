@@ -69,9 +69,8 @@ export function toItemUpdate(item: DraftItem): ConfirmReceiptItemUpdate {
 export interface ReceiptDraft {
   id: string;
   uploadedBy: string;
-  // The store name as printed on the receipt header.
-  storeNameEn: string;
-  storeNameZh: string;
+  // The Receipt Header: the store name exactly as this receipt printed it.
+  receiptHeader: BilingualName;
   // What to call the receipt: its Store's own chain and branch, or the
   // printed header while it has no Store (issue 29).
   storeDisplayName: BilingualName;
@@ -127,8 +126,7 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
   return {
     id: receiptRow.id,
     uploadedBy: receiptRow.uploaded_by,
-    storeNameEn: header.en,
-    storeNameZh: header.zh,
+    receiptHeader: header,
     storeDisplayName: receiptStoreName(receiptRow),
     recognizedStore:
       receiptRow.recognized_chain_en == null
