@@ -1,4 +1,4 @@
-import { calculatePriceChangesByStore, type StorePurchaseRecord } from "@/lib/priceChange";
+import { priceChangeAtStore, type StorePurchaseRecord } from "@/lib/priceChange";
 
 // Section 13: fixed 15% threshold, checked immediately after a receipt is
 // confirmed. "Exceeds", not "reaches" — exactly 15% doesn't trigger.
@@ -55,10 +55,8 @@ export function detectPriceSpikes(
       continue;
     }
     const upToReceipt = history.purchases.slice(0, ownIndex + 1);
-    const storeChange = calculatePriceChangesByStore(upToReceipt).find(
-      ({ storeId }) => storeId === receipt.storeId
-    );
-    if (!storeChange || storeChange.change.changePercent <= SPIKE_THRESHOLD_PERCENT) {
+    const storeChange = priceChangeAtStore(upToReceipt, receipt.storeId);
+    if (!storeChange || storeChange.changePercent <= SPIKE_THRESHOLD_PERCENT) {
       continue;
     }
 
@@ -73,7 +71,7 @@ export function detectPriceSpikes(
     spikes.push({
       productId: history.productId,
       newPrice: latest.unitPrice,
-      changePercent: storeChange.change.changePercent,
+      changePercent: storeChange.changePercent,
     });
   }
 

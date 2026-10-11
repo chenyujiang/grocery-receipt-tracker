@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-import { calculatePriceChangesByStore, type PriceChange } from "@/lib/priceChange";
+import { priceChangeAtStore, type PriceChange } from "@/lib/priceChange";
 import { buildPriceTrend, type PriceTrendPoint } from "@/lib/priceTrend";
 import { compareStores, type StoreComparisonEntry } from "@/lib/storeComparison";
 import { calculateConsumption, type ConsumptionEstimate } from "@/lib/consumptionRate";
@@ -36,15 +36,13 @@ function headlinePriceChange(purchases: Purchase[]): HeadlinePriceChange | null 
   if (!latest || latest.storeId === null) {
     return null;
   }
-  const atStore = calculatePriceChangesByStore(purchases).find(
-    ({ storeId }) => storeId === latest.storeId
-  );
+  const atStore = priceChangeAtStore(purchases, latest.storeId);
   if (!atStore) {
     return null;
   }
   return {
-    ...atStore.change,
-    storeId: atStore.storeId,
+    ...atStore,
+    storeId: latest.storeId,
     storeNameEn: latest.storeNameEn,
     storeNameZh: latest.storeNameZh,
   };

@@ -84,3 +84,14 @@ export function calculatePriceChangesByStore(
   }
   return changes;
 }
+
+// The Same-Store Price Change at one Store, or null when that Store has too
+// few normal-price purchases to compare.
+export function priceChangeAtStore(
+  records: StorePurchaseRecord[],
+  storeId: string
+): PriceChange | null {
+  return (
+    calculatePriceChangesByStore(records).find((entry) => entry.storeId === storeId)?.change ?? null
+  );
+}
