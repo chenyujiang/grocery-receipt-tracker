@@ -613,6 +613,41 @@ describe("confirmReceipt", () => {
     expect(db.callsFor("receipts")).not.toContainEqual(["update", expect.anything()]);
   });
 
+  // Ticket 29: a Store is created on confirm, so a confirm that fails after
+  // creating one takes it back — or an abandoned draft would leave a Store
+  // with no receipts in every member's picker.
+  it("deletes the Store it created if a later write fails, and still throws that write's error", async () => {
+    const db = installFakeSupabase(supabase, {
+      auth: SIGNED_IN,
+      tables: {
+        receipt_items: [EXISTING_ITEM, { error: new Error("RLS denied") }],
+        receipts: [{ data: { circle_id: "circle-1", ...READ_AS_HORNBY }, error: null }],
+        stores: [{ data: null, error: null }, RICCARTON_FOUND, WROTE_OK],
+        edit_logs: WROTE_OK,
+      },
+    });
+
+    await expect(confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], RICCARTON)).rejects.toThrow("RLS denied");
+    const cleanup = db.queriesFor("stores")[2];
+    expect(cleanup).toContainEqual(["delete"]);
+    expect(cleanup).toContainEqual(["eq", "id", "store-riccarton"]);
+  });
+
+  it("leaves an existing Store alone if a later write fails", async () => {
+    const db = installFakeSupabase(supabase, {
+      auth: SIGNED_IN,
+      tables: {
+        receipt_items: [EXISTING_ITEM, { error: new Error("RLS denied") }],
+        receipts: [{ data: { circle_id: "circle-1", ...READ_AS_HORNBY }, error: null }],
+        stores: [HORNBY_FOUND, WROTE_OK],
+        edit_logs: WROTE_OK,
+      },
+    });
+
+    await expect(confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY)).rejects.toThrow("RLS denied");
+    expect(db.callsFor("stores")).not.toContainEqual(["delete"]);
+  });
+
   // The Store is resolved before anything is written, so a failure there —
   // such as two members creating the same new branch at once — leaves the
   // draft exactly as it was, rather than saving its items while it stays a

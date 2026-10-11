@@ -31,7 +31,10 @@ create table stores (
 
 alter table stores enable row level security;
 
--- Mirrors the products policies: shared within the circle, no delete.
+-- Mirrors the products policies: shared within the circle — except that a
+-- Store no receipt points at can be deleted, so a confirm that fails after
+-- creating its Store can take it back (ticket 29). A Store with any history
+-- can't be.
 create policy "members can view their circle's stores"
 on stores for select to authenticated
 using (circle_id = current_circle_id());
@@ -43,6 +46,13 @@ with check (circle_id = current_circle_id());
 create policy "members can update their circle's stores"
 on stores for update to authenticated
 using (circle_id = current_circle_id());
+
+create policy "members can delete their circle's unused stores"
+on stores for delete to authenticated
+using (
+  circle_id = current_circle_id()
+  and not exists (select 1 from receipts where receipts.store_id = stores.id)
+);
 
 -- store_name_en / store_name_zh stay: they keep the raw header text read off
 -- this particular receipt, the way receipt_items keeps raw_name_en alongside

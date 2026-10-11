@@ -84,7 +84,7 @@ describe("resolveStore", () => {
   it("returns the circle's existing Store for that branch without creating another", async () => {
     const db = createFakeSupabase({ tables: { stores: { data: hornbyRow, error: null } } });
 
-    const store = await resolveStore(db.client, "circle-1", {
+    const { store } = await resolveStore(db.client, "circle-1", {
       chain: { en: "WOOLWORTHS", zh: "沃尔沃斯" },
       branch: { en: " Hornby ", zh: "霍恩比" },
     });
@@ -121,7 +121,7 @@ describe("resolveStore", () => {
       },
     });
 
-    const store = await resolveStore(db.client, "circle-1", {
+    const { store } = await resolveStore(db.client, "circle-1", {
       chain: { en: "Woolworths", zh: "沃尔沃斯" },
       branch: { en: "Riccarton", zh: "里卡顿" },
     });
@@ -164,7 +164,7 @@ describe("resolveStore", () => {
       },
     });
 
-    const store = await resolveStore(db.client, "circle-1", {
+    const { store } = await resolveStore(db.client, "circle-1", {
       chain: { en: "Woolworths", zh: "沃尔沃斯" },
       branch: null,
     });

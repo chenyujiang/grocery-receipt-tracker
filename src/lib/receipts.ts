@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { detectPriceSpikes, type SpikeCheckReceipt } from "@/lib/priceSpikeAlerts";
 import {
   listStores,
+  deleteUnusedStore,
   resolveStore,
   sameStoreKey,
   storeChoiceOf,
@@ -324,14 +325,43 @@ export async function confirmReceipt(
 
   // Resolved before anything is written, so a failure here leaves the draft
   // as it was instead of saving its items while it stays a draft.
-  const confirmedStore = await resolveStore(supabase, receiptCircle.circle_id, store);
+  const { store: confirmedStore, created } = await resolveStore(supabase, receiptCircle.circle_id, store);
   const storeId = confirmedStore.id;
 
-  await updateReceiptItemsWithLog(items, user.id);
+  let purchaseDate: string;
+  try {
+    purchaseDate = await writeConfirmation(receiptId, items, user.id, startingStore(receiptCircle), confirmedStore);
+  } catch (err) {
+    // A failed confirm takes back the Store it created, so an abandoned draft
+    // leaves none in the picker. Best effort: if the delete fails too, the
+    // Store stays, and the user still sees why the confirm failed.
+    if (created) {
+      await deleteUnusedStore(supabase, storeId).catch(() => undefined);
+    }
+    throw err;
+  }
+
+  await recordPriceSpikeAlerts(
+    receiptCircle.circle_id,
+    receiptId,
+    { id: receiptId, storeId, purchaseDate },
+    items
+  );
+}
+
+// confirmReceipt's writes once its Store is resolved: the items, the Store
+// correction if there was one, then the status. Returns the purchase date.
+async function writeConfirmation(
+  receiptId: string,
+  items: ConfirmReceiptItemUpdate[],
+  userId: string,
+  read: StoreChoice,
+  confirmedStore: Store
+): Promise<string> {
+  await updateReceiptItemsWithLog(items, userId);
 
   // User story 3: correcting the Store the AI read is a Correction like any
   // other — but confirming the Store the AI's reading matched is not one.
-  const read = startingStore(receiptCircle);
   if (!sameStoreKey(read, storeChoiceOf(confirmedStore))) {
     const { error: logError } = await supabase.from("edit_logs").insert([
       {
@@ -339,7 +369,7 @@ export async function confirmReceipt(
         field_name: "store",
         old_value: [read.chain.en, read.branch?.en ?? ""].map((part) => part.trim()).filter(Boolean).join(" "),
         new_value: storeNameOf(confirmedStore).en,
-        edited_by: user.id,
+        edited_by: userId,
       },
     ]);
     if (logError) {
@@ -349,20 +379,14 @@ export async function confirmReceipt(
 
   const { data: receiptRow, error: statusError } = await supabase
     .from("receipts")
-    .update({ status: "confirmed", store_id: storeId })
+    .update({ status: "confirmed", store_id: confirmedStore.id })
     .eq("id", receiptId)
     .select("purchase_date")
     .single();
   if (statusError || !receiptRow) {
     throw statusError ?? new Error("Failed to confirm receipt");
   }
-
-  await recordPriceSpikeAlerts(
-    receiptCircle.circle_id,
-    receiptId,
-    { id: receiptId, storeId, purchaseDate: receiptRow.purchase_date },
-    items
-  );
+  return receiptRow.purchase_date;
 }
 
 // Issue 16: fixing a mistake on an already-confirmed receipt — the uploader
@@ -406,7 +430,7 @@ export async function editConfirmedReceipt(
   // the picker started on is resolved, so saving just a new date never
   // creates a Store or logs a Store change.
   if (!sameStoreKey(startingStore(existingReceipt), store)) {
-    const newStore = await resolveStore(supabase, existingReceipt.circle_id, store);
+    const { store: newStore } = await resolveStore(supabase, existingReceipt.circle_id, store);
     if (existingReceipt.store_id !== newStore.id) {
       changes.store_id = newStore.id;
       logs.push({

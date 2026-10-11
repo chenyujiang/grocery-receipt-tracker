@@ -146,12 +146,13 @@ function toStore(
 
 // Finds the Circle's Store for a chain/branch pair, matching on the
 // normalized keys rather than the printed text, and creates it if the Circle
-// has never seen that branch.
+// has never seen that branch — saying which, so a caller whose later writes
+// fail can take back a Store it created (deleteUnusedStore).
 export async function resolveStore(
   client: SupabaseClient<Database>,
   circleId: string,
   { chain, branch }: StoreChoice
-): Promise<Store> {
+): Promise<{ store: Store; created: boolean }> {
   if (!hasChain({ chain, branch })) {
     throw new Error("Enter the store's chain name");
   }
@@ -171,7 +172,7 @@ export async function resolveStore(
     throw lookupError;
   }
   if (existing) {
-    return toStore(existing);
+    return { store: toStore(existing), created: false };
   }
 
   // Known limitation: two members confirming the same new branch at the same
@@ -196,7 +197,15 @@ export async function resolveStore(
   if (insertError) {
     throw insertError;
   }
-  return toStore(created);
+  return { store: toStore(created), created: true };
+}
+
+// Deletes a Store no receipt points at; RLS refuses one with any history.
+export async function deleteUnusedStore(client: SupabaseClient<Database>, storeId: string): Promise<void> {
+  const { error } = await client.from("stores").delete().eq("id", storeId);
+  if (error) {
+    throw error;
+  }
 }
 
 // The Circle's Stores for the store picker (RLS scopes the read to the
