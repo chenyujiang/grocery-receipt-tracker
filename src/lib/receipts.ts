@@ -352,6 +352,10 @@ async function takeBackStoreOnFailure<T>(createdStoreId: string | null, write: (
 
 // confirmReceipt's writes once its Store is resolved: the items, the Store
 // correction if there was one, then the status. Returns the purchase date.
+// The status and Store correction share one transaction; the items are a
+// separate write before it, so if that transaction fails the item edits —
+// and their EditLog rows — stay saved, and the receipt stays a draft. A
+// retry diffs against the saved values, so it logs them only once.
 async function writeConfirmation(
   receiptId: string,
   items: ConfirmReceiptItemUpdate[],
@@ -463,7 +467,9 @@ export async function editConfirmedReceipt(
   }
   // As on confirm, nothing is written until the Store is resolved, so a
   // failure there leaves the receipt as it was instead of saving only its
-  // items.
+  // items. Past that point the items are their own write, ahead of the
+  // Store and date's one transaction: if that transaction fails, the item
+  // edits stay saved and logged, and only the Store and date change is lost.
   await takeBackStoreOnFailure(createdStoreId, async () => {
     await updateReceiptItemsWithLog(items, user.id);
     if (logs.length > 0) {
