@@ -372,31 +372,35 @@ async function writeConfirmation(
 
   // User story 3: correcting the Store the AI read is a Correction like any
   // other — but confirming the Store the AI's reading matched is not one.
-  if (!sameStoreKey(read, storeChoiceOf(confirmedStore))) {
-    const { error: logError } = await supabase.from("edit_logs").insert([
-      {
-        receipt_id: receiptId,
-        field_name: "store",
-        old_value: storeChoiceName(read).en,
-        new_value: storeNameOf(confirmedStore).en,
-        edited_by: userId,
-      },
-    ]);
-    if (logError) {
-      throw logError;
-    }
-  }
+  const logs: ReceiptLog[] = sameStoreKey(read, storeChoiceOf(confirmedStore))
+    ? []
+    : [{ field_name: "store", old_value: storeChoiceName(read).en, new_value: storeNameOf(confirmedStore).en }];
+  return updateReceiptWithLog(receiptId, { status: "confirmed", storeId: confirmedStore.id }, logs);
+}
 
-  const { data: receiptRow, error: statusError } = await supabase
-    .from("receipts")
-    .update({ status: "confirmed", store_id: confirmedStore.id })
-    .eq("id", receiptId)
-    .select("purchase_date")
-    .single();
-  if (statusError || !receiptRow) {
-    throw statusError ?? new Error("Failed to confirm receipt");
+// A receipt-level EditLog row: the Store or the purchase date.
+type ReceiptLog = { field_name: string; old_value: string | null; new_value: string };
+
+// Changes the receipt and writes its EditLog rows in one transaction
+// (update_receipt_with_log): EditLog is append-only, so a row logged for a
+// change that then failed could never be taken back, and a retry would log it
+// again. Returns the receipt's purchase date.
+async function updateReceiptWithLog(
+  receiptId: string,
+  changes: { status?: "confirmed"; storeId?: string; purchaseDate?: string },
+  logs: ReceiptLog[]
+): Promise<string> {
+  const { data: purchaseDate, error } = await supabase.rpc("update_receipt_with_log", {
+    p_receipt_id: receiptId,
+    p_status: changes.status ?? null,
+    p_store_id: changes.storeId ?? null,
+    p_purchase_date: changes.purchaseDate ?? null,
+    p_logs: logs,
+  });
+  if (error) {
+    throw error;
   }
-  return receiptRow.purchase_date;
+  return purchaseDate;
 }
 
 // Issue 16: fixing a mistake on an already-confirmed receipt — the uploader
@@ -430,8 +434,8 @@ export async function editConfirmedReceipt(
     throw fetchError ?? new Error("Receipt not found");
   }
 
-  const changes: { purchase_date?: string; store_id?: string } = {};
-  const logs: Array<{ field_name: string; old_value: string | null; new_value: string }> = [];
+  const changes: { storeId?: string; purchaseDate?: string } = {};
+  const logs: ReceiptLog[] = [];
   let createdStoreId: string | null = null;
   // Issue 29: moving a receipt to another Store is logged by the Stores'
   // names, so the log reads on its own, and — like every edit — neither
@@ -444,7 +448,7 @@ export async function editConfirmedReceipt(
       createdStoreId = newStore.id;
     }
     if (existingReceipt.store_id !== newStore.id) {
-      changes.store_id = newStore.id;
+      changes.storeId = newStore.id;
       logs.push({
         field_name: "store",
         old_value: receiptStoreName(existingReceipt).en,
@@ -453,7 +457,7 @@ export async function editConfirmedReceipt(
     }
   }
   if (existingReceipt.purchase_date !== purchaseDate) {
-    changes.purchase_date = purchaseDate;
+    changes.purchaseDate = purchaseDate;
     logs.push({
       field_name: "purchase_date",
       old_value: existingReceipt.purchase_date,
@@ -465,23 +469,8 @@ export async function editConfirmedReceipt(
   // items.
   await takeBackStoreOnFailure(createdStoreId, async () => {
     await updateReceiptItemsWithLog(items, user.id);
-    if (logs.length === 0) {
-      return;
-    }
-
-    const { error: logError } = await supabase
-      .from("edit_logs")
-      .insert(logs.map((log) => ({ receipt_id: receiptId, ...log, edited_by: user.id })));
-    if (logError) {
-      throw logError;
-    }
-
-    const { error: updateError } = await supabase
-      .from("receipts")
-      .update(changes)
-      .eq("id", receiptId);
-    if (updateError) {
-      throw updateError;
+    if (logs.length > 0) {
+      await updateReceiptWithLog(receiptId, changes, logs);
     }
   });
 }

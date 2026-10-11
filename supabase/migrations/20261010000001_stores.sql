@@ -83,6 +83,54 @@ alter table receipts
   add column recognized_branch_en text,
   add column recognized_branch_zh text;
 
+-- A receipt-level change and its EditLog rows, in one transaction. EditLog is
+-- append-only (no update/delete policy), so a Store or date change logged in
+-- one request and applied in the next could leave a row for a change that
+-- then failed — and a retry would log it again. Here either both happen or
+-- neither does. A null argument leaves that column as it is. Security
+-- invoker, so the caller's own RLS applies: only the uploader can update the
+-- receipt, and every row is logged as auth.uid()'s edit. Returns the
+-- receipt's purchase date, which confirm's price-spike check needs.
+create or replace function public.update_receipt_with_log(
+  p_receipt_id uuid,
+  p_status text,
+  p_store_id uuid,
+  p_purchase_date date,
+  p_logs jsonb
+)
+returns date
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_purchase_date date;
+begin
+  insert into edit_logs (receipt_id, field_name, old_value, new_value, edited_by)
+  select p_receipt_id, entry.value->>'field_name', entry.value->>'old_value', entry.value->>'new_value', auth.uid()
+  from jsonb_array_elements(coalesce(p_logs, '[]'::jsonb)) as entry(value);
+
+  update receipts
+  set status = coalesce(p_status, status),
+      store_id = coalesce(p_store_id, store_id),
+      purchase_date = coalesce(p_purchase_date, purchase_date)
+  where id = p_receipt_id
+  returning purchase_date into v_purchase_date;
+  -- RLS hides a receipt the caller can't update, which would otherwise
+  -- commit the log rows alone.
+  if not found then
+    raise exception 'Receipt % not found, or not yours to change', p_receipt_id
+      using errcode = 'P0002';
+  end if;
+
+  return v_purchase_date;
+end;
+$$;
+
+revoke all on function public.update_receipt_with_log(uuid, text, uuid, date, jsonb) from public;
+revoke execute on function public.update_receipt_with_log(uuid, text, uuid, date, jsonb) from anon;
+grant execute on function public.update_receipt_with_log(uuid, text, uuid, date, jsonb) to authenticated;
+
 -- merge_users_into_new_circle now carries stores along with products,
 -- receipts and alerts. Two standalone households may well have shopped at the
 -- same branch, which would collide on stores_circle_chain_branch_key once both

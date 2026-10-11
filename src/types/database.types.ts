@@ -489,6 +489,16 @@ export interface Database {
         Args: Record<string, never>;
         Returns: string;
       };
+      update_receipt_with_log: {
+        Args: {
+          p_receipt_id: string;
+          p_status: "pending_review" | "confirmed" | null;
+          p_store_id: string | null;
+          p_purchase_date: string | null;
+          p_logs: { field_name: string; old_value: string | null; new_value: string }[];
+        };
+        Returns: string;
+      };
     };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;

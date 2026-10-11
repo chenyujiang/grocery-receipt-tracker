@@ -457,31 +457,34 @@ describe("confirmReceipt", () => {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED, NO_HISTORY],
         receipts: [
           { data: { circle_id: "circle-1", ...READ_AS_HORNBY }, error: null },
-          { data: { purchase_date: "2026-08-01" }, error: null },
         ],
         stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: "2026-08-01", error: null } },
     });
 
     await confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY);
 
     expect(db.callsFor("stores")).toContainEqual(["eq", "circle_id", "circle-1"]);
     expect(db.callsFor("stores")).toContainEqual(["eq", "branch_key", "hornby"]);
-    expect(db.callsFor("receipts")).toContainEqual([
-      "update",
-      { status: "confirmed", store_id: "store-hornby" },
-    ]);
+    expect(db.rpc).toHaveBeenCalledWith(
+      "update_receipt_with_log",
+      expect.objectContaining({ p_status: "confirmed", p_store_id: "store-hornby" })
+    );
   });
 
-  // User story 3: correcting the branch the AI read is a Correction like
-  // correcting an item name, so it goes to EditLog too — from what the AI
-  // read to the Store the receipt was confirmed at.
-  it("logs a Store the user corrected on the preview screen to EditLog", async () => {
+  // EditLog is append-only (Section 5.4), so a Store-correction row written
+  // ahead of a status update that then fails could never be taken back — and
+  // a retry would write it again. The status, the Store and that row go in
+  // one transaction instead.
+  it("confirms the status, the Store and its correction log in one transaction", async () => {
     const db = installFakeSupabase(supabase, {
       auth: SIGNED_IN,
       tables: {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED, NO_HISTORY],
+        // Only the read: a direct write to `receipts` or `edit_logs` would
+        // find nothing prepared and throw.
         receipts: [
           {
             data: {
@@ -492,27 +495,21 @@ describe("confirmReceipt", () => {
             },
             error: null,
           },
-          { data: { purchase_date: "2026-08-01" }, error: null },
         ],
         stores: HORNBY_FOUND,
-        edit_logs: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: "2026-08-01", error: null } },
     });
 
     await confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY);
 
-    expect(db.callsFor("edit_logs")).toContainEqual([
-      "insert",
-      [
-        {
-          receipt_id: "receipt-1",
-          field_name: "store",
-          old_value: "Woolworths Hornbv",
-          new_value: "Woolworths Hornby",
-          edited_by: "user-1",
-        },
-      ],
-    ]);
+    expect(db.rpc).toHaveBeenCalledWith("update_receipt_with_log", {
+      p_receipt_id: "receipt-1",
+      p_status: "confirmed",
+      p_store_id: "store-hornby",
+      p_purchase_date: null,
+      p_logs: [{ field_name: "store", old_value: "Woolworths Hornbv", new_value: "Woolworths Hornby" }],
+    });
   });
 
   it("writes each item's edited fields, then marks the receipt confirmed", async () => {
@@ -522,11 +519,11 @@ describe("confirmReceipt", () => {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED, NO_HISTORY],
         receipts: [
           { data: { circle_id: "circle-1", ...READ_AS_HORNBY }, error: null },
-          { data: { purchase_date: "2026-07-20" }, error: null },
         ],
         stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: "2026-07-20", error: null } },
     });
 
     await confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY);
@@ -546,11 +543,12 @@ describe("confirmReceipt", () => {
       },
     ]);
     expect(db.callsFor("receipt_items")).toContainEqual(["eq", "id", "item-1"]);
-    expect(db.callsFor("receipts")).toContainEqual([
-      "update",
-      expect.objectContaining({ status: "confirmed" }),
-    ]);
-    expect(db.callsFor("receipts")).toContainEqual(["eq", "id", "receipt-1"]);
+    // The AI read Hornby and the receipt was confirmed there: no Store
+    // correction to log either.
+    expect(db.rpc).toHaveBeenCalledWith(
+      "update_receipt_with_log",
+      expect.objectContaining({ p_receipt_id: "receipt-1", p_status: "confirmed", p_logs: [] })
+    );
     // Nothing actually changed vs. EXISTING_ITEM_ROW, so no EditLog entries.
     expect(db.callsFor("edit_logs")).toEqual([]);
   });
@@ -566,11 +564,11 @@ describe("confirmReceipt", () => {
         ],
         receipts: [
           { data: { circle_id: "circle-1", ...READ_AS_HORNBY }, error: null },
-          { data: { purchase_date: "2026-07-20" }, error: null },
         ],
         stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: "2026-07-20", error: null } },
     });
 
     await confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY);
@@ -610,7 +608,7 @@ describe("confirmReceipt", () => {
     });
 
     await expect(confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY)).rejects.toThrow("RLS denied");
-    expect(db.callsFor("receipts")).not.toContainEqual(["update", expect.anything()]);
+    expect(db.rpc).not.toHaveBeenCalled();
   });
 
   // Ticket 29: a Store is created on confirm, so a confirm that fails after
@@ -666,7 +664,7 @@ describe("confirmReceipt", () => {
     await expect(confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY)).rejects.toThrow(
       "duplicate key value"
     );
-    expect(db.callsFor("receipts")).not.toContainEqual(["update", expect.anything()]);
+    expect(db.rpc).not.toHaveBeenCalled();
   });
 
   it("records a price_spike alert when a confirmed item's price exceeds the 15% threshold", async () => {
@@ -686,12 +684,12 @@ describe("confirmReceipt", () => {
         ],
         receipts: [
           { data: { circle_id: "circle-9", ...READ_AS_HORNBY }, error: null },
-          { data: { purchase_date: "2026-07-20" }, error: null },
         ],
         stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
         alerts: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: "2026-07-20", error: null } },
     });
 
     await confirmReceipt("receipt-1", [
@@ -738,11 +736,11 @@ describe("confirmReceipt", () => {
         ],
         receipts: [
           { data: { circle_id: "circle-9", ...READ_AS_HORNBY }, error: null },
-          { data: { purchase_date: "2026-08-01" }, error: null },
         ],
         stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: "2026-08-01", error: null } },
     });
 
     await confirmReceipt(
@@ -771,11 +769,11 @@ describe("confirmReceipt", () => {
         ],
         receipts: [
           { data: { circle_id: "circle-9", ...READ_AS_HORNBY }, error: null },
-          { data: { purchase_date: "2026-07-20" }, error: null },
         ],
         stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: "2026-07-20", error: null } },
     });
 
     await confirmReceipt("receipt-1", [
@@ -810,12 +808,12 @@ describe("confirmReceipt", () => {
         ],
         receipts: [
           { data: { circle_id: "circle-9", ...READ_AS_HORNBY }, error: null },
-          { data: { purchase_date: "2026-07-20" }, error: null },
         ],
         stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
         alerts: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: "2026-07-20", error: null } },
     });
 
     await confirmReceipt("receipt-1", [
@@ -879,7 +877,7 @@ describe("editConfirmedReceipt", () => {
         subtotal: 4.2,
       },
     ]);
-    expect(methodsUsed(db.callsFor("receipts"))).not.toContain("update");
+    expect(db.rpc).not.toHaveBeenCalled();
   });
 
   it("logs each changed item field to EditLog, same as confirmReceipt", async () => {
@@ -916,28 +914,21 @@ describe("editConfirmedReceipt", () => {
       auth: SIGNED_IN,
       tables: {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED],
-        // Read for the diff, then written because the date differs.
-        receipts: [{ data: { purchase_date: "2026-06-05", ...AT_HORNBY_RECEIPT }, error: null }, WROTE_OK],
-        edit_logs: WROTE_OK,
+        // Read for the diff; the change itself goes through the rpc.
+        receipts: [{ data: { purchase_date: "2026-06-05", ...AT_HORNBY_RECEIPT }, error: null }],
       },
+      rpc: { update_receipt_with_log: { data: "2026-08-05", error: null } },
     });
 
     await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], HORNBY);
 
-    expect(db.callsFor("receipts")).toContainEqual(["update", { purchase_date: "2026-08-05" }]);
-    expect(db.callsFor("receipts")).toContainEqual(["eq", "id", "receipt-1"]);
-    expect(db.callsFor("edit_logs")).toContainEqual([
-      "insert",
-      [
-        {
-          receipt_id: "receipt-1",
-          field_name: "purchase_date",
-          old_value: "2026-06-05",
-          new_value: "2026-08-05",
-          edited_by: "user-1",
-        },
-      ],
-    ]);
+    expect(db.rpc).toHaveBeenCalledWith("update_receipt_with_log", {
+      p_receipt_id: "receipt-1",
+      p_status: null,
+      p_store_id: null,
+      p_purchase_date: "2026-08-05",
+      p_logs: [{ field_name: "purchase_date", old_value: "2026-06-05", new_value: "2026-08-05" }],
+    });
   });
 
   it("does not touch the receipt row when the purchase date is unchanged", async () => {
@@ -952,7 +943,7 @@ describe("editConfirmedReceipt", () => {
 
     await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], HORNBY);
 
-    expect(methodsUsed(db.callsFor("receipts"))).not.toContain("update");
+    expect(db.rpc).not.toHaveBeenCalled();
   });
 
   // A receipt the backfill never reached has no Store, so the picker starts
@@ -978,10 +969,9 @@ describe("editConfirmedReceipt", () => {
             },
             error: null,
           },
-          WROTE_OK,
         ],
-        edit_logs: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: "2026-08-05", error: null } },
     });
 
     await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], {
@@ -989,69 +979,42 @@ describe("editConfirmedReceipt", () => {
       branch: null,
     });
 
-    expect(db.callsFor("receipts")).toContainEqual(["update", { purchase_date: "2026-08-05" }]);
-    expect(db.callsFor("edit_logs")).toContainEqual([
-      "insert",
-      [
-        {
-          receipt_id: "receipt-1",
-          field_name: "purchase_date",
-          old_value: "2026-06-05",
-          new_value: "2026-08-05",
-          edited_by: "user-1",
-        },
-      ],
-    ]);
+    expect(db.rpc).toHaveBeenCalledWith(
+      "update_receipt_with_log",
+      expect.objectContaining({ p_store_id: null, p_logs: [{ field_name: "purchase_date", old_value: "2026-06-05", new_value: "2026-08-05" }] })
+    );
   });
 
   // Issue 29: a Store change is a Correction like any other — and, as with
   // every edit, it neither re-raises nor withdraws alerts. Logged by name, so
-  // the log reads without looking the Stores up.
-  it("moves the receipt to another Store, logging the Store's name old → new", async () => {
+  // the log reads without looking the Stores up. As on confirm, the new Store
+  // and date go in one transaction with their EditLog rows, so a failed
+  // update leaves no row behind.
+  it("moves the receipt and changes its date in one transaction with their EditLog rows", async () => {
     const db = installFakeSupabase(supabase, {
       auth: SIGNED_IN,
       tables: {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED],
-        receipts: [
-          {
-            data: {
-              purchase_date: "2026-08-05",
-              circle_id: "circle-1",
-              store_id: "store-hornby",
-              store_name_en: "WOOLWORTHS HORNBY",
-              store_name_zh: "沃尔沃斯 霍恩比",
-              stores: {
-                chain_name_en: "Woolworths",
-                chain_name_zh: "沃尔沃斯",
-                branch_name_en: "Hornby",
-                branch_name_zh: "霍恩比",
-              },
-            },
-            error: null,
-          },
-          WROTE_OK,
-        ],
+        // Only the read: a direct write to `receipts` or `edit_logs` would
+        // find nothing prepared and throw.
+        receipts: [{ data: { purchase_date: "2026-08-05", ...AT_HORNBY_RECEIPT }, error: null }],
         stores: RICCARTON_FOUND,
-        edit_logs: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: "2026-08-06", error: null } },
     });
 
-    await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], RICCARTON);
+    await editConfirmedReceipt("receipt-1", "2026-08-06", [SAMPLE_ITEM_UPDATE], RICCARTON);
 
-    expect(db.callsFor("edit_logs")).toContainEqual([
-      "insert",
-      [
-        {
-          receipt_id: "receipt-1",
-          field_name: "store",
-          old_value: "Woolworths Hornby",
-          new_value: "Woolworths Riccarton",
-          edited_by: "user-1",
-        },
+    expect(db.rpc).toHaveBeenCalledWith("update_receipt_with_log", {
+      p_receipt_id: "receipt-1",
+      p_status: null,
+      p_store_id: "store-riccarton",
+      p_purchase_date: "2026-08-06",
+      p_logs: [
+        { field_name: "store", old_value: "Woolworths Hornby", new_value: "Woolworths Riccarton" },
+        { field_name: "purchase_date", old_value: "2026-08-05", new_value: "2026-08-06" },
       ],
-    ]);
-    expect(db.callsFor("receipts")).toContainEqual(["update", { store_id: "store-riccarton" }]);
-    expect(db.callsFor("receipts")).toContainEqual(["eq", "id", "receipt-1"]);
+    });
   });
 
   // As on confirm, the Store is resolved before anything is written, so a
@@ -1070,7 +1033,7 @@ describe("editConfirmedReceipt", () => {
     await expect(
       editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], RICCARTON)
     ).rejects.toThrow("duplicate key value");
-    expect(db.callsFor("receipts")).not.toContainEqual(["update", expect.anything()]);
+    expect(db.rpc).not.toHaveBeenCalled();
   });
 
   // As on confirm: an edit that fails after creating the Store it moves the
@@ -1080,13 +1043,10 @@ describe("editConfirmedReceipt", () => {
       auth: SIGNED_IN,
       tables: {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED],
-        receipts: [
-          { data: { purchase_date: "2026-08-05", ...AT_HORNBY_RECEIPT }, error: null },
-          { error: new Error("RLS denied") },
-        ],
+        receipts: [{ data: { purchase_date: "2026-08-05", ...AT_HORNBY_RECEIPT }, error: null }],
         stores: [{ data: null, error: null }, RICCARTON_FOUND, WROTE_OK],
-        edit_logs: WROTE_OK,
       },
+      rpc: { update_receipt_with_log: { data: null, error: new Error("RLS denied") } },
     });
 
     await expect(
