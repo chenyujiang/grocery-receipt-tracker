@@ -245,6 +245,38 @@ async function updateReceiptItemsWithLog(
   }
 }
 
+// A chain and branch as English text, compared on the normalized keys.
+interface StoreReading {
+  chain: string;
+  branch: string;
+}
+
+// The Store the store picker starts a receipt on (StorePicker's
+// initialStorePick): the receipt's own Store if it has one; else what the AI
+// read; else — a draft saved before the chain/branch split — its header as
+// the chain, branch unknown.
+function startingStore(receipt: {
+  store_name_en: string;
+  recognized_chain_en: string | null;
+  recognized_branch_en: string | null;
+  stores?: { chain_name_en: string; branch_name_en: string | null } | null;
+}): StoreReading {
+  if (receipt.stores) {
+    return { chain: receipt.stores.chain_name_en, branch: receipt.stores.branch_name_en ?? "" };
+  }
+  if (receipt.recognized_chain_en != null) {
+    return { chain: receipt.recognized_chain_en, branch: receipt.recognized_branch_en ?? "" };
+  }
+  return { chain: receipt.store_name_en, branch: "" };
+}
+
+// On the same normalized keys resolveStore matches on.
+function sameStore(a: StoreReading, b: StoreReading): boolean {
+  const aKey = storeKey(a.chain, a.branch);
+  const bKey = storeKey(b.chain, b.branch);
+  return aKey.chainKey === bKey.chainKey && aKey.branchKey === bKey.branchKey;
+}
+
 // Section 6: user reviews/corrects each field, then confirms. Every changed
 // field is logged to EditLog (Section 5.4) before the update is applied,
 // diffed against whatever Supabase currently holds for that item.
@@ -282,17 +314,10 @@ export async function confirmReceipt(
   const storeId = confirmedStore.id;
 
   // User story 3: correcting the Store the AI read is a Correction like any
-  // other. Compared on the same normalized keys the match uses, so confirming
-  // the Store the AI's reading matched is not one. A draft saved before the
-  // chain/branch split was read as its header, branch unknown — where the
-  // picker started it.
-  const read =
-    receiptCircle.recognized_chain_en == null
-      ? { chain: receiptCircle.store_name_en, branch: "" }
-      : { chain: receiptCircle.recognized_chain_en, branch: receiptCircle.recognized_branch_en ?? "" };
-  const readKey = storeKey(read.chain, read.branch);
-  const confirmedKey = storeKey(confirmedStore.chainNameEn, confirmedStore.branchNameEn ?? "");
-  if (readKey.chainKey !== confirmedKey.chainKey || readKey.branchKey !== confirmedKey.branchKey) {
+  // other — but confirming the Store the AI's reading matched is not one.
+  const read = startingStore(receiptCircle);
+  const confirmed = { chain: confirmedStore.chainNameEn, branch: confirmedStore.branchNameEn ?? "" };
+  if (!sameStore(read, confirmed)) {
     const { error: logError } = await supabase.from("edit_logs").insert([
       {
         receipt_id: receiptId,
@@ -349,28 +374,32 @@ export async function editConfirmedReceipt(
 
   const { data: existingReceipt, error: fetchError } = await supabase
     .from("receipts")
-    .select(`purchase_date, circle_id, store_id, store_name_en, store_name_zh, ${STORE_NAMES_EMBED}`)
+    .select(
+      `purchase_date, circle_id, store_id, store_name_en, store_name_zh, recognized_chain_en, recognized_branch_en, ${STORE_NAMES_EMBED}`
+    )
     .eq("id", receiptId)
     .single();
   if (fetchError || !existingReceipt) {
     throw fetchError ?? new Error("Receipt not found");
   }
 
-  // Issue 29: moving a receipt to another Store is logged by the Stores'
-  // names, so the log reads on its own, and — like every edit — neither
-  // re-raises nor withdraws alerts.
-  const newStore = await resolveStore(supabase, existingReceipt.circle_id, store);
-  const storeId = newStore.id;
-
   const changes: { purchase_date?: string; store_id?: string } = {};
   const logs: Array<{ field_name: string; old_value: string | null; new_value: string }> = [];
-  if (existingReceipt.store_id !== storeId) {
-    changes.store_id = storeId;
-    logs.push({
-      field_name: "store",
-      old_value: receiptStoreName(existingReceipt).en,
-      new_value: storeNameOf(newStore).en,
-    });
+  // Issue 29: moving a receipt to another Store is logged by the Stores'
+  // names, so the log reads on its own, and — like every edit — neither
+  // re-raises nor withdraws alerts. Only a choice naming another Store than
+  // the picker started on is resolved, so saving just a new date never
+  // creates a Store or logs a Store change.
+  if (!sameStore(startingStore(existingReceipt), { chain: store.chain.en, branch: store.branch.en })) {
+    const newStore = await resolveStore(supabase, existingReceipt.circle_id, store);
+    if (existingReceipt.store_id !== newStore.id) {
+      changes.store_id = newStore.id;
+      logs.push({
+        field_name: "store",
+        old_value: receiptStoreName(existingReceipt).en,
+        new_value: storeNameOf(newStore).en,
+      });
+    }
   }
   if (existingReceipt.purchase_date !== purchaseDate) {
     changes.purchase_date = purchaseDate;

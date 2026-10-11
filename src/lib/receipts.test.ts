@@ -783,7 +783,13 @@ describe("confirmReceipt", () => {
 // touches status or price-spike alerts.
 // The edit tests' receipt was confirmed at Hornby and stays there, unless a
 // test moves it.
-const AT_HORNBY_RECEIPT = { circle_id: "circle-1", store_id: "store-hornby" };
+const AT_HORNBY_RECEIPT = {
+  circle_id: "circle-1",
+  store_id: "store-hornby",
+  store_name_en: "WOOLWORTHS HORNBY",
+  store_name_zh: "沃尔沃斯 霍恩比",
+  stores: { chain_name_en: "Woolworths", chain_name_zh: "沃尔沃斯", branch_name_en: "Hornby", branch_name_zh: "霍恩比" },
+};
 
 describe("editConfirmedReceipt", () => {
   it("writes each item's edited fields without touching status or alerts", async () => {
@@ -891,6 +897,55 @@ describe("editConfirmedReceipt", () => {
     await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], HORNBY);
 
     expect(methodsUsed(db.callsFor("receipts"))).not.toContain("update");
+  });
+
+  // A receipt the backfill never reached has no Store, so the picker starts
+  // it on its header as the chain, branch unknown. Saving only a new date
+  // leaves that as it is: no Store created, no Store change logged.
+  it("leaves a receipt with no Store alone when only its date changed", async () => {
+    // No `stores` prepared: looking a Store up at all would throw.
+    const db = installFakeSupabase(supabase, {
+      auth: SIGNED_IN,
+      tables: {
+        receipt_items: [EXISTING_ITEM, ITEM_UPDATED],
+        receipts: [
+          {
+            data: {
+              purchase_date: "2026-06-05",
+              circle_id: "circle-1",
+              store_id: null,
+              store_name_en: "Countdown Newmarket",
+              store_name_zh: "倒数超市 Newmarket 店",
+              recognized_chain_en: null,
+              recognized_branch_en: null,
+              stores: null,
+            },
+            error: null,
+          },
+          WROTE_OK,
+        ],
+        edit_logs: WROTE_OK,
+      },
+    });
+
+    await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], {
+      chain: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
+      branch: { en: "", zh: null },
+    });
+
+    expect(db.callsFor("receipts")).toContainEqual(["update", { purchase_date: "2026-08-05" }]);
+    expect(db.callsFor("edit_logs")).toContainEqual([
+      "insert",
+      [
+        {
+          receipt_id: "receipt-1",
+          field_name: "purchase_date",
+          old_value: "2026-06-05",
+          new_value: "2026-08-05",
+          edited_by: "user-1",
+        },
+      ],
+    ]);
   });
 
   // Issue 29: a Store change is a Correction like any other — and, as with
