@@ -185,11 +185,12 @@ function toStore(
 export async function resolveStore(
   client: SupabaseClient<Database>,
   circleId: string,
-  { chain, branch }: StoreChoice
+  choice: StoreChoice
 ): Promise<{ store: Store; created: boolean }> {
-  if (!hasChain({ chain, branch })) {
+  if (!hasChain(choice)) {
     throw new Error("Enter the store's chain name");
   }
+  const { chain, branch } = choice;
   const { chainKey, branchKey } = storeKey(chain.en, branch?.en ?? null);
   const chainStores = client
     .from("stores")
