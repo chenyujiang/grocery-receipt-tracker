@@ -59,9 +59,11 @@ describe("storeKey", () => {
     expect(storeKey("COUNTDOWN ", "Newmarket").chainKey).toBe("woolworths");
   });
 
+  // Spec: normalize separators. An apostrophe is one too — printed, dropped,
+  // or doubled up around the n — so it's dropped before anything is compared.
   it("keys every printed spelling of PAK'nSAVE to one chain", () => {
-    for (const chain of ["PAK'nSAVE", "Pak'nSave", "Pak n Save"]) {
-      expect(storeKey(chain, "Albany").chainKey).toBe("pak'nsave");
+    for (const chain of ["PAK'nSAVE", "Pak'nSave", "Pak n Save", "PAKnSAVE", "Pak 'n' Save", "Pak'n Save", "PAK’nSAVE"]) {
+      expect(storeKey(chain, "Albany").chainKey).toBe("paknsave");
     }
   });
 });
@@ -225,7 +227,7 @@ describe("listStores", () => {
           data: [
             storeRow("woolworths-riccarton", "Woolworths", "woolworths", "Riccarton"),
             storeRow("woolworths-unknown", "Woolworths", "woolworths", null),
-            storeRow("paknsave-albany", "PAK'nSAVE", "pak'nsave", "Albany"),
+            storeRow("paknsave-albany", "PAK'nSAVE", "paknsave", "Albany"),
             storeRow("woolworths-hornby", "Woolworths", "woolworths", "Hornby"),
           ],
           error: null,

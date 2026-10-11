@@ -35,9 +35,9 @@ insert into store_backfill_map
 select c.circle_id, m.*
 from (values ('3f2a9c1e-7b4d-4e8a-9c2f-1a5b6d7e8f90'::uuid)) as c(circle_id)
 cross join (values
-  ('Pak n Save Albany',        'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'pak''nsave',                'albany'),
-  ('Pak''nSave Albany',        'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'pak''nsave',                'albany'),
-  ('PAK''nSAVE',               'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'pak''nsave',                'albany'),
+  ('Pak n Save Albany',        'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'paknsave',                  'albany'),
+  ('Pak''nSave Albany',        'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'paknsave',                  'albany'),
+  ('PAK''nSAVE',               'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'paknsave',                  'albany'),
   ('New World Hobsonville',    'New World',                 'New World',                 'Hobsonville', '霍布森维尔', 'new world',                 'hobsonville'),
   ('New World',                'New World',                 'New World',                 'Hobsonville', '霍布森维尔', 'new world',                 'hobsonville'),
   ('Costco Wholesale',         'Costco',                    'Costco Wholesale',          'Westgate',    '韦斯特盖特', 'costco',                    'westgate'),

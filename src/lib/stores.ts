@@ -29,8 +29,9 @@ function normalize(text: string): string {
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "")
       .toLowerCase()
-      // "D.H." and "DH", "Rd." and "Rd" are the same thing printed differently.
-      .replace(/\./g, "")
+      // "D.H." and "DH", "Rd." and "Rd", "PAK'nSAVE" and "PAKnSAVE" are the
+      // same thing printed differently — straight or curly apostrophe.
+      .replace(/[.'‘’]/g, "")
       .replace(/[-–—,/]/g, " ")
       .replace(/\b(rd|st|ave|dr)\b/g, (_, abbreviation: string) => STREET_ABBREVIATIONS[abbreviation])
       .trim()
@@ -44,7 +45,8 @@ function normalize(text: string): string {
 // chain's known alternative spellings.
 const CHAIN_ALIASES: Record<string, string> = {
   countdown: "woolworths",
-  "pak n save": "pak'nsave",
+  "pak n save": "paknsave",
+  "pakn save": "paknsave",
 };
 
 export function storeKey(chainEn: string, branchEn: string): StoreKey {
