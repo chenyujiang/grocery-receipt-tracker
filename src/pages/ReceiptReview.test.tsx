@@ -307,6 +307,29 @@ describe("ReceiptReview", () => {
     expect(screen.getByRole("combobox", { name: /^store$/i })).toHaveValue("new");
   });
 
+  it("confirms with a candidate Store's own names once the user picks it", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue({
+      ...SAMPLE_DRAFT,
+      recognizedStore: {
+        chain: { en: "Woolworths", zh: "沃尔沃斯" },
+        branch: { en: "Hornbv", zh: "霍恩比" },
+      },
+    });
+    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE, ALBANY_STORE]);
+    vi.mocked(confirmReceipt).mockResolvedValue(undefined);
+
+    renderReviewPage();
+
+    const candidates = await screen.findByRole("group", { name: /did you mean/i });
+    await userEvent.click(within(candidates).getByRole("button", { name: "Woolworths Hornby" }));
+    await userEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", expect.any(Array), {
+      chain: { en: "Woolworths", zh: "沃尔沃斯" },
+      branch: { en: "Hornby", zh: "霍恩比" },
+    });
+  });
+
   // The header named no branch, so this isn't a new branch — and the picker
   // shouldn't say it is.
   it("starts on branch unknown when the AI read no branch and no Store matches", async () => {
