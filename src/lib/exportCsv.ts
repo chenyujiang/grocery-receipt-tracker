@@ -7,6 +7,9 @@ export interface ExportRow {
   // The Receipt Header: the store name exactly as the receipt printed it.
   receiptHeaderEn: string;
   receiptHeaderZh: string;
+  // The receipt's Store's chain; null when it has no Store (issue 29).
+  chainNameEn: string | null;
+  chainNameZh: string | null;
   // The receipt's Store's branch; null when it has no Store or the branch
   // is unknown (issue 29).
   branchNameEn: string | null;
@@ -26,6 +29,8 @@ const CSV_HEADER = [
   "purchase_date",
   "store_name_en",
   "store_name_zh",
+  "chain_name_en",
+  "chain_name_zh",
   "branch_name_en",
   "branch_name_zh",
   "product_name_en",
@@ -59,6 +64,8 @@ export function rowsToCsv(rows: ExportRow[]): string {
         row.purchaseDate,
         row.receiptHeaderEn,
         row.receiptHeaderZh,
+        row.chainNameEn,
+        row.chainNameZh,
         row.branchNameEn,
         row.branchNameZh,
         row.productNameEn,
@@ -89,7 +96,7 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
   const { data, error } = await supabase
     .from("receipt_items")
     .select(
-      "quantity, unit_spec_value, unit_spec_unit, unit_price, is_promotion, raw_name_en, raw_name_zh, products(canonical_name_en, canonical_name_zh, category), receipts!inner(purchase_date, store_name_en, store_name_zh, status, uploaded_by, stores(branch_name_en, branch_name_zh))"
+      "quantity, unit_spec_value, unit_spec_unit, unit_price, is_promotion, raw_name_en, raw_name_zh, products(canonical_name_en, canonical_name_zh, category), receipts!inner(purchase_date, store_name_en, store_name_zh, status, uploaded_by, stores(chain_name_en, chain_name_zh, branch_name_en, branch_name_zh))"
     )
     .eq("receipts.status", "confirmed")
     .gte("receipts.purchase_date", range.from)
@@ -110,13 +117,17 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
       row.products?.canonical_name_en ?? row.raw_name_en,
       row.products?.canonical_name_zh ?? row.raw_name_zh
     );
-    const branchEn = row.receipts.stores?.branch_name_en ?? null;
+    const store = row.receipts.stores;
+    const chain = store ? bilingualName(store.chain_name_en, store.chain_name_zh) : null;
+    const branchEn = store?.branch_name_en ?? null;
     const branch =
-      branchEn === null ? null : bilingualName(branchEn, row.receipts.stores?.branch_name_zh);
+      branchEn === null ? null : bilingualName(branchEn, store?.branch_name_zh);
     return {
       purchaseDate: row.receipts.purchase_date,
       receiptHeaderEn: header.en,
       receiptHeaderZh: header.zh,
+      chainNameEn: chain?.en ?? null,
+      chainNameZh: chain?.zh ?? null,
       branchNameEn: branch?.en ?? null,
       branchNameZh: branch?.zh ?? null,
       productNameEn: productName.en,
