@@ -13,6 +13,9 @@ import { receiptStoreName, STORE_NAMES_EMBED, storeShortName } from "./storeName
 // structurally assignable to either, so callers pass it straight through.
 export interface Purchase {
   purchaseDate: string; // "YYYY-MM-DD"
+  // The Receipt it was bought on — how a price-spike check finds the
+  // confirmed Receipt's own purchase among the rest.
+  receiptId: string;
   // The Store this was bought at. Null only for a receipt confirmed before
   // stores existed and not yet backfilled (issue 29).
   storeId: string | null;
@@ -40,7 +43,7 @@ export interface PurchaseHistory {
 // `as const` keeps the interpolated string a literal type, which is what
 // supabase-js parses to type the rows; a plain template widens to `string`.
 const PURCHASE_SELECT =
-  `product_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
+  `product_id, receipt_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
 
 // Sections 10-13: price change, price trend, store comparison, consumption
 // rate, price-spike alerts and low-stock alerts all start from the same
@@ -91,6 +94,7 @@ export async function fetchPurchaseHistories(
     const name = receiptStoreName(row.receipts);
     byProduct.get(row.product_id)?.push({
       purchaseDate: row.receipts.purchase_date,
+      receiptId: row.receipt_id,
       storeId: row.receipts.store_id,
       storeNameEn: name.en,
       storeNameZh: name.zh,

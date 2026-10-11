@@ -295,7 +295,7 @@ export async function confirmReceipt(
   await recordPriceSpikeAlerts(
     receiptCircle.circle_id,
     receiptId,
-    { storeId, purchaseDate: receiptRow.purchase_date },
+    { id: receiptId, storeId, purchaseDate: receiptRow.purchase_date },
     items
   );
 }

@@ -12,6 +12,7 @@ function fakeClient(result: { data: unknown; error: unknown }) {
 function row(overrides: Record<string, unknown> = {}) {
   return {
     product_id: "p1",
+    receipt_id: "receipt-1",
     unit_price: 5,
     quantity: 1,
     unit_spec_value: 500,
@@ -106,6 +107,7 @@ describe("fetchPurchaseHistories", () => {
 
     expect(history.purchases[0]).toEqual({
       purchaseDate: "2026-08-01",
+      receiptId: "receipt-1",
       storeId: "store-countdown-newmarket",
       storeNameEn: "Countdown",
       storeNameZh: "倒数超市",
@@ -253,6 +255,16 @@ describe("fetchPurchaseHistories", () => {
     const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
 
     expect(history.purchases[0].storeShortName).toEqual({ en: "Hornby", zh: "Hornby" });
+  });
+
+  // A price-spike alert belongs to one Receipt, so it has to find that
+  // Receipt's own purchase in the history.
+  it("says which receipt each purchase came from", async () => {
+    const mock = fakeClient({ data: [row({ receipt_id: "receipt-7" })], error: null });
+
+    const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
+
+    expect(history.purchases[0].receiptId).toBe("receipt-7");
   });
 
   it("drops rows with no unit spec, since no consumer can normalize them", async () => {

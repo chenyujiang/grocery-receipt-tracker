@@ -389,9 +389,12 @@ const ITEM_UPDATED = { error: null };
 const NO_HISTORY = { data: [], error: null };
 const WROTE_OK = { error: null };
 
-function historyRow(productId: string, unitPrice: number, purchaseDate: string) {
+// receiptId defaults to an earlier receipt; the receipt being confirmed in
+// these tests is "receipt-1".
+function historyRow(productId: string, unitPrice: number, purchaseDate: string, receiptId = "receipt-earlier") {
   return {
     product_id: productId,
+    receipt_id: receiptId,
     unit_price: unitPrice,
     quantity: 1,
     unit_spec_value: 2,
@@ -569,7 +572,7 @@ describe("confirmReceipt", () => {
           {
             data: [
               historyRow("product-1", 4.0, "2026-07-01"),
-              historyRow("product-1", 5.0, "2026-07-20"),
+              historyRow("product-1", 5.0, "2026-07-20", "receipt-1"),
             ],
             error: null,
           },
@@ -621,7 +624,7 @@ describe("confirmReceipt", () => {
           {
             data: [
               historyRow("product-1", 4.0, "2026-01-01"),
-              historyRow("product-1", 5.0, "2026-08-01"),
+              historyRow("product-1", 5.0, "2026-08-01", "receipt-1"),
             ],
             error: null,
           },
@@ -654,7 +657,7 @@ describe("confirmReceipt", () => {
           {
             data: [
               historyRow("product-1", 4.0, "2026-07-01"),
-              historyRow("product-1", 4.1, "2026-07-20"),
+              historyRow("product-1", 4.1, "2026-07-20", "receipt-1"),
             ],
             error: null,
           },
@@ -692,8 +695,8 @@ describe("confirmReceipt", () => {
             data: [
               historyRow("product-1", 4.0, "2026-07-01"),
               historyRow("product-2", 4.0, "2026-07-01"),
-              historyRow("product-1", 5.0, "2026-07-20"),
-              historyRow("product-2", 4.1, "2026-07-20"),
+              historyRow("product-1", 5.0, "2026-07-20", "receipt-1"),
+              historyRow("product-2", 4.1, "2026-07-20", "receipt-1"),
             ],
             error: null,
           },

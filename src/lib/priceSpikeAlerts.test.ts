@@ -7,10 +7,12 @@ import type { Purchase } from "@/lib/purchaseHistory";
 // not a hand-trimmed subset of it.
 function purchase(
   fields: Pick<Purchase, "unitPrice" | "specValue" | "specUnit" | "isPromotion"> &
-    Partial<Pick<Purchase, "purchaseDate" | "storeId">>
+    Partial<Pick<Purchase, "purchaseDate" | "storeId" | "receiptId">>
 ): Purchase {
   return {
     purchaseDate: "2026-08-01",
+    // By default every purchase is the Receipt being confirmed's own.
+    receiptId: "receipt-1",
     storeId: "hornby",
     storeNameEn: "Woolworths Hornby",
     storeNameZh: "Woolworths Hornby",
@@ -21,7 +23,7 @@ function purchase(
 }
 
 // The Receipt being confirmed: its own Store is the only one compared against.
-const receipt = { storeId: "hornby", purchaseDate: "2026-08-01" };
+const receipt = { id: "receipt-1", storeId: "hornby", purchaseDate: "2026-08-01" };
 
 describe("detectPriceSpikes", () => {
   it("flags a product whose price change exceeds the 15% threshold", () => {
@@ -168,14 +170,14 @@ describe("detectPriceSpikes", () => {
         {
           productId: "product-1",
           purchases: [
-            purchase({ purchaseDate: "2026-07-01", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ receiptId: "receipt-july", purchaseDate: "2026-07-01", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
             // The backdated Receipt: +5% on July, nowhere near a spike.
             purchase({ purchaseDate: "2026-08-01", unitPrice: 4.2, specValue: 2, specUnit: "L", isPromotion: false }),
-            purchase({ purchaseDate: "2026-09-01", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ receiptId: "receipt-september", purchaseDate: "2026-09-01", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
           ],
         },
       ],
-      { storeId: "hornby", purchaseDate: "2026-08-01" }
+      receipt
     );
 
     expect(spikes).toEqual([]);
@@ -186,14 +188,56 @@ describe("detectPriceSpikes", () => {
         {
           productId: "product-1",
           purchases: [
-            purchase({ purchaseDate: "2026-07-01", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ receiptId: "receipt-july", purchaseDate: "2026-07-01", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
             // The backdated Receipt: +25% on July.
             purchase({ purchaseDate: "2026-08-01", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
-            purchase({ purchaseDate: "2026-09-01", unitPrice: 5.1, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ receiptId: "receipt-september", purchaseDate: "2026-09-01", unitPrice: 5.1, specValue: 2, specUnit: "L", isPromotion: false }),
           ],
         },
       ],
-      { storeId: "hornby", purchaseDate: "2026-08-01" }
+      receipt
+    );
+
+    expect(spikes).toEqual([{ productId: "product-1", newPrice: 5.0, changePercent: 25 }]);
+  });
+
+  // The alert is this Receipt's: its "current" price has to be this Receipt's
+  // own purchase. A promotional one is never either end of the comparison, so
+  // the July rise — already alerted when July's receipt was confirmed — must
+  // not be raised again against this one.
+  it("raises nothing when this Receipt's own purchase was a promotion, even if earlier purchases rose", () => {
+    const spikes = detectPriceSpikes(
+      [
+        {
+          productId: "product-1",
+          purchases: [
+            purchase({ receiptId: "receipt-june", purchaseDate: "2026-06-01", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ receiptId: "receipt-july", purchaseDate: "2026-07-01", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ purchaseDate: "2026-08-01", unitPrice: 3.0, specValue: 2, specUnit: "L", isPromotion: true }),
+          ],
+        },
+      ],
+      receipt
+    );
+
+    expect(spikes).toEqual([]);
+  });
+
+  it("judges this Receipt's own purchase, not another receipt's at the same Store on the same date", () => {
+    const spikes = detectPriceSpikes(
+      [
+        {
+          productId: "product-1",
+          purchases: [
+            purchase({ receiptId: "receipt-july", purchaseDate: "2026-07-01", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            // This Receipt: +25% on July.
+            purchase({ purchaseDate: "2026-08-01", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            // A second trip to the same Store that day, sorted after it.
+            purchase({ receiptId: "receipt-same-day", purchaseDate: "2026-08-01", unitPrice: 5.2, specValue: 2, specUnit: "L", isPromotion: false }),
+          ],
+        },
+      ],
+      receipt
     );
 
     expect(spikes).toEqual([{ productId: "product-1", newPrice: 5.0, changePercent: 25 }]);

@@ -22,12 +22,13 @@ export interface PriceSpike {
 
 export interface SpikeCheckHistory {
   productId: string;
-  purchases: (StorePurchaseRecord & { purchaseDate: string })[];
+  purchases: (StorePurchaseRecord & { purchaseDate: string; receiptId: string })[];
 }
 
 // The Receipt that was just confirmed. Only its own Store's purchases are
 // compared, so a price difference between two Stores never raises an alert.
 export interface SpikeCheckReceipt {
+  id: string;
   storeId: string;
   purchaseDate: string; // "YYYY-MM-DD"
 }
@@ -39,11 +40,21 @@ export function detectPriceSpikes(
   const spikes: PriceSpike[] = [];
 
   for (const history of histories) {
-    // Only purchases up to the Receipt's own date: a Receipt confirmed late
-    // is judged against what came before it, not later purchases at its Store.
-    const upToReceipt = history.purchases.filter(
-      (purchase) => purchase.purchaseDate <= receipt.purchaseDate
-    );
+    // The alert is this Receipt's, so its "current" price must be this
+    // Receipt's own normal-price purchase: history is cut just after it. That
+    // leaves out later purchases at its Store (a Receipt confirmed late) and
+    // another receipt's on the same date; and with no normal-price purchase of
+    // this product on this Receipt there is nothing to judge.
+    let ownIndex = -1;
+    history.purchases.forEach((purchase, index) => {
+      if (purchase.receiptId === receipt.id && !purchase.isPromotion) {
+        ownIndex = index;
+      }
+    });
+    if (ownIndex === -1) {
+      continue;
+    }
+    const upToReceipt = history.purchases.slice(0, ownIndex + 1);
     const storeChange = calculatePriceChangesByStore(upToReceipt).find(
       ({ storeId }) => storeId === receipt.storeId
     );
