@@ -37,6 +37,10 @@ export default function ReceiptDetail() {
   const [storePick, setStorePick] = useState<StorePick | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // The chain/branch the picker currently names, once per render — the
+  // save button's check and its handler both read it.
+  const storeChoice = storePick ? storeChoiceOfPick(stores, storePick) : null;
+
   function load() {
     if (!receiptId) return;
     Promise.all([fetchReceiptDraft(receiptId), fetchStores()])
@@ -64,7 +68,7 @@ export default function ReceiptDetail() {
   }
 
   async function handleSave() {
-    if (!receiptId || !purchaseDate || !storePick) return;
+    if (!receiptId || !purchaseDate || !storeChoice) return;
     setError(null);
     setSaving(true);
     try {
@@ -72,7 +76,7 @@ export default function ReceiptDetail() {
         receiptId,
         formatDateString(purchaseDate),
         items.map(toItemUpdate),
-        storeChoiceOfPick(stores, storePick)
+        storeChoice
       );
       load();
       setEditing(false);
@@ -139,7 +143,7 @@ export default function ReceiptDetail() {
               type="button"
               style={{ flex: 1 }}
               onClick={handleSave}
-              disabled={saving || !storePick || !hasChain(storeChoiceOfPick(stores, storePick))}
+              disabled={saving || !storeChoice || !hasChain(storeChoice)}
             >
               {saving ? t("detail.saving") : t("detail.save")}
             </button>

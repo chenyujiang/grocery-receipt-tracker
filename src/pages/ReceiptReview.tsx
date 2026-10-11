@@ -38,6 +38,10 @@ export default function ReceiptReview() {
   const [duplicateDismissed, setDuplicateDismissed] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // The chain/branch the picker currently names, once per render — the
+  // confirm button's check and its handler both read it.
+  const storeChoice = storePick ? storeChoiceOfPick(stores, storePick) : null;
+
   useEffect(() => {
     if (!receiptId) return;
     Promise.all([fetchReceiptDraft(receiptId), fetchStores()])
@@ -77,11 +81,11 @@ export default function ReceiptReview() {
   }
 
   async function handleConfirm() {
-    if (!receiptId || !storePick) return;
+    if (!receiptId || !storeChoice) return;
     setError(null);
     setConfirming(true);
     try {
-      await confirmReceipt(receiptId, items.map(toItemUpdate), storeChoiceOfPick(stores, storePick));
+      await confirmReceipt(receiptId, items.map(toItemUpdate), storeChoice);
       navigate("/");
     } catch (err) {
       setError(errorMessage(err, "Failed to confirm receipt"));
@@ -148,7 +152,7 @@ export default function ReceiptReview() {
         type="button"
         className="btn-block"
         onClick={handleConfirm}
-        disabled={confirming || !hasChain(storeChoiceOfPick(stores, storePick))}
+        disabled={confirming || !storeChoice || !hasChain(storeChoice)}
       >
         {confirming ? t("review.confirming") : t("review.confirm")}
       </button>
