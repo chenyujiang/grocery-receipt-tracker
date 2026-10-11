@@ -109,6 +109,7 @@ Several of these decide a question that wayfinder tickets 24–28 had left open.
 - Legend entries use the branch name, falling back to the chain name when the branch is unknown, so the labels stay short enough for a phone.
 - The store comparison module and the trend chart sit side by side on the product detail page and are now both keyed by branch. Whether one should absorb the other is a presentation question for the prototype; the spec does not merge them.
 - Branch appears in the receipt list, the receipt detail page, the leaderboard rows, and the CSV export.
+  - **Amended during implementation: the receipt list's store search also matches the Store's names.** This bullet only asks for the branch to be shown. But once the list names a receipt by its Store rather than its printed header, a search that still matched only the header would contradict what the user sees: a receipt listed as "PAK'nSAVE Albany" but printed "Pak n Save Albany" would not come up for "PAK'nSAVE", and searching for a branch would miss every receipt whose header printed the chain alone. So the search matches the printed header or the Store's chain or branch name, in either language. PostgREST's `.or()` can't filter through the `stores` embed, so the matching Stores are looked up first and the receipts matched by `store_id` — one extra query per search. The matching is the same substring search as before, not the normalized keys: it's a search box, not Store identity.
 - Store and branch names are Bilingual Names and read through the same mechanism as every other bilingual name, falling back to Source Text when no Translation exists. New fixed UI chrome (picker labels, "branch unknown", legend headings) gets `i18n.ts` keys in both languages.
 - `CONTEXT.md`'s **Store** entry is rewritten — a Store is no longer "just the name printed on its Receipts" — and **Branch** is added as a term. Do this in the same change as the schema, not afterwards.
 
@@ -254,6 +255,7 @@ A good test here asserts what a caller can observe: given this purchase history,
 - 图例条目用分店名，分店未知时回退到连锁名，以保证标签短到能塞进手机屏幕。
 - 门店比价模块和趋势图并排放在商品详情页，现在两者都按分店切分。要不要其中一个吸收另一个，是留给原型的呈现问题，spec 不合并它们。
 - 分店要出现在小票列表、小票详情页、排行榜行和 CSV 导出里。
+  - **实现时修订：小票列表的门店搜索也匹配 Store 的名字。** 这一条只要求显示分店。但列表一旦用 Store 而不是打印的抬头来命名小票，搜索如果还只匹配抬头，就和用户看到的对不上：列表里显示"PAK'nSAVE Albany"、抬头印的是"Pak n Save Albany"的小票，搜"PAK'nSAVE"会搜不到；按分店搜，也会漏掉所有抬头只印了连锁名的小票。所以搜索现在匹配打印的抬头，或 Store 的连锁名、分店名，中英文都算。PostgREST 的 `.or()` 不能穿过 `stores` 嵌入来过滤，所以先查出匹配的 Store，再按 `store_id` 匹配小票——每次搜索多一次查询。匹配方式仍是和以前一样的子串搜索，不用归一化的 key：这是个搜索框，不是 Store 身份识别。
 - 店名和分店名都是 Bilingual Name，走和其他所有双语名字相同的机制，没有译文时回退到 Source Text。新增的固定界面文案（选择器标签、"分店未知"、图例标题）要在 `i18n.ts` 里补上中英两份 key。
 - 重写 `CONTEXT.md` 的 **Store** 词条——Store 不再"只是印在它的 Receipt 上的那个名字"——并新增 **Branch** 词条。这件事和改 schema 放在同一次改动里做，不要事后补。
 
