@@ -94,7 +94,12 @@ export interface Store {
 // A Store as the chain/branch names resolveStore takes — what a page passes
 // to confirm or edit a receipt at that Store.
 export function storeChoiceOf(store: Store): StoreChoice {
-  return storeChoiceOfNames(storeNamesOf(store));
+  return {
+    chain: { en: store.chainNameEn, zh: store.chainNameZh },
+    branch: isKnownBranch(store.branchNameEn)
+      ? { en: store.branchNameEn, zh: store.branchNameZh }
+      : null,
+  };
 }
 
 // A chain/branch pair from its four name columns — a Store's, or what the AI
