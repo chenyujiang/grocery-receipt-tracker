@@ -43,8 +43,10 @@ export function initialStorePick(stores: Store[], draft: ReceiptDraft): StorePic
   return { pickedStoreId, typed };
 }
 
-// The chain/branch to confirm or save the receipt with.
-export function storeChoiceOfPick(stores: Store[], pick: StorePick): StoreChoice {
+// The chain/branch to confirm or save the receipt with; none until the
+// picker has a pick.
+export function storeChoiceOfPick(stores: Store[], pick: StorePick | null): StoreChoice | null {
+  if (!pick) return null;
   const picked = stores.find((candidate) => candidate.id === pick.pickedStoreId);
   if (picked) return storeChoiceOf(picked);
   if (pick.pickedStoreId === UNKNOWN_BRANCH) {

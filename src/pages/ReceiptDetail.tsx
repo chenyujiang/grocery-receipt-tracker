@@ -39,7 +39,7 @@ export default function ReceiptDetail() {
 
   // The chain/branch the picker currently names, once per render — the
   // save button's check and its handler both read it.
-  const storeChoice = storePick ? storeChoiceOfPick(stores, storePick) : null;
+  const storeChoice = storeChoiceOfPick(stores, storePick);
 
   function load() {
     if (!receiptId) return;

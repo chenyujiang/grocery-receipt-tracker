@@ -40,7 +40,7 @@ export default function ReceiptReview() {
 
   // The chain/branch the picker currently names, once per render — the
   // confirm button's check and its handler both read it.
-  const storeChoice = storePick ? storeChoiceOfPick(stores, storePick) : null;
+  const storeChoice = storeChoiceOfPick(stores, storePick);
 
   useEffect(() => {
     if (!receiptId) return;
