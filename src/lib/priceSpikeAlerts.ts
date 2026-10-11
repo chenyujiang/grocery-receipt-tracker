@@ -1,4 +1,4 @@
-import { priceChangeAtStore, type StorePurchaseRecord } from "@/lib/priceChange";
+import { comparedPurchasesAtStore, priceChangeAtStore, type StorePurchaseRecord } from "@/lib/priceChange";
 
 // Section 13: fixed 15% threshold, checked immediately after a receipt is
 // confirmed. "Exceeds", not "reaches" — exactly 15% doesn't trigger.
@@ -60,17 +60,14 @@ export function detectPriceSpikes(
       continue;
     }
 
-    const normalPurchases = upToReceipt.filter(
-      (purchase) => purchase.storeId === receipt.storeId && !purchase.isPromotion
-    );
-    const [baseline, latest] = normalPurchases.slice(-2);
+    const { baseline, current } = comparedPurchasesAtStore(upToReceipt, receipt.storeId)!;
     if (daysBetween(baseline.purchaseDate, receipt.purchaseDate) > MAX_BASELINE_AGE_DAYS) {
       continue;
     }
 
     spikes.push({
       productId: history.productId,
-      newPrice: latest.unitPrice,
+      newPrice: current.unitPrice,
       changePercent: storeChange.changePercent,
     });
   }

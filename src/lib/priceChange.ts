@@ -14,16 +14,25 @@ export interface PriceChange {
   current: NormalizedUnitPrice;
 }
 
-// Section 10: compares the two most recent *normal-price* purchases —
-// promotional rows are filtered out entirely before picking "current" and
-// "baseline", so a promo never becomes the baseline and a promo purchase
-// never gets evaluated as "current" either.
-export function calculatePriceChange(records: PurchaseRecord[]): PriceChange | null {
+// Section 10: the two most recent *normal-price* purchases — promotional
+// rows are filtered out entirely before picking "current" and "baseline", so
+// a promo never becomes the baseline and a promo purchase never gets
+// evaluated as "current" either. Null with fewer than two.
+function comparedPurchases<T extends PurchaseRecord>(records: T[]): { baseline: T; current: T } | null {
   const normalPriceRecords = records.filter((record) => !record.isPromotion);
   if (normalPriceRecords.length < 2) {
     return null;
   }
-  const [baselineRecord, currentRecord] = normalPriceRecords.slice(-2);
+  const [baseline, current] = normalPriceRecords.slice(-2);
+  return { baseline, current };
+}
+
+export function calculatePriceChange(records: PurchaseRecord[]): PriceChange | null {
+  const compared = comparedPurchases(records);
+  if (!compared) {
+    return null;
+  }
+  const { baseline: baselineRecord, current: currentRecord } = compared;
 
   const baseline = normalizeUnitPrice(
     baselineRecord.unitPrice,
@@ -83,6 +92,15 @@ export function calculatePriceChangesByStore(
     }
   }
   return changes;
+}
+
+// The two purchases the Same-Store Price Change at one Store compares, for
+// callers that need more of them than their prices — a date, a Store name.
+export function comparedPurchasesAtStore<T extends StorePurchaseRecord>(
+  records: T[],
+  storeId: string
+): { baseline: T; current: T } | null {
+  return comparedPurchases(records.filter((record) => record.storeId === storeId));
 }
 
 // The Same-Store Price Change at one Store, or null when that Store has too
