@@ -2,7 +2,14 @@ import type { ReceiptDraft } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, type Language } from "@/lib/bilingual";
 import { bilingualName } from "@/lib/bilingualName";
-import { matchingStore, storeChoiceOf, storeKey, type Store, type StoreChoice } from "@/lib/stores";
+import {
+  matchingStore,
+  storeChoiceOf,
+  storeKey,
+  UNKNOWN_BRANCH_NAME,
+  type Store,
+  type StoreChoice,
+} from "@/lib/stores";
 
 // The picker's values for "create this as a new branch" and "branch
 // unknown"; any other value is an existing Store's id.
@@ -24,7 +31,7 @@ function initialStore(draft: ReceiptDraft): StoreChoice {
   return (
     draft.recognizedStore ?? {
       chain: { en: draft.receiptHeader.en, zh: draft.receiptHeader.zh },
-      branch: { en: "", zh: null },
+      branch: UNKNOWN_BRANCH_NAME,
     }
   );
 }
@@ -49,7 +56,7 @@ export function pickedStore(stores: Store[], pick: StorePick): StoreChoice {
   const picked = stores.find((candidate) => candidate.id === pick.pickedStoreId);
   if (picked) return storeChoiceOf(picked);
   if (pick.pickedStoreId === UNKNOWN_BRANCH) {
-    return { chain: pick.typed.chain, branch: { en: "", zh: null } };
+    return { chain: pick.typed.chain, branch: UNKNOWN_BRANCH_NAME };
   }
   return pick.typed;
 }

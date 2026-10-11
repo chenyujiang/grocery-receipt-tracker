@@ -66,6 +66,9 @@ export interface StoreChoice {
   branch: BilingualText;
 }
 
+// A StoreChoice's branch when the branch is unknown.
+export const UNKNOWN_BRANCH_NAME: BilingualText = { en: "", zh: null };
+
 // A Store as the app sees it: one branch of one chain, in one Circle.
 export interface Store {
   id: string;
