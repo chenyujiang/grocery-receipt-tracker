@@ -140,6 +140,29 @@ describe("resolveStore", () => {
     ]);
   });
 
+  // A Translation that's only spaces is no Translation, stored as null like
+  // any other missing one (BilingualText) — not as an empty string.
+  it("stores a Chinese name that's only spaces as no Translation", async () => {
+    const db = createFakeSupabase({
+      tables: {
+        stores: [
+          { data: null, error: null },
+          { data: hornbyRow, error: null },
+        ],
+      },
+    });
+
+    await resolveStore(db.client, "circle-1", {
+      chain: { en: "Woolworths", zh: "  " },
+      branch: { en: "Hornby", zh: " \t" },
+    });
+
+    expect(db.callsFor("stores")).toContainEqual([
+      "insert",
+      expect.objectContaining({ chain_name_zh: null, branch_name_zh: null }),
+    ]);
+  });
+
   // A Store with no chain would show up blank in every member's picker.
   it("refuses a chain that's blank, without looking up or creating a Store", async () => {
     const db = createFakeSupabase({ tables: {} });

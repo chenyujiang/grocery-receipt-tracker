@@ -181,9 +181,9 @@ export async function resolveStore(
     .insert({
       circle_id: circleId,
       chain_name_en: chain.en.trim(),
-      chain_name_zh: chain.zh?.trim() ?? null,
+      chain_name_zh: chain.zh?.trim() || null,
       branch_name_en: namedBranch?.en.trim() ?? null,
-      branch_name_zh: namedBranch?.zh?.trim() ?? null,
+      branch_name_zh: namedBranch?.zh?.trim() || null,
       chain_key: chainKey,
       branch_key: branchKey,
     })
