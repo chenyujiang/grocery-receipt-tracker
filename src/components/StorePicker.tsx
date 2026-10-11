@@ -1,9 +1,11 @@
+import { useId } from "react";
 import type { ReceiptDraft } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, type Language } from "@/lib/bilingual";
 import { bilingualName } from "@/lib/bilingualName";
 import {
   matchingStore,
+  nearMissStores,
   storeChoiceOf,
   storeKey,
   UNKNOWN_BRANCH_NAME,
@@ -81,6 +83,11 @@ interface StorePickerProps {
 // editConfirmedReceipt — the picker only says which chain and branch.
 export default function StorePicker({ stores, value, onChange }: StorePickerProps) {
   const { language, t } = useLanguage();
+  const candidatesLabelId = useId();
+  // Only while no existing Store is picked: a picked Store needs no offer.
+  const candidates = stores.some((store) => store.id === value.pickedStoreId)
+    ? []
+    : nearMissStores(stores, value.typed);
 
   // A retyped name no longer matches the AI's translation of the old one, so
   // the Translation is dropped rather than kept stale.
@@ -122,6 +129,21 @@ export default function StorePicker({ stores, value, onChange }: StorePickerProp
             onChange={(event) => rename("branch", event.target.value)}
           />
         </label>
+      )}
+      {candidates.length > 0 && (
+        <div role="group" aria-labelledby={candidatesLabelId}>
+          <p id={candidatesLabelId}>{t("review.didYouMean")}</p>
+          {candidates.map((candidate) => (
+            <button
+              key={candidate.id}
+              type="button"
+              className="btn-secondary btn-sm"
+              onClick={() => onChange({ ...value, pickedStoreId: candidate.id })}
+            >
+              {storeLabel(candidate, language, t("review.branchUnknown"))}
+            </button>
+          ))}
+        </div>
       )}
     </fieldset>
   );

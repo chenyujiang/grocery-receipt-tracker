@@ -100,6 +100,15 @@ export function matchingStore(
   });
 }
 
+// The candidates for a near-miss: every Store of the same chain, for the
+// user to pick from when the branch matched none of them. Deliberately no
+// closer guess than the chain (ticket 29: the human confirmation step is
+// load-bearing).
+export function nearMissStores(stores: Store[], { chain }: StoreChoice): Store[] {
+  const { chainKey } = storeKey(chain.en, "");
+  return stores.filter((store) => storeKey(store.chainNameEn, "").chainKey === chainKey);
+}
+
 const STORE_SELECT = "id, chain_name_en, chain_name_zh, branch_name_en, branch_name_zh";
 
 function toStore(

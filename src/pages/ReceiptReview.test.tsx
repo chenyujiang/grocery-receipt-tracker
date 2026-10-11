@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
@@ -67,6 +67,13 @@ const HORNBY_STORE = {
   chainNameZh: "沃尔沃斯",
   branchNameEn: "Hornby",
   branchNameZh: "霍恩比",
+};
+const RICCARTON_STORE = {
+  id: "store-riccarton",
+  chainNameEn: "Woolworths",
+  chainNameZh: "沃尔沃斯",
+  branchNameEn: "Riccarton",
+  branchNameZh: "里卡顿",
 };
 const ALBANY_STORE = {
   id: "store-albany",
@@ -274,6 +281,30 @@ describe("ReceiptReview", () => {
       chain: { en: "Woolworths", zh: "沃尔沃斯" },
       branch: { en: "", zh: null },
     });
+  });
+
+  // Spec: a near-miss offers a candidate list rather than guessing. The chain
+  // matched but the branch didn't, so every Store of that chain is offered —
+  // and nothing is picked until the user picks one.
+  it("offers the chain's Stores as candidates when the branch matches none of them", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue({
+      ...SAMPLE_DRAFT,
+      recognizedStore: {
+        chain: { en: "Woolworths", zh: "沃尔沃斯" },
+        branch: { en: "Hornbv", zh: "霍恩比" },
+      },
+    });
+    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE, ALBANY_STORE]);
+
+    renderReviewPage();
+
+    const candidates = await screen.findByRole("group", { name: /did you mean/i });
+    expect(within(candidates).getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Woolworths Hornby",
+      "Woolworths Riccarton",
+    ]);
+    // The candidates' own label mentions Stores too, so find the picker by role.
+    expect(screen.getByRole("combobox", { name: /^store$/i })).toHaveValue("new");
   });
 
   // The header named no branch, so this isn't a new branch — and the picker
