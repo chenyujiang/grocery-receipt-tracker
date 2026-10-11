@@ -240,6 +240,34 @@ describe("ProductDetail", () => {
     ]);
   });
 
+  // Two chains can have a branch of the same name; the branch alone would
+  // then label two lines alike, with only the colour telling them apart.
+  it("names a Store by chain and branch in the legend when another Store shares its branch name", async () => {
+    const newWorldAlbany = {
+      storeId: "store-new-world-albany",
+      storeNameEn: "New World Albany",
+      storeNameZh: "新世界 奥尔巴尼店",
+      storeShortName: { en: "Albany", zh: "奥尔巴尼店" },
+    };
+    vi.mocked(fetchProductDetail).mockResolvedValue({
+      ...SAMPLE_DETAIL,
+      priceTrend: [
+        trendPoint(ALBANY, "2026-07-01", 0.8),
+        trendPoint(newWorldAlbany, "2026-07-05", 0.9),
+        trendPoint(HORNBY, "2026-07-10", 0.85),
+      ],
+    });
+
+    renderPage();
+
+    const legend = await screen.findByRole("list", { name: /stores on the chart/i });
+    expect(within(legend).getAllByRole("listitem").map((entry) => entry.textContent)).toEqual([
+      "PAK'nSAVE Albany",
+      "New World Albany",
+      "Hornby",
+    ]);
+  });
+
   // The chart cycles through SERIES_COLOURS colours, so index.css must define
   // exactly that many, in every colour scheme alike — or a line goes
   // uncoloured, or a defined colour is never used.

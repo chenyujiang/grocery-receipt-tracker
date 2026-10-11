@@ -51,10 +51,20 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
   const span = max - min || 1;
 
   // Stores in order of first purchase, so a product's colours stay put as
-  // newer purchases arrive — each with its legend label, which every purchase
-  // at one Store shares.
-  const storeLines = [...new Map(points.map((point) => [point.storeId, point.storeShortName]))];
+  // newer purchases arrive — each with a purchase of its own to name it by,
+  // since every purchase at one Store shares its names.
+  const storeLines = [...new Map(points.map((point) => [point.storeId, point]))];
   const storeIds = storeLines.map(([storeId]) => storeId);
+  // The branch alone keeps the legend short on a phone — unless another
+  // Store on the chart has a branch of the same name, when chain and branch
+  // tell the two lines apart.
+  const shortLabels = storeLines.map(([, point]) =>
+    pickText(point.storeShortName.en, point.storeShortName.zh, language)
+  );
+  const legendLabel = (index: number, point: PriceTrendPoint) =>
+    shortLabels.filter((label) => label === shortLabels[index]).length > 1
+      ? pickText(point.storeNameEn, point.storeNameZh, language)
+      : shortLabels[index];
   const colourOf = (storeId: string | null) =>
     `var(--series-${(storeIds.indexOf(storeId) % SERIES_COLOURS) + 1})`;
 
@@ -96,16 +106,14 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
         ))}
       </svg>
       <ul className="price-trend-legend" aria-label={t("product.trendLegend")}>
-        {storeLines.map(([storeId, storeShortName]) => {
-          return (
-            <li key={storeId}>
-              <svg width="10" height="10" aria-hidden="true">
-                <circle cx="5" cy="5" r="5" fill={colourOf(storeId)} />
-              </svg>
-              {pickText(storeShortName.en, storeShortName.zh, language)}
-            </li>
-          );
-        })}
+        {storeLines.map(([storeId, point], index) => (
+          <li key={storeId}>
+            <svg width="10" height="10" aria-hidden="true">
+              <circle cx="5" cy="5" r="5" fill={colourOf(storeId)} />
+            </svg>
+            {legendLabel(index, point)}
+          </li>
+        ))}
       </ul>
     </>
   );
