@@ -141,6 +141,7 @@ A good test here asserts what a caller can observe: given this purchase history,
 - The biggest risk is silent scope leakage: a price feature that reads purchase history directly and forgets to group by Store would re-introduce exactly the bug being fixed. Keeping the rule in a single exported function, and keeping `calculatePriceChange` store-unaware, is the structural defence.
 - Ticket 23's research is complete (see that ticket's `## Answer` and the linked research document). Its conclusion is that AI-extracted text alone is not enough, that both the normalization pass and the human confirmation are required, and that the confirmation is the load-bearing one. It also rules out a printed store number as the primary key. The matching decisions above already absorb these findings.
 - Expect fewer alerts overall, by design. Judge the change by whether the remaining alerts are ones the user acts on, not by their count.
+- **Deferred during implementation: bundling a purchase's Store fields into one type.** Review flagged `storeId`, `storeNameEn` and `storeNameZh` as a data clump: the three travel together through about eight types, from `Purchase` through the price trend, store comparison, leaderboard and headline price change, and the receipt list and home page carry the two names on their own. It was left as is, on purpose. Bundling them changes no behaviour but touches every price feature's types, fixtures and tests, on a branch that is already large and still waits on its migrations — so a mistake there would be hard to see in review. The shape also needs a decision of its own: when `storeId` is null the names are the Receipt Header, not a Store's, so it is not obvious the bundle is "a Store". Better done as its own change once this one has merged.
 
 ---
 
@@ -284,3 +285,4 @@ A good test here asserts what a caller can observe: given this purchase history,
 - 最大的风险是范围悄悄泄漏：某个价格功能直接去读购买历史、忘了按 Store 分组，就会把要修的 bug 原样带回来。把规则收在一个导出函数里、让 `calculatePriceChange` 保持不知道门店，是结构上的防线。
 - ticket 23 的 research 已完成（见该 ticket 的 `## Answer` 与研究文档）。结论是：仅靠"AI 抽两个文本字段"不够，归一化和人工确认两步都必须有，其中人工确认是承重的。它也排除了"用门店编号当主键"这条路。上面关于匹配的决定已经吸收了这些发现。
 - 预期提醒总量会变少，这是设计目标。评判这次改动，看的是剩下的提醒用户会不会据以行动，而不是看它们的条数。
+- **实现时暂缓：把一次购入的 Store 字段合成一个类型。** 评审指出 `storeId`、`storeNameEn`、`storeNameZh` 是一组 Data Clumps：这三个字段总是一起出现，贯穿约八个类型——从 `Purchase` 到价格走势、多店比价、涨价排行榜和标题价格变化；小票列表和首页则单独带着那两个名字。这里有意没动。合并它们不改变任何行为，却要改动每个价格功能的类型、测试数据和测试，而这个分支已经很大、还在等迁移落地——在这里出错，评审时很难看出来。合并后的形状本身也需要单独决定：`storeId` 为空时，这两个名字是小票抬头而不是某个 Store 的名字，所以这个合并类型是不是"一个 Store"并不显然。等这次改动合并后，作为独立的改动来做更合适。
