@@ -419,8 +419,6 @@ export async function editConfirmedReceipt(
     throw userError ?? new Error("Not signed in");
   }
 
-  await updateReceiptItemsWithLog(items, user.id);
-
   const { data: existingReceipt, error: fetchError } = await supabase
     .from("receipts")
     .select(
@@ -462,11 +460,15 @@ export async function editConfirmedReceipt(
       new_value: purchaseDate,
     });
   }
-  if (logs.length === 0) {
-    return;
-  }
-
+  // As on confirm, nothing is written until the Store is resolved, so a
+  // failure there leaves the receipt as it was instead of saving only its
+  // items.
   await takeBackStoreOnFailure(createdStoreId, async () => {
+    await updateReceiptItemsWithLog(items, user.id);
+    if (logs.length === 0) {
+      return;
+    }
+
     const { error: logError } = await supabase
       .from("edit_logs")
       .insert(logs.map((log) => ({ receipt_id: receiptId, ...log, edited_by: user.id })));

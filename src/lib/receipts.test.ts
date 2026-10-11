@@ -1054,6 +1054,25 @@ describe("editConfirmedReceipt", () => {
     expect(db.callsFor("receipts")).toContainEqual(["eq", "id", "receipt-1"]);
   });
 
+  // As on confirm, the Store is resolved before anything is written, so a
+  // failure there saves none of the edit rather than only its items.
+  it("writes no item edits if the Store it moves the receipt to can't be resolved", async () => {
+    // `receipt_items` and `edit_logs` are left unprepared: touching either
+    // at all would throw.
+    const db = installFakeSupabase(supabase, {
+      auth: SIGNED_IN,
+      tables: {
+        receipts: [{ data: { purchase_date: "2026-08-05", ...AT_HORNBY_RECEIPT }, error: null }],
+        stores: { data: null, error: new Error("duplicate key value violates unique constraint") },
+      },
+    });
+
+    await expect(
+      editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], RICCARTON)
+    ).rejects.toThrow("duplicate key value");
+    expect(db.callsFor("receipts")).not.toContainEqual(["update", expect.anything()]);
+  });
+
   // As on confirm: an edit that fails after creating the Store it moves the
   // receipt to takes that Store back.
   it("deletes the Store it created if moving the receipt there fails, and still throws that write's error", async () => {
