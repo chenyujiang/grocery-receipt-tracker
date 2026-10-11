@@ -97,7 +97,7 @@ export function matchingStore(
   });
 }
 
-const STORE_SELECT ="id, chain_name_en, chain_name_zh, branch_name_en, branch_name_zh";
+const STORE_SELECT = "id, chain_name_en, chain_name_zh, branch_name_en, branch_name_zh";
 
 function toStore(
   row: Pick<
