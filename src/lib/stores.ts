@@ -91,14 +91,14 @@ export function sameStoreKey(a: StoreChoice, b: StoreChoice): boolean {
 }
 
 // A chain/branch pair's name as one line, the way storeNameOf names a Store —
-// trimmed, since what the AI read can carry OCR's stray spaces.
+// trimmed, since what the AI read can carry OCR's stray spaces. Whether it
+// names a branch at all is storeName's to decide (isKnownBranch).
 export function storeChoiceName({ chain, branch }: StoreChoice): BilingualName {
-  const branchEn = branch?.en.trim() || null;
   return storeName({
     chain_name_en: chain.en.trim(),
     chain_name_zh: chain.zh,
-    branch_name_en: branchEn,
-    branch_name_zh: branchEn === null ? null : (branch?.zh ?? null),
+    branch_name_en: branch?.en.trim() ?? null,
+    branch_name_zh: branch?.zh ?? null,
   });
 }
 
