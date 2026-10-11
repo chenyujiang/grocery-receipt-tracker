@@ -68,24 +68,27 @@ export interface StorePriceChange {
 // Store before calculatePriceChange ever sees them, so two purchases at two
 // different Stores are never compared. calculatePriceChange stays
 // store-unaware — it answers "what did these purchases do", this decides
-// which purchases belong together. Stores come back in order of first
-// appearance. A purchase with no Store is skipped: nothing can prove two of
-// them were at the same Store.
-export function calculatePriceChangesByStore(
-  records: StorePurchaseRecord[]
-): StorePriceChange[] {
-  const recordsByStore = new Map<string, StorePurchaseRecord[]>();
+// which purchases belong together. Every per-Store function below starts
+// here. Stores come back in order of first appearance. A purchase with no
+// Store is skipped: nothing can prove two of them were at the same Store.
+function recordsByStore<T extends StorePurchaseRecord>(records: T[]): Map<string, T[]> {
+  const byStore = new Map<string, T[]>();
   for (const record of records) {
     if (record.storeId === null) {
       continue;
     }
-    const storeRecords = recordsByStore.get(record.storeId) ?? [];
+    const storeRecords = byStore.get(record.storeId) ?? [];
     storeRecords.push(record);
-    recordsByStore.set(record.storeId, storeRecords);
+    byStore.set(record.storeId, storeRecords);
   }
+  return byStore;
+}
 
+export function calculatePriceChangesByStore(
+  records: StorePurchaseRecord[]
+): StorePriceChange[] {
   const changes: StorePriceChange[] = [];
-  for (const [storeId, storeRecords] of recordsByStore) {
+  for (const [storeId, storeRecords] of recordsByStore(records)) {
     const change = calculatePriceChange(storeRecords);
     if (change) {
       changes.push({ storeId, change });
@@ -100,7 +103,7 @@ export function comparedPurchasesAtStore<T extends StorePurchaseRecord>(
   records: T[],
   storeId: string
 ): { baseline: T; current: T } | null {
-  return comparedPurchases(records.filter((record) => record.storeId === storeId));
+  return comparedPurchases(recordsByStore(records).get(storeId) ?? []);
 }
 
 // The Same-Store Price Change at one Store, or null when that Store has too
@@ -109,7 +112,5 @@ export function priceChangeAtStore(
   records: StorePurchaseRecord[],
   storeId: string
 ): PriceChange | null {
-  return (
-    calculatePriceChangesByStore(records).find((entry) => entry.storeId === storeId)?.change ?? null
-  );
+  return calculatePriceChange(recordsByStore(records).get(storeId) ?? []);
 }
