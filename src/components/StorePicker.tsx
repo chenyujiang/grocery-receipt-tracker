@@ -2,12 +2,12 @@ import { useId } from "react";
 import type { ReceiptDraft } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, type Language } from "@/lib/bilingual";
-import { bilingualName } from "@/lib/bilingualName";
 import {
   matchingStore,
   nearMissStores,
   storeChoiceOf,
   storeKey,
+  storeNameOf,
   type Store,
   type StoreChoice,
 } from "@/lib/stores";
@@ -63,11 +63,9 @@ export function storeChoiceOfPick(stores: Store[], pick: StorePick): StoreChoice
 }
 
 function storeLabel(store: Store, language: Language, branchUnknown: string): string {
-  const chain = bilingualName(store.chainNameEn, store.chainNameZh);
-  const name = pickText(chain.en, chain.zh, language);
-  if (store.branchNameEn === null) return `${name} (${branchUnknown})`;
-  const branch = bilingualName(store.branchNameEn, store.branchNameZh);
-  return `${name} ${pickText(branch.en, branch.zh, language)}`;
+  const name = storeNameOf(store);
+  const label = pickText(name.en, name.zh, language);
+  return store.branchNameEn === null ? `${label} (${branchUnknown})` : label;
 }
 
 interface StorePickerProps {

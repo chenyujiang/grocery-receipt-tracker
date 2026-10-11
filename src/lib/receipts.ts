@@ -5,6 +5,7 @@ import {
   deleteUnusedStore,
   resolveStore,
   sameStoreKey,
+  storeChoiceName,
   storeChoiceOf,
   storeNameOf,
   type Store,
@@ -373,7 +374,7 @@ async function writeConfirmation(
       {
         receipt_id: receiptId,
         field_name: "store",
-        old_value: [read.chain.en, read.branch?.en ?? ""].map((part) => part.trim()).filter(Boolean).join(" "),
+        old_value: storeChoiceName(read).en,
         new_value: storeNameOf(confirmedStore).en,
         edited_by: userId,
       },

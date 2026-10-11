@@ -113,6 +113,18 @@ export function sameStoreKey(a: StoreChoice, b: StoreChoice): boolean {
   return aKey.chainKey === bKey.chainKey && aKey.branchKey === bKey.branchKey;
 }
 
+// A chain/branch pair's name as one line, the way storeNameOf names a Store —
+// trimmed, since what the AI read can carry OCR's stray spaces.
+export function storeChoiceName({ chain, branch }: StoreChoice): BilingualName {
+  const branchEn = branch?.en.trim() || null;
+  return storeName({
+    chain_name_en: chain.en.trim(),
+    chain_name_zh: chain.zh,
+    branch_name_en: branchEn,
+    branch_name_zh: branchEn === null ? null : (branch?.zh ?? null),
+  });
+}
+
 // The existing Store a chain/branch pair names.
 export function matchingStore(stores: Store[], choice: StoreChoice): Store | undefined {
   return stores.find((store) => sameStoreKey(storeChoiceOf(store), choice));
