@@ -201,7 +201,11 @@ export async function resolveStore(
   // Known limitation: two members confirming the same new branch at the same
   // moment both miss the lookup, and the second insert fails on
   // stores_circle_chain_branch_key (23505) instead of returning the first's
-  // row. Rare enough in a family circle to leave unhandled for now.
+  // row. Rare enough in a family circle to leave unhandled for now. The
+  // same goes for the reverse: if a confirm that created a Store fails and
+  // takes it back (deleteUnusedStore) just after another member's lookup
+  // found it, that member's confirm then fails on the missing Store, and a
+  // retry creates it afresh.
   const { data: created, error: insertError } = await client
     .from("stores")
     .insert({
