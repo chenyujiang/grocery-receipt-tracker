@@ -71,6 +71,17 @@ export interface StoreChoice {
   branch: BilingualText | null;
 }
 
+// A receipt's Store as read off it: what the AI read; else — a draft saved
+// before the chain/branch split — its header as the chain, branch unknown,
+// the same Store the backfill gives an old receipt. Where the store picker's
+// fields start, and, behind a receipt's own Store, where the picker starts.
+export function storeAsRead(receipt: {
+  recognizedStore: StoreChoice | null;
+  receiptHeader: BilingualText;
+}): StoreChoice {
+  return receipt.recognizedStore ?? { chain: receipt.receiptHeader, branch: null };
+}
+
 // A Store as the app sees it: one branch of one chain, in one Circle.
 export interface Store {
   id: string;

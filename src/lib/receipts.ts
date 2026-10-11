@@ -5,6 +5,7 @@ import {
   deleteUnusedStore,
   resolveStore,
   sameStoreKey,
+  storeAsRead,
   storeChoiceName,
   storeChoiceOf,
   storeNameOf,
@@ -138,16 +139,7 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
     uploadedBy: receiptRow.uploaded_by,
     receiptHeader: header,
     storeDisplayName: receiptStoreName(receiptRow),
-    recognizedStore:
-      receiptRow.recognized_chain_en == null
-        ? null
-        : {
-            chain: { en: receiptRow.recognized_chain_en, zh: receiptRow.recognized_chain_zh },
-            // The AI writes a branch it couldn't read as empty text.
-            branch: receiptRow.recognized_branch_en
-              ? { en: receiptRow.recognized_branch_en, zh: receiptRow.recognized_branch_zh }
-              : null,
-          },
+    recognizedStore: recognizedStoreOf(receiptRow),
     storeId: receiptRow.store_id,
     purchaseDate: receiptRow.purchase_date,
     totalAmount: receiptRow.total_amount,
@@ -255,17 +247,33 @@ async function updateReceiptItemsWithLog(
   }
 }
 
-// The Store the store picker starts a receipt on (StorePicker's
-// initialStorePick): the receipt's own Store if it has one; else what the AI
-// read; else — a draft saved before the chain/branch split — its header as
-// the chain, branch unknown.
-function startingStore(receipt: {
-  store_name_en: string;
-  store_name_zh: string | null;
+interface RecognizedStoreColumns {
   recognized_chain_en: string | null;
   recognized_chain_zh: string | null;
   recognized_branch_en: string | null;
   recognized_branch_zh: string | null;
+}
+
+// The chain/branch the AI read off a receipt; null on a draft saved before
+// the split existed.
+function recognizedStoreOf(receipt: RecognizedStoreColumns): StoreChoice | null {
+  if (receipt.recognized_chain_en == null) {
+    return null;
+  }
+  return {
+    chain: { en: receipt.recognized_chain_en, zh: receipt.recognized_chain_zh },
+    // The AI writes a branch it couldn't read as empty text.
+    branch: receipt.recognized_branch_en
+      ? { en: receipt.recognized_branch_en, zh: receipt.recognized_branch_zh }
+      : null,
+  };
+}
+
+// The Store the store picker starts a receipt on (StorePicker's
+// initialStorePick): the receipt's own Store if it has one, else storeAsRead.
+function startingStore(receipt: RecognizedStoreColumns & {
+  store_name_en: string;
+  store_name_zh: string | null;
   stores?: {
     chain_name_en: string;
     chain_name_zh: string | null;
@@ -280,15 +288,10 @@ function startingStore(receipt: {
       branch: branch_name_en === null ? null : { en: branch_name_en, zh: branch_name_zh },
     };
   }
-  if (receipt.recognized_chain_en != null) {
-    return {
-      chain: { en: receipt.recognized_chain_en, zh: receipt.recognized_chain_zh },
-      branch: receipt.recognized_branch_en
-        ? { en: receipt.recognized_branch_en, zh: receipt.recognized_branch_zh }
-        : null,
-    };
-  }
-  return { chain: { en: receipt.store_name_en, zh: receipt.store_name_zh }, branch: null };
+  return storeAsRead({
+    recognizedStore: recognizedStoreOf(receipt),
+    receiptHeader: { en: receipt.store_name_en, zh: receipt.store_name_zh },
+  });
 }
 
 // Section 6: user reviews/corrects each field, then confirms. Every changed
