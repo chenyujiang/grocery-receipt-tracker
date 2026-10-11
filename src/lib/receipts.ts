@@ -356,16 +356,22 @@ async function writeConfirmation(
   receiptId: string,
   items: ConfirmReceiptItemUpdate[],
   userId: string,
-  read: StoreChoice,
+  readStore: StoreChoice,
   confirmedStore: Store
 ): Promise<string> {
   await updateReceiptItemsWithLog(items, userId);
 
   // User story 3: correcting the Store the AI read is a Correction like any
   // other — but confirming the Store the AI's reading matched is not one.
-  const logs: ReceiptLog[] = sameStoreKey(read, storeChoiceOf(confirmedStore))
+  const logs: ReceiptLog[] = sameStoreKey(readStore, storeChoiceOf(confirmedStore))
     ? []
-    : [{ field_name: "store", old_value: storeChoiceName(read).en, new_value: storeNameOf(confirmedStore).en }];
+    : [
+        {
+          field_name: "store",
+          old_value: storeChoiceName(readStore).en,
+          new_value: storeNameOf(confirmedStore).en,
+        },
+      ];
   return updateReceiptWithLog(receiptId, { status: "confirmed", storeId: confirmedStore.id }, logs);
 }
 
