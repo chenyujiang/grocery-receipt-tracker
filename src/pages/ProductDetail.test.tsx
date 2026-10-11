@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "fs";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
@@ -10,7 +11,7 @@ vi.mock("@/lib/productDetail", () => ({
 }));
 
 import { fetchProductDetail } from "@/lib/productDetail";
-import ProductDetail from "@/pages/ProductDetail";
+import ProductDetail, { SERIES_COLOURS } from "@/pages/ProductDetail";
 
 function renderPage() {
   return render(
@@ -231,6 +232,18 @@ describe("ProductDetail", () => {
       "Hornby",
       "Woolworths",
     ]);
+  });
+
+  // The chart cycles through SERIES_COLOURS colours, so index.css must define
+  // exactly that many, in light and dark mode alike — or a line goes
+  // uncoloured, or a defined colour is never used.
+  it("has index.css define exactly SERIES_COLOURS trend colours, in light and dark mode", () => {
+    const css = readFileSync("src/index.css", "utf8");
+    const [light, dark] = css.split("@media (prefers-color-scheme: dark)");
+    const expected = Array.from({ length: SERIES_COLOURS }, (_, index) => `--series-${index + 1}`);
+    for (const block of [light, dark]) {
+      expect([...block.matchAll(/(--series-\d+):/g)].map((match) => match[1])).toEqual(expected);
+    }
   });
 
   it("shows a fallback when there's no other-store comparison data", async () => {

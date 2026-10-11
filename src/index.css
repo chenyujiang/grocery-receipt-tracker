@@ -18,7 +18,9 @@
   --warning: #a8721a;
   --warning-bg: #fbf1df;
   /* Price trend lines, one per Store (issue 29). --series-1 is the brand
-     green, so a single-Store product looks as it always has. */
+     green, so a single-Store product looks as it always has. Their number
+     is SERIES_COLOURS in ProductDetail.tsx — change both together; a test
+     checks this block and the dark one against it. */
   --series-1: var(--primary);
   --series-2: #b8692a;
   --series-3: #3f5f9e;

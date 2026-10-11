@@ -19,8 +19,9 @@ const QUANTITY_BASIS_LABEL: Record<string, string> = {
 };
 
 // How many --series-N colour tokens index.css defines; a fifth Store reuses
-// the first colour.
-const SERIES_COLOURS = 4;
+// the first colour. ProductDetail.test.tsx checks index.css against this, so
+// adding a colour there without changing it here fails the tests.
+export const SERIES_COLOURS = 4;
 
 // Small hand-rolled sparkline — the data is a handful of points per product,
 // not worth pulling in a charting library for. Promotional points render
