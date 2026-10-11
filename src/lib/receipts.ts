@@ -1,11 +1,11 @@
 import { supabase } from "@/lib/supabaseClient";
 import { detectPriceSpikes, type SpikeCheckReceipt } from "@/lib/priceSpikeAlerts";
-import { listStores, resolveStore, type Store, type StoreChoice } from "@/lib/stores";
+import { listStores, resolveStore, storeKey, storeNameOf, type Store, type StoreChoice } from "@/lib/stores";
 import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
 import { bilingualName, type BilingualName } from "@/lib/bilingualName";
-import { receiptStoreName, storeName, STORE_NAMES_EMBED } from "@/lib/storeName";
+import { receiptStoreName, STORE_NAMES_EMBED } from "@/lib/storeName";
 
 export interface UploadReceiptResult {
   receiptId: string;
@@ -271,14 +271,41 @@ export async function confirmReceipt(
 
   const { data: receiptCircle, error: circleError } = await supabase
     .from("receipts")
-    .select("circle_id")
+    .select("circle_id, store_name_en, recognized_chain_en, recognized_branch_en")
     .eq("id", receiptId)
     .single();
   if (circleError || !receiptCircle) {
     throw circleError ?? new Error("Receipt not found");
   }
 
-  const { id: storeId } = await resolveStore(supabase, receiptCircle.circle_id, store);
+  const confirmedStore = await resolveStore(supabase, receiptCircle.circle_id, store);
+  const storeId = confirmedStore.id;
+
+  // User story 3: correcting the Store the AI read is a Correction like any
+  // other. Compared on the same normalized keys the match uses, so confirming
+  // the Store the AI's reading matched is not one. A draft saved before the
+  // chain/branch split was read as its header, branch unknown — where the
+  // picker started it.
+  const read =
+    receiptCircle.recognized_chain_en == null
+      ? { chain: receiptCircle.store_name_en, branch: "" }
+      : { chain: receiptCircle.recognized_chain_en, branch: receiptCircle.recognized_branch_en ?? "" };
+  const readKey = storeKey(read.chain, read.branch);
+  const confirmedKey = storeKey(confirmedStore.chainNameEn, confirmedStore.branchNameEn ?? "");
+  if (readKey.chainKey !== confirmedKey.chainKey || readKey.branchKey !== confirmedKey.branchKey) {
+    const { error: logError } = await supabase.from("edit_logs").insert([
+      {
+        receipt_id: receiptId,
+        field_name: "store",
+        old_value: [read.chain, read.branch].map((part) => part.trim()).filter(Boolean).join(" "),
+        new_value: storeNameOf(confirmedStore).en,
+        edited_by: user.id,
+      },
+    ]);
+    if (logError) {
+      throw logError;
+    }
+  }
 
   const { data: receiptRow, error: statusError } = await supabase
     .from("receipts")
@@ -342,12 +369,7 @@ export async function editConfirmedReceipt(
     logs.push({
       field_name: "store",
       old_value: receiptStoreName(existingReceipt).en,
-      new_value: storeName({
-        chain_name_en: newStore.chainNameEn,
-        chain_name_zh: newStore.chainNameZh,
-        branch_name_en: newStore.branchNameEn,
-        branch_name_zh: newStore.branchNameZh,
-      }).en,
+      new_value: storeNameOf(newStore).en,
     });
   }
   if (existingReceipt.purchase_date !== purchaseDate) {

@@ -427,6 +427,13 @@ const HORNBY_FOUND = {
   },
   error: null,
 };
+// What the AI read off a receipt that's then confirmed at Hornby, as it
+// read it — so confirming there is no Store correction.
+const READ_AS_HORNBY = {
+  store_name_en: "WOOLWORTHS HORNBY",
+  recognized_chain_en: "Woolworths",
+  recognized_branch_en: "Hornby",
+};
 const RICCARTON = {
   chain: { en: "Woolworths", zh: "沃尔沃斯" },
   branch: { en: "Riccarton", zh: "里卡顿" },
@@ -449,7 +456,7 @@ describe("confirmReceipt", () => {
       tables: {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED, NO_HISTORY],
         receipts: [
-          { data: { circle_id: "circle-1" }, error: null },
+          { data: { circle_id: "circle-1", ...READ_AS_HORNBY }, error: null },
           { data: { purchase_date: "2026-08-01" }, error: null },
         ],
         stores: HORNBY_FOUND,
@@ -467,13 +474,54 @@ describe("confirmReceipt", () => {
     ]);
   });
 
+  // User story 3: correcting the branch the AI read is a Correction like
+  // correcting an item name, so it goes to EditLog too — from what the AI
+  // read to the Store the receipt was confirmed at.
+  it("logs a Store the user corrected on the preview screen to EditLog", async () => {
+    const db = installFakeSupabase(supabase, {
+      auth: SIGNED_IN,
+      tables: {
+        receipt_items: [EXISTING_ITEM, ITEM_UPDATED, NO_HISTORY],
+        receipts: [
+          {
+            data: {
+              circle_id: "circle-1",
+              store_name_en: "WOOLWORTHS HORNBV",
+              recognized_chain_en: "Woolworths",
+              recognized_branch_en: "Hornbv",
+            },
+            error: null,
+          },
+          { data: { purchase_date: "2026-08-01" }, error: null },
+        ],
+        stores: HORNBY_FOUND,
+        edit_logs: WROTE_OK,
+      },
+    });
+
+    await confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY);
+
+    expect(db.callsFor("edit_logs")).toContainEqual([
+      "insert",
+      [
+        {
+          receipt_id: "receipt-1",
+          field_name: "store",
+          old_value: "Woolworths Hornbv",
+          new_value: "Woolworths Hornby",
+          edited_by: "user-1",
+        },
+      ],
+    ]);
+  });
+
   it("writes each item's edited fields, then marks the receipt confirmed", async () => {
     const db = installFakeSupabase(supabase, {
       auth: SIGNED_IN,
       tables: {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED, NO_HISTORY],
         receipts: [
-          { data: { circle_id: "circle-1" }, error: null },
+          { data: { circle_id: "circle-1", ...READ_AS_HORNBY }, error: null },
           { data: { purchase_date: "2026-07-20" }, error: null },
         ],
         stores: HORNBY_FOUND,
@@ -517,7 +565,7 @@ describe("confirmReceipt", () => {
           NO_HISTORY,
         ],
         receipts: [
-          { data: { circle_id: "circle-1" }, error: null },
+          { data: { circle_id: "circle-1", ...READ_AS_HORNBY }, error: null },
           { data: { purchase_date: "2026-07-20" }, error: null },
         ],
         stores: HORNBY_FOUND,
@@ -578,7 +626,7 @@ describe("confirmReceipt", () => {
           },
         ],
         receipts: [
-          { data: { circle_id: "circle-9" }, error: null },
+          { data: { circle_id: "circle-9", ...READ_AS_HORNBY }, error: null },
           { data: { purchase_date: "2026-07-20" }, error: null },
         ],
         stores: HORNBY_FOUND,
@@ -630,7 +678,7 @@ describe("confirmReceipt", () => {
           },
         ],
         receipts: [
-          { data: { circle_id: "circle-9" }, error: null },
+          { data: { circle_id: "circle-9", ...READ_AS_HORNBY }, error: null },
           { data: { purchase_date: "2026-08-01" }, error: null },
         ],
         stores: HORNBY_FOUND,
@@ -663,7 +711,7 @@ describe("confirmReceipt", () => {
           },
         ],
         receipts: [
-          { data: { circle_id: "circle-9" }, error: null },
+          { data: { circle_id: "circle-9", ...READ_AS_HORNBY }, error: null },
           { data: { purchase_date: "2026-07-20" }, error: null },
         ],
         stores: HORNBY_FOUND,
@@ -702,7 +750,7 @@ describe("confirmReceipt", () => {
           },
         ],
         receipts: [
-          { data: { circle_id: "circle-9" }, error: null },
+          { data: { circle_id: "circle-9", ...READ_AS_HORNBY }, error: null },
           { data: { purchase_date: "2026-07-20" }, error: null },
         ],
         stores: HORNBY_FOUND,

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
+import type { BilingualName } from "@/lib/bilingualName";
+import { storeName } from "@/lib/storeName";
 
 // The normalized match keys for a Store, stored as stores.chain_key /
 // stores.branch_key. Matching is exact on these keys, so everything that
@@ -85,6 +87,16 @@ export function storeChoiceOf(store: Store): StoreChoice {
     chain: { en: store.chainNameEn, zh: store.chainNameZh },
     branch: { en: store.branchNameEn ?? "", zh: store.branchNameZh },
   };
+}
+
+// A Store's name as one line — chain, then branch if it has one.
+export function storeNameOf(store: Store): BilingualName {
+  return storeName({
+    chain_name_en: store.chainNameEn,
+    chain_name_zh: store.chainNameZh,
+    branch_name_en: store.branchNameEn,
+    branch_name_zh: store.branchNameZh,
+  });
 }
 
 // The existing Store a chain/branch pair names, compared by the same
