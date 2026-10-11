@@ -845,16 +845,29 @@ describe("editConfirmedReceipt", () => {
     expect(methodsUsed(db.callsFor("receipts"))).not.toContain("update");
   });
 
-  // Issue 29: a Store change is a Correction like any other, logged by id —
-  // and, as with every edit, it neither re-raises nor withdraws alerts.
-  it("moves the receipt to another Store, logging store_id old → new", async () => {
+  // Issue 29: a Store change is a Correction like any other — and, as with
+  // every edit, it neither re-raises nor withdraws alerts. Logged by name, so
+  // the log reads without looking the Stores up.
+  it("moves the receipt to another Store, logging the Store's name old → new", async () => {
     const db = installFakeSupabase(supabase, {
       auth: SIGNED_IN,
       tables: {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED],
         receipts: [
           {
-            data: { purchase_date: "2026-08-05", circle_id: "circle-1", store_id: "store-hornby" },
+            data: {
+              purchase_date: "2026-08-05",
+              circle_id: "circle-1",
+              store_id: "store-hornby",
+              store_name_en: "WOOLWORTHS HORNBY",
+              store_name_zh: "沃尔沃斯 霍恩比",
+              stores: {
+                chain_name_en: "Woolworths",
+                chain_name_zh: "沃尔沃斯",
+                branch_name_en: "Hornby",
+                branch_name_zh: "霍恩比",
+              },
+            },
             error: null,
           },
           WROTE_OK,
@@ -871,9 +884,9 @@ describe("editConfirmedReceipt", () => {
       [
         {
           receipt_id: "receipt-1",
-          field_name: "store_id",
-          old_value: "store-hornby",
-          new_value: "store-riccarton",
+          field_name: "store",
+          old_value: "Woolworths Hornby",
+          new_value: "Woolworths Riccarton",
           edited_by: "user-1",
         },
       ],

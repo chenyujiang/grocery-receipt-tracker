@@ -5,7 +5,7 @@ import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
 import { bilingualName, type BilingualName } from "@/lib/bilingualName";
-import { receiptStoreName, STORE_NAMES_EMBED } from "@/lib/storeName";
+import { receiptStoreName, storeName, STORE_NAMES_EMBED } from "@/lib/storeName";
 
 export interface UploadReceiptResult {
   receiptId: string;
@@ -322,22 +322,33 @@ export async function editConfirmedReceipt(
 
   const { data: existingReceipt, error: fetchError } = await supabase
     .from("receipts")
-    .select("purchase_date, circle_id, store_id")
+    .select(`purchase_date, circle_id, store_id, store_name_en, store_name_zh, ${STORE_NAMES_EMBED}`)
     .eq("id", receiptId)
     .single();
   if (fetchError || !existingReceipt) {
     throw fetchError ?? new Error("Receipt not found");
   }
 
-  // Issue 29: moving a receipt to another Store is logged by id, and — like
-  // every edit — neither re-raises nor withdraws alerts.
-  const { id: storeId } = await resolveStore(supabase, existingReceipt.circle_id, store);
+  // Issue 29: moving a receipt to another Store is logged by the Stores'
+  // names, so the log reads on its own, and — like every edit — neither
+  // re-raises nor withdraws alerts.
+  const newStore = await resolveStore(supabase, existingReceipt.circle_id, store);
+  const storeId = newStore.id;
 
   const changes: { purchase_date?: string; store_id?: string } = {};
   const logs: Array<{ field_name: string; old_value: string | null; new_value: string }> = [];
   if (existingReceipt.store_id !== storeId) {
     changes.store_id = storeId;
-    logs.push({ field_name: "store_id", old_value: existingReceipt.store_id, new_value: storeId });
+    logs.push({
+      field_name: "store",
+      old_value: receiptStoreName(existingReceipt).en,
+      new_value: storeName({
+        chain_name_en: newStore.chainNameEn,
+        chain_name_zh: newStore.chainNameZh,
+        branch_name_en: newStore.branchNameEn,
+        branch_name_zh: newStore.branchNameZh,
+      }).en,
+    });
   }
   if (existingReceipt.purchase_date !== purchaseDate) {
     changes.purchase_date = purchaseDate;
