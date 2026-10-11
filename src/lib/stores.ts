@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import type { BilingualName } from "@/lib/bilingualName";
 import { isKnownBranch, storeName, type StoreNames } from "@/lib/storeName";
-import { storeKey } from "@/lib/storeKey";
+import { chainKey, storeKey } from "@/lib/storeKey";
 
 export { storeKey, type StoreKey } from "@/lib/storeKey";
 
@@ -81,7 +81,7 @@ export function storeNameOf(store: Store): BilingualName {
 // Whether a chain/branch pair names a chain at all — a Store with no chain
 // would show up blank in every member's picker, so resolveStore refuses one.
 export function hasChain({ chain }: StoreChoice): boolean {
-  return storeKey(chain.en, null).chainKey !== "";
+  return chainKey(chain.en) !== "";
 }
 
 // Whether two chain/branch pairs name the same Store, compared by the same
@@ -114,8 +114,8 @@ export function matchingStore(stores: Store[], choice: StoreChoice): Store | und
 // closer guess than the chain (ticket 29: the human confirmation step is
 // load-bearing).
 export function nearMissStores(stores: Store[], { chain }: StoreChoice): Store[] {
-  const { chainKey } = storeKey(chain.en, "");
-  return stores.filter((store) => storeKey(store.chainNameEn, "").chainKey === chainKey);
+  const key = chainKey(chain.en);
+  return stores.filter((store) => chainKey(store.chainNameEn) === key);
 }
 
 const STORE_SELECT = "id, chain_name_en, chain_name_zh, branch_name_en, branch_name_zh";

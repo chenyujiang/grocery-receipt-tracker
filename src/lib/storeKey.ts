@@ -53,7 +53,13 @@ export function branchKey(branchEn: string | null): string | null {
   return normalize(branchEn ?? "") || null;
 }
 
-export function storeKey(chainEn: string, branchEn: string | null): StoreKey {
+// A chain's match key, its aliases collapsed onto one name; empty for a
+// chain that normalizes away to nothing.
+export function chainKey(chainEn: string): string {
   const chain = normalize(chainEn);
-  return { chainKey: CHAIN_ALIASES[chain] ?? chain, branchKey: branchKey(branchEn) };
+  return CHAIN_ALIASES[chain] ?? chain;
+}
+
+export function storeKey(chainEn: string, branchEn: string | null): StoreKey {
+  return { chainKey: chainKey(chainEn), branchKey: branchKey(branchEn) };
 }
