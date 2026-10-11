@@ -782,7 +782,8 @@ describe("confirmReceipt", () => {
 // diff-then-log-then-update for the receipt-level purchase_date — but never
 // touches status or price-spike alerts.
 // The edit tests' receipt was confirmed at Hornby and stays there, unless a
-// test moves it.
+// test moves it. A test that keeps it there prepares no `stores`: an
+// unchanged Store is never looked up, and looking it up would throw.
 const AT_HORNBY_RECEIPT = {
   circle_id: "circle-1",
   store_id: "store-hornby",
@@ -799,7 +800,6 @@ describe("editConfirmedReceipt", () => {
       tables: {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED],
         receipts: [{ data: { purchase_date: "2026-08-05", ...AT_HORNBY_RECEIPT }, error: null }],
-        stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
       },
     });
@@ -832,7 +832,6 @@ describe("editConfirmedReceipt", () => {
           ITEM_UPDATED,
         ],
         receipts: [{ data: { purchase_date: "2026-08-05", ...AT_HORNBY_RECEIPT }, error: null }],
-        stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
       },
     });
@@ -860,7 +859,6 @@ describe("editConfirmedReceipt", () => {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED],
         // Read for the diff, then written because the date differs.
         receipts: [{ data: { purchase_date: "2026-06-05", ...AT_HORNBY_RECEIPT }, error: null }, WROTE_OK],
-        stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
       },
     });
@@ -889,7 +887,6 @@ describe("editConfirmedReceipt", () => {
       tables: {
         receipt_items: [EXISTING_ITEM, ITEM_UPDATED],
         receipts: [{ data: { purchase_date: "2026-08-05", ...AT_HORNBY_RECEIPT }, error: null }],
-        stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
       },
     });
