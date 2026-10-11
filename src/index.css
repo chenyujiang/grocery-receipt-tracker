@@ -19,7 +19,7 @@
   --warning-bg: #fbf1df;
   /* Price trend lines, one per Store (issue 29). --series-1 is the brand
      green, so a single-Store product looks as it always has. */
-  --series-1: #2f6b4f;
+  --series-1: var(--primary);
   --series-2: #b8692a;
   --series-3: #3f5f9e;
   --series-4: #8a4d86;
@@ -45,7 +45,7 @@
     --danger-bg: #3a1e1a;
     --warning: #e3b15c;
     --warning-bg: #3a2e15;
-    --series-1: #6fbf97;
+    --series-1: var(--primary);
     --series-2: #e3a066;
     --series-3: #8fa9e0;
     --series-4: #cf93c9;
