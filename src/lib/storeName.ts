@@ -10,11 +10,18 @@ export interface StoreNames {
   branch_name_zh: string | null;
 }
 
+// Whether a branch name names a branch — the one place that decides a
+// Store's branch is unknown: no name at all, or the empty text the AI writes
+// for a branch it couldn't read.
+export function isKnownBranch(branchNameEn: string | null): branchNameEn is string {
+  return Boolean(branchNameEn);
+}
+
 // A Store's name as one line: its chain, then its branch if it has one —
 // each falling back to its Source Text when it has no Translation.
 export function storeName(store: StoreNames): BilingualName {
   const chain = bilingualName(store.chain_name_en, store.chain_name_zh);
-  if (store.branch_name_en === null) {
+  if (!isKnownBranch(store.branch_name_en)) {
     return chain;
   }
   const branch = bilingualName(store.branch_name_en, store.branch_name_zh);
@@ -40,7 +47,7 @@ export function receiptStoreName(receipt: {
 // A Store's name short enough for a phone-width chart legend: its branch
 // alone, or its chain when the branch is unknown.
 export function storeShortName(store: StoreNames): BilingualName {
-  return store.branch_name_en === null
-    ? bilingualName(store.chain_name_en, store.chain_name_zh)
-    : bilingualName(store.branch_name_en, store.branch_name_zh);
+  return isKnownBranch(store.branch_name_en)
+    ? bilingualName(store.branch_name_en, store.branch_name_zh)
+    : bilingualName(store.chain_name_en, store.chain_name_zh);
 }

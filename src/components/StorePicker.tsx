@@ -2,6 +2,7 @@ import { useId } from "react";
 import type { ReceiptDraft } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, type Language } from "@/lib/bilingual";
+import { isKnownBranch } from "@/lib/storeName";
 import {
   hasChain,
   matchingStore,
@@ -55,7 +56,7 @@ export function storeChoiceOfPick(stores: Store[], pick: StorePick): StoreChoice
 function storeLabel(store: Store, language: Language, branchUnknown: string): string {
   const name = storeNameOf(store);
   const label = pickText(name.en, name.zh, language);
-  return store.branchNameEn === null ? `${label} (${branchUnknown})` : label;
+  return isKnownBranch(store.branchNameEn) ? label : `${label} (${branchUnknown})`;
 }
 
 interface StorePickerProps {

@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import { fetchCircleMembers } from "@/lib/circleMembers";
 import { bilingualName } from "@/lib/bilingualName";
+import { isKnownBranch } from "@/lib/storeName";
 
 export interface ExportRow {
   purchaseDate: string;
@@ -120,7 +121,9 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
     const store = row.receipts.stores;
     const chain = store ? bilingualName(store.chain_name_en, store.chain_name_zh) : null;
     const branch =
-      store?.branch_name_en == null ? null : bilingualName(store.branch_name_en, store.branch_name_zh);
+      store && isKnownBranch(store.branch_name_en)
+        ? bilingualName(store.branch_name_en, store.branch_name_zh)
+        : null;
     return {
       purchaseDate: row.receipts.purchase_date,
       receiptHeaderEn: header.en,

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import type { BilingualName } from "@/lib/bilingualName";
-import { storeName, type StoreNames } from "@/lib/storeName";
+import { isKnownBranch, storeName, type StoreNames } from "@/lib/storeName";
 
 // The normalized match keys for a Store, stored as stores.chain_key /
 // stores.branch_key. Matching is exact on these keys, so everything that
@@ -98,12 +98,13 @@ export function storeChoiceOf(store: Store): StoreChoice {
 }
 
 // A chain/branch pair from its four name columns — a Store's, or what the AI
-// read. The one place that decides a branch is unknown: no name at all, or
-// the empty text the AI writes for a branch it couldn't read.
+// read — with an unknown branch (isKnownBranch) as null.
 export function storeChoiceOfNames(names: StoreNames): StoreChoice {
   return {
     chain: { en: names.chain_name_en, zh: names.chain_name_zh },
-    branch: names.branch_name_en ? { en: names.branch_name_en, zh: names.branch_name_zh } : null,
+    branch: isKnownBranch(names.branch_name_en)
+      ? { en: names.branch_name_en, zh: names.branch_name_zh }
+      : null,
   };
 }
 
