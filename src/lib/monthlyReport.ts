@@ -188,11 +188,15 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
     const leaderboardInput: LeaderboardInput[] = histories.map((history) => {
       const names = productNames.get(history.productId);
       // This month's increases (issue 29): only the Stores the Product was
-      // bought at this month, so a rise at a Store last visited a year ago
-      // can't take the row.
+      // bought at this month at normal price, so a rise at a Store last
+      // visited a year ago can't take the row — nor can one whose only
+      // purchase this month was a promotion, which is never compared.
       const storesThisMonth = new Set(
         history.purchases
-          .filter(({ purchaseDate }) => purchaseDate >= start && purchaseDate <= end)
+          .filter(
+            ({ purchaseDate, isPromotion }) =>
+              !isPromotion && purchaseDate >= start && purchaseDate <= end
+          )
           .map(({ storeId }) => storeId)
       );
       return {

@@ -652,4 +652,81 @@ describe("fetchMonthlyReport", () => {
       },
     ]);
   });
+
+  // A promotional purchase is never compared (Section 10), so a Store whose
+  // only purchase this month was on promotion has no change from this month
+  // to show — counting it would bring back its year-old rise.
+  it("doesn't count a Store whose only purchase this month was on promotion", async () => {
+    const milkAt = (
+      purchaseDate: string,
+      storeId: string,
+      storeNameEn: string,
+      unitPrice: number,
+      isPromotion = false
+    ) => ({
+      product_id: "product-1",
+      unit_price: unitPrice,
+      quantity: 1,
+      unit_spec_value: 500,
+      unit_spec_unit: "g",
+      is_promotion: isPromotion,
+      receipts: { purchase_date: purchaseDate, store_id: storeId, store_name_en: storeNameEn, store_name_zh: null },
+    });
+    const milkLine = (subtotal: number, isPromotion: boolean) => ({
+      subtotal,
+      quantity: 1,
+      original_price: null,
+      is_promotion: isPromotion,
+      product_id: "product-1",
+      raw_name_en: "Milk",
+      raw_name_zh: "牛奶",
+      products: { category: "Food", canonical_name_en: "Milk", canonical_name_zh: "牛奶" },
+    });
+
+    installFakeSupabase(supabase, {
+      tables: {
+        receipts: [
+          {
+            data: [
+              { total_amount: 3.0, uploaded_by: "user-1", receipt_items: [milkLine(3.0, true)] },
+              { total_amount: 4.2, uploaded_by: "user-1", receipt_items: [milkLine(4.2, false)] },
+            ],
+            error: null,
+          },
+          { data: [], error: null },
+        ],
+        alerts: { count: 0, error: null },
+        products: { data: [{ id: "product-1", canonical_name_en: "Milk", canonical_name_zh: "牛奶" }], error: null },
+        receipt_items: {
+          data: [
+            // A year ago at Riccarton: +25%. This month, only on promotion.
+            milkAt("2025-07-01", "store-riccarton", "Riccarton", 4.0),
+            milkAt("2025-07-15", "store-riccarton", "Riccarton", 5.0),
+            milkAt("2026-08-03", "store-riccarton", "Riccarton", 3.0, true),
+            // This month at Hornby: +5%.
+            milkAt("2026-07-20", "store-hornby", "Hornby", 4.0),
+            milkAt("2026-08-10", "store-hornby", "Hornby", 4.2),
+          ],
+          error: null,
+        },
+      },
+    });
+    vi.mocked(fetchCircleMembers).mockResolvedValue([
+      { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
+    ]);
+
+    const report = await fetchMonthlyReport(MONTH);
+
+    expect(report.priceChangeLeaderboard).toEqual([
+      {
+        productId: "product-1",
+        nameEn: "Milk",
+        nameZh: "牛奶",
+        storeId: "store-hornby",
+        storeNameEn: "Hornby",
+        storeNameZh: "Hornby",
+        changePercent: 5,
+      },
+    ]);
+  });
 });
