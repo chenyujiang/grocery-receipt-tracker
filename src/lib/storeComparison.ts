@@ -26,8 +26,9 @@ export interface StoreComparisonEntry {
 // pair. Grouped by Store (issue 29), so two branches of one chain are two
 // entries and one branch is one entry however its receipts spelled it; the
 // names shown are those on the Store's latest normal-price receipt. A
-// purchase with no Store is skipped, as in the Same-Store Price Change. Callers with fewer than 2 entries should show "no purchase
-// records from other stores yet" rather than a comparison.
+// purchase with no Store is skipped, as in the Same-Store Price Change.
+// Callers with fewer than 2 entries should show "no purchase records from
+// other stores yet" rather than a comparison.
 export function compareStores(records: StoreComparisonRecord[]): StoreComparisonEntry[] {
   const latestByStore = new Map<string, StoreComparisonRecord & { storeId: string }>();
   for (const record of records) {
