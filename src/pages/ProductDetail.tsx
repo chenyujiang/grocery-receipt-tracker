@@ -61,10 +61,11 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
   const shortLabels = storeLines.map(([, point]) =>
     pickText(point.storeShortName.en, point.storeShortName.zh, language)
   );
-  const legendLabel = (index: number, point: PriceTrendPoint) =>
-    shortLabels.filter((label) => label === shortLabels[index]).length > 1
-      ? pickText(point.storeNameEn, point.storeNameZh, language)
-      : shortLabels[index];
+  const legendEntries = storeLines.map(([storeId, point], index) => {
+    const label = shortLabels[index];
+    const clashes = shortLabels.filter((other) => other === label).length > 1;
+    return [storeId, clashes ? pickText(point.storeNameEn, point.storeNameZh, language) : label] as const;
+  });
   const colourOf = (storeId: string | null) =>
     `var(--series-${(storeIds.indexOf(storeId) % SERIES_COLOURS) + 1})`;
 
@@ -106,12 +107,12 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
         ))}
       </svg>
       <ul className="price-trend-legend" aria-label={t("product.trendLegend")}>
-        {storeLines.map(([storeId, point], index) => (
+        {legendEntries.map(([storeId, label]) => (
           <li key={storeId}>
             <svg width="10" height="10" aria-hidden="true">
               <circle cx="5" cy="5" r="5" fill={colourOf(storeId)} />
             </svg>
-            {legendLabel(index, point)}
+            {label}
           </li>
         ))}
       </ul>
