@@ -15,8 +15,8 @@ import { formatDateString, parseDateString } from "@/lib/dateRange";
 import DatePickerField from "@/components/DatePickerField";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
-import StorePicker, { initialStorePick, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
-import { hasChain, type Store } from "@/lib/stores";
+import StorePicker, { initialStorePick, pickHasChain, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
+import type { Store } from "@/lib/stores";
 
 // Section 15, page 3 + issue 16: a confirmed receipt's own uploader can
 // toggle an inline edit mode to fix OCR mistakes — the shared
@@ -37,8 +37,7 @@ export default function ReceiptDetail() {
   const [storePick, setStorePick] = useState<StorePick | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // The chain/branch the picker currently names, once per render — the
-  // save button's check and its handler both read it.
+  // The chain/branch the picker currently names, which saving sends.
   const storeChoice = storeChoiceOfPick(stores, storePick);
 
   function load() {
@@ -143,7 +142,7 @@ export default function ReceiptDetail() {
               type="button"
               style={{ flex: 1 }}
               onClick={handleSave}
-              disabled={saving || !storeChoice || !hasChain(storeChoice)}
+              disabled={saving || !pickHasChain(stores, storePick)}
             >
               {saving ? t("detail.saving") : t("detail.save")}
             </button>

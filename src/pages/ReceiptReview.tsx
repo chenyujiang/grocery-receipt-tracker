@@ -14,8 +14,8 @@ import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
-import StorePicker, { initialStorePick, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
-import { hasChain, type Store } from "@/lib/stores";
+import StorePicker, { initialStorePick, pickHasChain, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
+import type { Store } from "@/lib/stores";
 
 // Section 6, 15 page 2 (preview/confirm): the review step is the safety net
 // for OCR errors — user edits each field before it counts toward statistics.
@@ -38,8 +38,7 @@ export default function ReceiptReview() {
   const [duplicateDismissed, setDuplicateDismissed] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // The chain/branch the picker currently names, once per render — the
-  // confirm button's check and its handler both read it.
+  // The chain/branch the picker currently names, which confirming sends.
   const storeChoice = storeChoiceOfPick(stores, storePick);
 
   useEffect(() => {
@@ -152,7 +151,7 @@ export default function ReceiptReview() {
         type="button"
         className="btn-block"
         onClick={handleConfirm}
-        disabled={confirming || !storeChoice || !hasChain(storeChoice)}
+        disabled={confirming || !pickHasChain(stores, storePick)}
       >
         {confirming ? t("review.confirming") : t("review.confirm")}
       </button>

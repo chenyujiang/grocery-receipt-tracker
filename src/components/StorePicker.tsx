@@ -55,6 +55,14 @@ export function storeChoiceOfPick(stores: Store[], pick: StorePick | null): Stor
   return pick.typed;
 }
 
+// Whether the pick names a chain, which confirm and save need (resolveStore
+// refuses a blank one) — the one check both pages' buttons and the
+// picker's hint read, so they can't disagree.
+export function pickHasChain(stores: Store[], pick: StorePick | null): boolean {
+  const choice = storeChoiceOfPick(stores, pick);
+  return choice !== null && hasChain(choice);
+}
+
 function storeLabel(store: Store, language: Language, branchUnknown: string): string {
   const name = storeNameOf(store);
   const label = pickText(name.en, name.zh, language);
@@ -77,7 +85,7 @@ export default function StorePicker({ stores, value, onChange }: StorePickerProp
   const chainHintId = useId();
   // Confirm and Save stay disabled on a blank chain (resolveStore refuses
   // one), so the field says why.
-  const chainBlank = !hasChain(value.typed);
+  const chainBlank = !pickHasChain(stores, value);
   // Only while no existing Store is picked: a picked Store needs no offer.
   const candidates = stores.some((store) => store.id === value.pickedStoreId)
     ? []
