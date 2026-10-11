@@ -117,9 +117,10 @@ begin
   where id = p_receipt_id
   returning purchase_date into v_purchase_date;
   -- RLS hides a receipt the caller can't update, which would otherwise
-  -- commit the log rows alone.
+  -- commit the log rows alone. The message is shown to the user as is, so
+  -- it leaves out the receipt's id.
   if not found then
-    raise exception 'Receipt % not found, or not yours to change', p_receipt_id
+    raise exception 'Receipt not found, or not yours to change'
       using errcode = 'P0002';
   end if;
 
