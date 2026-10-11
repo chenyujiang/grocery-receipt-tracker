@@ -2,7 +2,7 @@
 -- branch, instead of a loose name string on each Receipt.
 --
 -- chain_key / branch_key are the normalized match keys, computed in app code
--- by storeKey() in src/lib/stores.ts (case-folding, whitespace, macrons,
+-- by storeKey() in src/lib/storeKey.ts (case-folding, whitespace, macrons,
 -- street abbreviations, separators, chain aliases such as Countdown ->
 -- Woolworths). They are stored rather than generated because that
 -- normalization lives in TypeScript; the unique constraint below is what

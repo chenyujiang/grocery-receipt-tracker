@@ -4,7 +4,7 @@
 -- and 11 names, a manual mapping was realistic, and it keeps the three
 -- spellings of PAK'nSAVE Albany as one Store instead of splitting its history.
 --
--- chain_key / branch_key are what storeKey() in src/lib/stores.ts returns for
+-- chain_key / branch_key are what storeKey() in src/lib/storeKey.ts returns for
 -- each chain/branch pair, computed by running it rather than written by hand:
 -- a key that differs from the app's would let the next confirmed receipt at
 -- the same branch create a duplicate Store beside the backfilled one.
