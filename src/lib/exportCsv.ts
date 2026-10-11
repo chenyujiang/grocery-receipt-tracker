@@ -119,9 +119,8 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
     );
     const store = row.receipts.stores;
     const chain = store ? bilingualName(store.chain_name_en, store.chain_name_zh) : null;
-    const branchEn = store?.branch_name_en ?? null;
     const branch =
-      branchEn === null ? null : bilingualName(branchEn, store?.branch_name_zh);
+      store?.branch_name_en == null ? null : bilingualName(store.branch_name_en, store.branch_name_zh);
     return {
       purchaseDate: row.receipts.purchase_date,
       receiptHeaderEn: header.en,
