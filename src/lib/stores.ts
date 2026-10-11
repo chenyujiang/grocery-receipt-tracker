@@ -4,8 +4,6 @@ import type { BilingualName } from "@/lib/bilingualName";
 import { isKnownBranch, storeName, type StoreNames } from "@/lib/storeName";
 import { chainKey, storeKey } from "@/lib/storeKey";
 
-export { storeKey, type StoreKey } from "@/lib/storeKey";
-
 // A name on its way in, not read back: zh is null when there's no
 // Translation, and is stored as null. Distinct from BilingualName, whose zh
 // is never blank — filling it in here would write the Source Text into the
