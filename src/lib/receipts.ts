@@ -249,12 +249,11 @@ async function updateReceiptItemsWithLog(
   }
 }
 
-interface RecognizedStoreColumns {
-  recognized_chain_en: string | null;
-  recognized_chain_zh: string | null;
-  recognized_branch_en: string | null;
-  recognized_branch_zh: string | null;
-}
+// The four columns a draft keeps what the AI read in.
+type RecognizedStoreColumns = Pick<
+  Database["public"]["Tables"]["receipts"]["Row"],
+  "recognized_chain_en" | "recognized_chain_zh" | "recognized_branch_en" | "recognized_branch_zh"
+>;
 
 // The chain/branch the AI read off a receipt; null on a draft saved before
 // the split existed.

@@ -2,14 +2,13 @@
 // this, and `api/` imports that at runtime (api/cron/low-stock-check.ts).
 import { bilingualName, type BilingualName } from "./bilingualName.js";
 import { branchKey } from "./storeKey.js";
+import type { Database } from "../types/database.types.js";
 
 // A Store's four name columns, as stored.
-export interface StoreNames {
-  chain_name_en: string;
-  chain_name_zh: string | null;
-  branch_name_en: string | null;
-  branch_name_zh: string | null;
-}
+export type StoreNames = Pick<
+  Database["public"]["Tables"]["stores"]["Row"],
+  "chain_name_en" | "chain_name_zh" | "branch_name_en" | "branch_name_zh"
+>;
 
 // Whether a branch name names a branch — the one place that decides a
 // Store's branch is unknown, by its match key (branchKey): no name at all,
