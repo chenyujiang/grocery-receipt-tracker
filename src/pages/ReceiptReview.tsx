@@ -15,7 +15,7 @@ import { pickText, categoryLabel } from "@/lib/bilingual";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
 import StorePicker, { initialStorePick, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
-import type { Store } from "@/lib/stores";
+import { hasChain, type Store } from "@/lib/stores";
 
 // Section 6, 15 page 2 (preview/confirm): the review step is the safety net
 // for OCR errors — user edits each field before it counts toward statistics.
@@ -144,7 +144,12 @@ export default function ReceiptReview() {
         </div>
       ))}
 
-      <button type="button" className="btn-block" onClick={handleConfirm} disabled={confirming}>
+      <button
+        type="button"
+        className="btn-block"
+        onClick={handleConfirm}
+        disabled={confirming || !hasChain(storeChoiceOfPick(stores, storePick))}
+      >
         {confirming ? t("review.confirming") : t("review.confirm")}
       </button>
     </div>

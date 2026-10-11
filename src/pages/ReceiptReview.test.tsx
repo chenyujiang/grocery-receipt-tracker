@@ -191,6 +191,22 @@ describe("ReceiptReview", () => {
     });
   });
 
+  // resolveStore refuses a blank chain; the button says so before the user
+  // presses it, instead of the confirm failing.
+  it("disables confirm while the chain is blank", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
+
+    renderReviewPage();
+
+    const chain = await screen.findByLabelText(/chain|连锁/i);
+    const confirm = screen.getByRole("button", { name: /confirm/i });
+    await userEvent.clear(chain);
+    await userEvent.type(chain, " ");
+    expect(confirm).toBeDisabled();
+    await userEvent.type(chain, "Woolworths");
+    expect(confirm).toBeEnabled();
+  });
+
   // Matching is on the normalized keys, so the AI's "Pak n Save" finds the
   // Circle's PAK'nSAVE row — and the Store's own names win over the AI's.
   it("pre-selects the existing Store the AI's chain and branch match, and confirms with that Store's names", async () => {

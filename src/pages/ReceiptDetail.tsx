@@ -16,7 +16,7 @@ import DatePickerField from "@/components/DatePickerField";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
 import StorePicker, { initialStorePick, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
-import type { Store } from "@/lib/stores";
+import { hasChain, type Store } from "@/lib/stores";
 
 // Section 15, page 3 + issue 16: a confirmed receipt's own uploader can
 // toggle an inline edit mode to fix OCR mistakes — the shared
@@ -135,7 +135,12 @@ export default function ReceiptDetail() {
           ))}
 
           <div style={{ display: "flex", gap: 14, marginTop: 14 }}>
-            <button type="button" style={{ flex: 1 }} onClick={handleSave} disabled={saving}>
+            <button
+              type="button"
+              style={{ flex: 1 }}
+              onClick={handleSave}
+              disabled={saving || !storePick || !hasChain(storeChoiceOfPick(stores, storePick))}
+            >
               {saving ? t("detail.saving") : t("detail.save")}
             </button>
             <button

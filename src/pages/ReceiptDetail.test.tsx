@@ -213,6 +213,24 @@ describe("ReceiptDetail", () => {
     });
   });
 
+  // resolveStore refuses a blank chain; the button says so before the user
+  // presses it, instead of the save failing.
+  it("disables save while the chain is blank", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
+
+    renderDetailPage();
+    await screen.findByText("Countdown Newmarket");
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+
+    fireEvent.change(screen.getByRole("combobox", { name: /^store$/i }), { target: { value: "new" } });
+    const chain = screen.getByLabelText(/chain|连锁/i);
+    const save = screen.getByRole("button", { name: /save/i });
+    fireEvent.change(chain, { target: { value: " " } });
+    expect(save).toBeDisabled();
+    fireEvent.change(chain, { target: { value: "Woolworths" } });
+    expect(save).toBeEnabled();
+  });
+
   it("discards changes without saving when Cancel is clicked", async () => {
     vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
 

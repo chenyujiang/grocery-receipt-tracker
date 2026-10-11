@@ -99,6 +99,12 @@ export function storeNameOf(store: Store): BilingualName {
   });
 }
 
+// Whether a chain/branch pair names a chain at all — a Store with no chain
+// would show up blank in every member's picker, so resolveStore refuses one.
+export function hasChain({ chain }: StoreChoice): boolean {
+  return storeKey(chain.en, null).chainKey !== "";
+}
+
 // Whether two chain/branch pairs name the same Store, compared by the same
 // normalized keys resolveStore matches on.
 export function sameStoreKey(a: StoreChoice, b: StoreChoice): boolean {
@@ -146,11 +152,10 @@ export async function resolveStore(
   circleId: string,
   { chain, branch }: StoreChoice
 ): Promise<Store> {
-  const { chainKey, branchKey } = storeKey(chain.en, branch?.en ?? null);
-  // A Store with no chain would show up blank in every member's picker.
-  if (chainKey === "") {
+  if (!hasChain({ chain, branch })) {
     throw new Error("Enter the store's chain name");
   }
+  const { chainKey, branchKey } = storeKey(chain.en, branch?.en ?? null);
   const chainStores = client
     .from("stores")
     .select(STORE_SELECT)
