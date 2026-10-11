@@ -316,28 +316,28 @@ export async function confirmReceipt(
     throw userError ?? new Error("Not signed in");
   }
 
-  const { data: receiptCircle, error: circleError } = await supabase
+  const { data: existingReceipt, error: fetchError } = await supabase
     .from("receipts")
     .select(
       "circle_id, store_name_en, store_name_zh, recognized_chain_en, recognized_chain_zh, recognized_branch_en, recognized_branch_zh"
     )
     .eq("id", receiptId)
     .single();
-  if (circleError || !receiptCircle) {
-    throw circleError ?? new Error("Receipt not found");
+  if (fetchError || !existingReceipt) {
+    throw fetchError ?? new Error("Receipt not found");
   }
 
   // Resolved before anything is written, so a failure here leaves the draft
   // as it was instead of saving its items while it stays a draft.
-  const { store: confirmedStore, created } = await resolveStore(supabase, receiptCircle.circle_id, store);
+  const { store: confirmedStore, created } = await resolveStore(supabase, existingReceipt.circle_id, store);
   const storeId = confirmedStore.id;
 
   const purchaseDate = await takeBackStoreOnFailure(created ? storeId : null, () =>
-    writeConfirmation(receiptId, items, user.id, startingStore(receiptCircle), confirmedStore)
+    writeConfirmation(receiptId, items, user.id, startingStore(existingReceipt), confirmedStore)
   );
 
   await recordPriceSpikeAlerts(
-    receiptCircle.circle_id,
+    existingReceipt.circle_id,
     receiptId,
     { id: receiptId, storeId, purchaseDate },
     items
