@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
+import { join } from "path";
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
@@ -12,6 +13,11 @@ vi.mock("@/lib/productDetail", () => ({
 
 import { fetchProductDetail } from "@/lib/productDetail";
 import ProductDetail, { SERIES_COLOURS } from "@/pages/ProductDetail";
+
+// Found from this file rather than the working directory, so the test runs
+// the same from anywhere. (Vite's ?raw import would be neater, but Vitest
+// stubs CSS out, so it comes back empty.)
+const indexCss = readFileSync(join(__dirname, "../index.css"), "utf8");
 
 function renderPage() {
   return render(
@@ -235,14 +241,19 @@ describe("ProductDetail", () => {
   });
 
   // The chart cycles through SERIES_COLOURS colours, so index.css must define
-  // exactly that many, in light and dark mode alike — or a line goes
+  // exactly that many, in every colour scheme alike — or a line goes
   // uncoloured, or a defined colour is never used.
   it("has index.css define exactly SERIES_COLOURS trend colours, in light and dark mode", () => {
-    const css = readFileSync("src/index.css", "utf8");
-    const [light, dark] = css.split("@media (prefers-color-scheme: dark)");
+    const css = indexCss.replace(/\/\*[\s\S]*?\*\//g, "");
+    // Each innermost rule that sets a trend colour — the light :root and the
+    // dark override, wherever they sit — has to set all of them.
+    const schemes = [...css.matchAll(/\{([^{}]*)\}/g)]
+      .map((match) => match[1])
+      .filter((body) => /--series-\d+\s*:/.test(body));
+    expect(schemes.length).toBeGreaterThanOrEqual(2);
     const expected = Array.from({ length: SERIES_COLOURS }, (_, index) => `--series-${index + 1}`);
-    for (const block of [light, dark]) {
-      expect([...block.matchAll(/(--series-\d+):/g)].map((match) => match[1])).toEqual(expected);
+    for (const body of schemes) {
+      expect([...body.matchAll(/(--series-\d+)\s*:/g)].map((match) => match[1])).toEqual(expected);
     }
   });
 
