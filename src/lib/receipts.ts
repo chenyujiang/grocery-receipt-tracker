@@ -370,19 +370,19 @@ async function writeConfirmation(
   // other — but confirming the Store the AI's reading matched is not one.
   const logs: ReceiptLog[] = sameStoreKey(readStore, storeChoiceOf(confirmedStore))
     ? []
-    : [
-        {
-          field_name: "store",
-          old_value: storeChoiceName(readStore).en,
-          new_value: storeNameOf(confirmedStore).en,
-        },
-      ];
+    : [storeChangeLog(storeChoiceName(readStore), confirmedStore)];
   return updateReceiptWithLog(receiptId, { status: "confirmed", storeId: confirmedStore.id }, logs);
 }
 
 // A receipt-level EditLog row — the Store or the purchase date — as
 // update_receipt_with_log takes it.
 type ReceiptLog = Database["public"]["Functions"]["update_receipt_with_log"]["Args"]["p_logs"][number];
+
+// The EditLog row for moving a receipt to another Store, both names in
+// English, the Source Text — on confirm and on edit alike.
+function storeChangeLog(oldName: BilingualName, newStore: Store): ReceiptLog {
+  return { field_name: "store", old_value: oldName.en, new_value: storeNameOf(newStore).en };
+}
 
 // What update_receipt_with_log changes on a receipt; an absent field is left
 // as it is.
@@ -456,11 +456,7 @@ export async function editConfirmedReceipt(
     }
     if (existingReceipt.store_id !== newStore.id) {
       changes.storeId = newStore.id;
-      logs.push({
-        field_name: "store",
-        old_value: receiptStoreName(existingReceipt).en,
-        new_value: storeNameOf(newStore).en,
-      });
+      logs.push(storeChangeLog(receiptStoreName(existingReceipt), newStore));
     }
   }
   if (existingReceipt.purchase_date !== purchaseDate) {
