@@ -146,17 +146,17 @@ export async function resolveStore(
     throw new Error("Enter the store's chain name");
   }
   const { chain, branch } = choice;
-  const { chainKey, branchKey } = storeKey(chain.en, branch?.en ?? null);
+  const key = storeKey(chain.en, branch?.en ?? null);
   const chainStores = client
     .from("stores")
     .select(STORE_SELECT)
     .eq("circle_id", circleId)
-    .eq("chain_key", chainKey);
+    .eq("chain_key", key.chainKey);
   // `eq` with null never matches in PostgREST: an unknown branch needs `is`.
   const { data: existing, error: lookupError } = await (
-    branchKey === null
+    key.branchKey === null
       ? chainStores.is("branch_key", null)
-      : chainStores.eq("branch_key", branchKey)
+      : chainStores.eq("branch_key", key.branchKey)
   ).maybeSingle();
   if (lookupError) {
     throw lookupError;
@@ -175,7 +175,7 @@ export async function resolveStore(
   // retry creates it afresh.
   // An unknown branch has no name in either language; the stores check
   // constraint requires branch_name_en and branch_key to be null together.
-  const namedBranch = branchKey === null ? null : branch;
+  const namedBranch = key.branchKey === null ? null : branch;
   const { data: created, error: insertError } = await client
     .from("stores")
     .insert({
@@ -184,8 +184,8 @@ export async function resolveStore(
       chain_name_zh: chain.zh?.trim() || null,
       branch_name_en: namedBranch?.en.trim() ?? null,
       branch_name_zh: namedBranch?.zh?.trim() || null,
-      chain_key: chainKey,
-      branch_key: branchKey,
+      chain_key: key.chainKey,
+      branch_key: key.branchKey,
     })
     .select(STORE_SELECT)
     .single();
