@@ -49,9 +49,10 @@ const CHAIN_ALIASES: Record<string, string> = {
   "pakn save": "paknsave",
 };
 
-export function storeKey(chainEn: string, branchEn: string): StoreKey {
+// A branch that's null — or that normalizes away to nothing — is unknown.
+export function storeKey(chainEn: string, branchEn: string | null): StoreKey {
   const chain = normalize(chainEn);
-  return { chainKey: CHAIN_ALIASES[chain] ?? chain, branchKey: normalize(branchEn) || null };
+  return { chainKey: CHAIN_ALIASES[chain] ?? chain, branchKey: normalize(branchEn ?? "") || null };
 }
 
 // A name on its way in, not read back: zh is null when there's no
@@ -64,14 +65,11 @@ export interface BilingualText {
 }
 
 // A Store named by its chain and branch, as a page picks or types it — what
-// resolveStore takes. An empty branch means branch unknown.
+// resolveStore takes. A null branch means branch unknown, as on a Store.
 export interface StoreChoice {
   chain: BilingualText;
-  branch: BilingualText;
+  branch: BilingualText | null;
 }
-
-// A StoreChoice's branch when the branch is unknown.
-export const UNKNOWN_BRANCH_NAME: BilingualText = { en: "", zh: null };
 
 // A Store as the app sees it: one branch of one chain, in one Circle.
 export interface Store {
@@ -87,7 +85,7 @@ export interface Store {
 export function storeChoiceOf(store: Store): StoreChoice {
   return {
     chain: { en: store.chainNameEn, zh: store.chainNameZh },
-    branch: { en: store.branchNameEn ?? "", zh: store.branchNameZh },
+    branch: store.branchNameEn === null ? null : { en: store.branchNameEn, zh: store.branchNameZh },
   };
 }
 
@@ -107,9 +105,9 @@ export function matchingStore(
   stores: Store[],
   { chain, branch }: StoreChoice
 ): Store | undefined {
-  const wanted = storeKey(chain.en, branch.en);
+  const wanted = storeKey(chain.en, branch?.en ?? null);
   return stores.find((store) => {
-    const key = storeKey(store.chainNameEn, store.branchNameEn ?? "");
+    const key = storeKey(store.chainNameEn, store.branchNameEn);
     return key.chainKey === wanted.chainKey && key.branchKey === wanted.branchKey;
   });
 }
@@ -148,7 +146,7 @@ export async function resolveStore(
   circleId: string,
   { chain, branch }: StoreChoice
 ): Promise<Store> {
-  const { chainKey, branchKey } = storeKey(chain.en, branch.en);
+  const { chainKey, branchKey } = storeKey(chain.en, branch?.en ?? null);
   const chainStores = client
     .from("stores")
     .select(STORE_SELECT)
@@ -179,8 +177,8 @@ export async function resolveStore(
       chain_name_zh: chain.zh?.trim() ?? null,
       // An unknown branch has no name in either language; the stores check
       // constraint requires branch_name_en and branch_key to be null together.
-      branch_name_en: branchKey === null ? null : branch.en.trim(),
-      branch_name_zh: branchKey === null ? null : (branch.zh?.trim() ?? null),
+      branch_name_en: branchKey === null || branch === null ? null : branch.en.trim(),
+      branch_name_zh: branchKey === null || branch === null ? null : (branch.zh?.trim() ?? null),
       chain_key: chainKey,
       branch_key: branchKey,
     })

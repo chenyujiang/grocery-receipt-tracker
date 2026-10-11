@@ -166,7 +166,7 @@ describe("resolveStore", () => {
 
     const store = await resolveStore(db.client, "circle-1", {
       chain: { en: "Woolworths", zh: "沃尔沃斯" },
-      branch: { en: "", zh: "" },
+      branch: null,
     });
 
     expect(store).toMatchObject({ id: "store-woolworths-unknown", branchNameEn: null });

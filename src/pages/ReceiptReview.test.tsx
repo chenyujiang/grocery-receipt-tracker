@@ -58,7 +58,7 @@ const SAMPLE_DRAFT = {
 // its printed header as the chain, with the branch unknown.
 const HEADER_AS_CHAIN = {
   chain: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
-  branch: { en: "", zh: null },
+  branch: null,
 };
 
 const HORNBY_STORE = {
@@ -279,7 +279,7 @@ describe("ReceiptReview", () => {
 
     expect(confirmReceipt).toHaveBeenCalledWith("receipt-1", expect.any(Array), {
       chain: { en: "Woolworths", zh: "沃尔沃斯" },
-      branch: { en: "", zh: null },
+      branch: null,
     });
   });
 
@@ -353,7 +353,7 @@ describe("ReceiptReview", () => {
       ...SAMPLE_DRAFT,
       recognizedStore: {
         chain: { en: "Costco", zh: "好市多" },
-        branch: { en: "", zh: null },
+        branch: null,
       },
     });
     vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE]);

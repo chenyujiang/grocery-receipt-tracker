@@ -8,7 +8,6 @@ import {
   nearMissStores,
   storeChoiceOf,
   storeKey,
-  UNKNOWN_BRANCH_NAME,
   type Store,
   type StoreChoice,
 } from "@/lib/stores";
@@ -33,7 +32,7 @@ function initialTypedStore(draft: ReceiptDraft): StoreChoice {
   return (
     draft.recognizedStore ?? {
       chain: { en: draft.receiptHeader.en, zh: draft.receiptHeader.zh },
-      branch: UNKNOWN_BRANCH_NAME,
+      branch: null,
     }
   );
 }
@@ -47,7 +46,7 @@ export function initialStorePick(stores: Store[], draft: ReceiptDraft): StorePic
     stores.find((store) => store.id === draft.storeId) ?? matchingStore(stores, typed);
   const pickedStoreId = match
     ? match.id
-    : storeKey(typed.chain.en, typed.branch.en).branchKey === null
+    : storeKey(typed.chain.en, typed.branch?.en ?? null).branchKey === null
       ? UNKNOWN_BRANCH
       : NEW_BRANCH;
   return { pickedStoreId, typed };
@@ -58,7 +57,7 @@ export function storeChoiceOfPick(stores: Store[], pick: StorePick): StoreChoice
   const picked = stores.find((candidate) => candidate.id === pick.pickedStoreId);
   if (picked) return storeChoiceOf(picked);
   if (pick.pickedStoreId === UNKNOWN_BRANCH) {
-    return { chain: pick.typed.chain, branch: UNKNOWN_BRANCH_NAME };
+    return { chain: pick.typed.chain, branch: null };
   }
   return pick.typed;
 }
@@ -90,9 +89,11 @@ export default function StorePicker({ stores, value, onChange }: StorePickerProp
     : nearMissStores(stores, value.typed);
 
   // A retyped name no longer matches the AI's translation of the old one, so
-  // the Translation is dropped rather than kept stale.
+  // the Translation is dropped rather than kept stale. A cleared branch is
+  // branch unknown again.
   function rename(part: keyof StoreChoice, en: string) {
-    onChange({ ...value, typed: { ...value.typed, [part]: { en, zh: null } } });
+    const name = part === "branch" && en === "" ? null : { en, zh: null };
+    onChange({ ...value, typed: { ...value.typed, [part]: name } });
   }
 
   return (
@@ -125,7 +126,7 @@ export default function StorePicker({ stores, value, onChange }: StorePickerProp
         <label>
           {t("review.branch")}
           <input
-            value={value.typed.branch.en}
+            value={value.typed.branch?.en ?? ""}
             onChange={(event) => rename("branch", event.target.value)}
           />
         </label>

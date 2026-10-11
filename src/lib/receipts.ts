@@ -133,10 +133,10 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
         ? null
         : {
             chain: { en: receiptRow.recognized_chain_en, zh: receiptRow.recognized_chain_zh },
-            branch: {
-              en: receiptRow.recognized_branch_en ?? "",
-              zh: receiptRow.recognized_branch_zh,
-            },
+            // The AI writes a branch it couldn't read as empty text.
+            branch: receiptRow.recognized_branch_en
+              ? { en: receiptRow.recognized_branch_en, zh: receiptRow.recognized_branch_zh }
+              : null,
           },
     storeId: receiptRow.store_id,
     purchaseDate: receiptRow.purchase_date,
@@ -248,7 +248,7 @@ async function updateReceiptItemsWithLog(
 // A chain and branch as English text, compared on the normalized keys.
 interface StoreReading {
   chain: string;
-  branch: string;
+  branch: string | null;
 }
 
 // The Store the store picker starts a receipt on (StorePicker's
@@ -262,12 +262,12 @@ function startingStore(receipt: {
   stores?: { chain_name_en: string; branch_name_en: string | null } | null;
 }): StoreReading {
   if (receipt.stores) {
-    return { chain: receipt.stores.chain_name_en, branch: receipt.stores.branch_name_en ?? "" };
+    return { chain: receipt.stores.chain_name_en, branch: receipt.stores.branch_name_en };
   }
   if (receipt.recognized_chain_en != null) {
-    return { chain: receipt.recognized_chain_en, branch: receipt.recognized_branch_en ?? "" };
+    return { chain: receipt.recognized_chain_en, branch: receipt.recognized_branch_en || null };
   }
-  return { chain: receipt.store_name_en, branch: "" };
+  return { chain: receipt.store_name_en, branch: null };
 }
 
 // On the same normalized keys resolveStore matches on.
@@ -318,13 +318,13 @@ export async function confirmReceipt(
   // User story 3: correcting the Store the AI read is a Correction like any
   // other — but confirming the Store the AI's reading matched is not one.
   const read = startingStore(receiptCircle);
-  const confirmed = { chain: confirmedStore.chainNameEn, branch: confirmedStore.branchNameEn ?? "" };
+  const confirmed = { chain: confirmedStore.chainNameEn, branch: confirmedStore.branchNameEn };
   if (!sameStore(read, confirmed)) {
     const { error: logError } = await supabase.from("edit_logs").insert([
       {
         receipt_id: receiptId,
         field_name: "store",
-        old_value: [read.chain, read.branch].map((part) => part.trim()).filter(Boolean).join(" "),
+        old_value: [read.chain, read.branch ?? ""].map((part) => part.trim()).filter(Boolean).join(" "),
         new_value: storeNameOf(confirmedStore).en,
         edited_by: user.id,
       },
@@ -392,7 +392,7 @@ export async function editConfirmedReceipt(
   // re-raises nor withdraws alerts. Only a choice naming another Store than
   // the picker started on is resolved, so saving just a new date never
   // creates a Store or logs a Store change.
-  if (!sameStore(startingStore(existingReceipt), { chain: store.chain.en, branch: store.branch.en })) {
+  if (!sameStore(startingStore(existingReceipt), { chain: store.chain.en, branch: store.branch?.en ?? null })) {
     const newStore = await resolveStore(supabase, existingReceipt.circle_id, store);
     if (existingReceipt.store_id !== newStore.id) {
       changes.store_id = newStore.id;

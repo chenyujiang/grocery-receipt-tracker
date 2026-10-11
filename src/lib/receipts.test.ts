@@ -951,7 +951,7 @@ describe("editConfirmedReceipt", () => {
 
     await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], {
       chain: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
-      branch: { en: "", zh: null },
+      branch: null,
     });
 
     expect(db.callsFor("receipts")).toContainEqual(["update", { purchase_date: "2026-08-05" }]);
