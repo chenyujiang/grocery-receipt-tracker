@@ -330,6 +330,22 @@ describe("ReceiptReview", () => {
     });
   });
 
+  it("offers no candidates when the branch matches a Store exactly", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue({
+      ...SAMPLE_DRAFT,
+      recognizedStore: {
+        chain: { en: "Woolworths", zh: "沃尔沃斯" },
+        branch: { en: "Hornby", zh: "霍恩比" },
+      },
+    });
+    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE, ALBANY_STORE]);
+
+    renderReviewPage();
+
+    expect(await screen.findByRole("combobox", { name: /^store$/i })).toHaveValue("store-hornby");
+    expect(screen.queryByRole("group", { name: /did you mean/i })).not.toBeInTheDocument();
+  });
+
   // The header named no branch, so this isn't a new branch — and the picker
   // shouldn't say it is.
   it("starts on branch unknown when the AI read no branch and no Store matches", async () => {
