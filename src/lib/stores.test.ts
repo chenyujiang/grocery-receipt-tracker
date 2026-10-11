@@ -205,6 +205,16 @@ describe("resolveStore", () => {
       }),
     ]);
   });
+
+  // A Store with no chain would show up blank in every member's picker.
+  it("refuses a chain that's blank, without looking up or creating a Store", async () => {
+    const db = createFakeSupabase({ tables: {} });
+
+    await expect(
+      resolveStore(db.client, "circle-1", { chain: { en: " . ", zh: null }, branch: { en: "Hornby", zh: null } })
+    ).rejects.toThrow(/chain/i);
+    expect(db.callsFor("stores")).toEqual([]);
+  });
 });
 
 describe("listStores", () => {

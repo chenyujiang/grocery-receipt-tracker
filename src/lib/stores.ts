@@ -147,6 +147,10 @@ export async function resolveStore(
   { chain, branch }: StoreChoice
 ): Promise<Store> {
   const { chainKey, branchKey } = storeKey(chain.en, branch?.en ?? null);
+  // A Store with no chain would show up blank in every member's picker.
+  if (chainKey === "") {
+    throw new Error("Enter the store's chain name");
+  }
   const chainStores = client
     .from("stores")
     .select(STORE_SELECT)
