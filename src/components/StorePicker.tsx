@@ -3,6 +3,7 @@ import type { ReceiptDraft } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, type Language } from "@/lib/bilingual";
 import {
+  hasChain,
   matchingStore,
   nearMissStores,
   storeAsRead,
@@ -70,6 +71,10 @@ interface StorePickerProps {
 export default function StorePicker({ stores, value, onChange }: StorePickerProps) {
   const { language, t } = useLanguage();
   const candidatesLabelId = useId();
+  const chainHintId = useId();
+  // Confirm and Save stay disabled on a blank chain (resolveStore refuses
+  // one), so the field says why.
+  const chainBlank = !hasChain(value.typed);
   // Only while no existing Store is picked: a picked Store needs no offer.
   const candidates = stores.some((store) => store.id === value.pickedStoreId)
     ? []
@@ -101,13 +106,17 @@ export default function StorePicker({ stores, value, onChange }: StorePickerProp
         </select>
       </label>
       {(value.pickedStoreId === NEW_BRANCH || value.pickedStoreId === UNKNOWN_BRANCH) && (
-        <label>
-          {t("review.chain")}
-          <input
-            value={value.typed.chain.en}
-            onChange={(event) => rename("chain", event.target.value)}
-          />
-        </label>
+        <>
+          <label>
+            {t("review.chain")}
+            <input
+              value={value.typed.chain.en}
+              onChange={(event) => rename("chain", event.target.value)}
+              aria-describedby={chainBlank ? chainHintId : undefined}
+            />
+          </label>
+          {chainBlank && <p id={chainHintId}>{t("review.chainRequired")}</p>}
+        </>
       )}
       {value.pickedStoreId === NEW_BRANCH && (
         <label>

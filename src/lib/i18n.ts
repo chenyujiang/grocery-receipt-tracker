@@ -65,6 +65,7 @@ export const translations = {
     "review.newBranch": "New branch",
     "review.branchUnknown": "Branch unknown",
     "review.chain": "Chain",
+    "review.chainRequired": "Enter the chain name to continue.",
     "review.branch": "Branch",
     "review.didYouMean": "Did you mean one of these Stores?",
 
@@ -215,6 +216,7 @@ export const translations = {
     "review.newBranch": "新分店",
     "review.branchUnknown": "分店未知",
     "review.chain": "连锁",
+    "review.chainRequired": "请先填写连锁名才能继续。",
     "review.branch": "分店",
     "review.didYouMean": "是不是这几家门店之一？",
 

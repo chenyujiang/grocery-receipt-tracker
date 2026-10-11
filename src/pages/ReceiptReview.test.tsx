@@ -207,6 +207,20 @@ describe("ReceiptReview", () => {
     expect(confirm).toBeEnabled();
   });
 
+  // A disabled button alone doesn't say what's wrong; the chain field does.
+  it("says under the chain field that a chain is needed while it is blank", async () => {
+    vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
+
+    renderReviewPage();
+
+    const chain = await screen.findByLabelText(/chain|连锁/i);
+    expect(screen.queryByText(/enter the chain/i)).not.toBeInTheDocument();
+    await userEvent.clear(chain);
+    expect(chain).toHaveAccessibleDescription(/enter the chain/i);
+    await userEvent.type(chain, "Woolworths");
+    expect(screen.queryByText(/enter the chain/i)).not.toBeInTheDocument();
+  });
+
   // Matching is on the normalized keys, so the AI's "Pak n Save" finds the
   // Circle's PAK'nSAVE row — and the Store's own names win over the AI's.
   it("pre-selects the existing Store the AI's chain and branch match, and confirms with that Store's names", async () => {
