@@ -15,7 +15,7 @@ import { formatDateString, parseDateString } from "@/lib/dateRange";
 import DatePickerField from "@/components/DatePickerField";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
-import StorePicker, { initialStorePick, pickedStore, type StorePick } from "@/components/StorePicker";
+import StorePicker, { initialStorePick, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
 import type { Store } from "@/lib/stores";
 
 // Section 15, page 3 + issue 16: a confirmed receipt's own uploader can
@@ -72,7 +72,7 @@ export default function ReceiptDetail() {
         receiptId,
         formatDateString(purchaseDate),
         items.map(toItemUpdate),
-        pickedStore(stores, storePick)
+        storeChoiceOfPick(stores, storePick)
       );
       load();
       setEditing(false);

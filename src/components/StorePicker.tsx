@@ -27,7 +27,7 @@ export interface StorePick {
 // What the fields start on: the AI's chain/branch split, or — for a draft
 // saved before the split existed — the printed header as the chain with the
 // branch unknown, the same Store the backfill gives an old receipt.
-function initialStore(draft: ReceiptDraft): StoreChoice {
+function initialTypedStore(draft: ReceiptDraft): StoreChoice {
   return (
     draft.recognizedStore ?? {
       chain: { en: draft.receiptHeader.en, zh: draft.receiptHeader.zh },
@@ -40,7 +40,7 @@ function initialStore(draft: ReceiptDraft): StoreChoice {
 // else the Store matching what the AI read, if the Circle has one; else
 // "branch unknown" when no branch was read, else "new branch".
 export function initialStorePick(stores: Store[], draft: ReceiptDraft): StorePick {
-  const typed = initialStore(draft);
+  const typed = initialTypedStore(draft);
   const match =
     stores.find((store) => store.id === draft.storeId) ?? matchingStore(stores, typed);
   const pickedStoreId = match
@@ -52,7 +52,7 @@ export function initialStorePick(stores: Store[], draft: ReceiptDraft): StorePic
 }
 
 // The chain/branch to confirm or save the receipt with.
-export function pickedStore(stores: Store[], pick: StorePick): StoreChoice {
+export function storeChoiceOfPick(stores: Store[], pick: StorePick): StoreChoice {
   const picked = stores.find((candidate) => candidate.id === pick.pickedStoreId);
   if (picked) return storeChoiceOf(picked);
   if (pick.pickedStoreId === UNKNOWN_BRANCH) {

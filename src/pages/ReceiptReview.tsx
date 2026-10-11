@@ -14,7 +14,7 @@ import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
-import StorePicker, { initialStorePick, pickedStore, type StorePick } from "@/components/StorePicker";
+import StorePicker, { initialStorePick, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
 import type { Store } from "@/lib/stores";
 
 // Section 6, 15 page 2 (preview/confirm): the review step is the safety net
@@ -81,7 +81,7 @@ export default function ReceiptReview() {
     setError(null);
     setConfirming(true);
     try {
-      await confirmReceipt(receiptId, items.map(toItemUpdate), pickedStore(stores, storePick));
+      await confirmReceipt(receiptId, items.map(toItemUpdate), storeChoiceOfPick(stores, storePick));
       navigate("/");
     } catch (err) {
       setError(errorMessage(err, "Failed to confirm receipt"));
