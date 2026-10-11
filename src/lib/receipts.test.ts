@@ -1053,6 +1053,30 @@ describe("editConfirmedReceipt", () => {
     expect(db.callsFor("receipts")).toContainEqual(["update", { store_id: "store-riccarton" }]);
     expect(db.callsFor("receipts")).toContainEqual(["eq", "id", "receipt-1"]);
   });
+
+  // As on confirm: an edit that fails after creating the Store it moves the
+  // receipt to takes that Store back.
+  it("deletes the Store it created if moving the receipt there fails, and still throws that write's error", async () => {
+    const db = installFakeSupabase(supabase, {
+      auth: SIGNED_IN,
+      tables: {
+        receipt_items: [EXISTING_ITEM, ITEM_UPDATED],
+        receipts: [
+          { data: { purchase_date: "2026-08-05", ...AT_HORNBY_RECEIPT }, error: null },
+          { error: new Error("RLS denied") },
+        ],
+        stores: [{ data: null, error: null }, RICCARTON_FOUND, WROTE_OK],
+        edit_logs: WROTE_OK,
+      },
+    });
+
+    await expect(
+      editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], RICCARTON)
+    ).rejects.toThrow("RLS denied");
+    const cleanup = db.queriesFor("stores")[2];
+    expect(cleanup).toContainEqual(["delete"]);
+    expect(cleanup).toContainEqual(["eq", "id", "store-riccarton"]);
+  });
 });
 
 describe("deleteReceipt", () => {

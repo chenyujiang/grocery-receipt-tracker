@@ -328,18 +328,9 @@ export async function confirmReceipt(
   const { store: confirmedStore, created } = await resolveStore(supabase, receiptCircle.circle_id, store);
   const storeId = confirmedStore.id;
 
-  let purchaseDate: string;
-  try {
-    purchaseDate = await writeConfirmation(receiptId, items, user.id, startingStore(receiptCircle), confirmedStore);
-  } catch (err) {
-    // A failed confirm takes back the Store it created, so an abandoned draft
-    // leaves none in the picker. Best effort: if the delete fails too, the
-    // Store stays, and the user still sees why the confirm failed.
-    if (created) {
-      await deleteUnusedStore(supabase, storeId).catch(() => undefined);
-    }
-    throw err;
-  }
+  const purchaseDate = await takeBackStoreOnFailure(created ? storeId : null, () =>
+    writeConfirmation(receiptId, items, user.id, startingStore(receiptCircle), confirmedStore)
+  );
 
   await recordPriceSpikeAlerts(
     receiptCircle.circle_id,
@@ -347,6 +338,21 @@ export async function confirmReceipt(
     { id: receiptId, storeId, purchaseDate },
     items
   );
+}
+
+// Runs the writes that follow resolving a Store. If they fail and the Store
+// was created for them, it's taken back, so an abandoned receipt leaves no
+// Store in the picker. Best effort: if the delete fails too, the Store stays,
+// and the user still sees why the writes failed.
+async function takeBackStoreOnFailure<T>(createdStoreId: string | null, write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (err) {
+    if (createdStoreId !== null) {
+      await deleteUnusedStore(supabase, createdStoreId).catch(() => undefined);
+    }
+    throw err;
+  }
 }
 
 // confirmReceipt's writes once its Store is resolved: the items, the Store
@@ -424,13 +430,17 @@ export async function editConfirmedReceipt(
 
   const changes: { purchase_date?: string; store_id?: string } = {};
   const logs: Array<{ field_name: string; old_value: string | null; new_value: string }> = [];
+  let createdStoreId: string | null = null;
   // Issue 29: moving a receipt to another Store is logged by the Stores'
   // names, so the log reads on its own, and — like every edit — neither
   // re-raises nor withdraws alerts. Only a choice naming another Store than
   // the picker started on is resolved, so saving just a new date never
   // creates a Store or logs a Store change.
   if (!sameStoreKey(startingStore(existingReceipt), store)) {
-    const { store: newStore } = await resolveStore(supabase, existingReceipt.circle_id, store);
+    const { store: newStore, created } = await resolveStore(supabase, existingReceipt.circle_id, store);
+    if (created) {
+      createdStoreId = newStore.id;
+    }
     if (existingReceipt.store_id !== newStore.id) {
       changes.store_id = newStore.id;
       logs.push({
@@ -452,20 +462,22 @@ export async function editConfirmedReceipt(
     return;
   }
 
-  const { error: logError } = await supabase
-    .from("edit_logs")
-    .insert(logs.map((log) => ({ receipt_id: receiptId, ...log, edited_by: user.id })));
-  if (logError) {
-    throw logError;
-  }
+  await takeBackStoreOnFailure(createdStoreId, async () => {
+    const { error: logError } = await supabase
+      .from("edit_logs")
+      .insert(logs.map((log) => ({ receipt_id: receiptId, ...log, edited_by: user.id })));
+    if (logError) {
+      throw logError;
+    }
 
-  const { error: updateError } = await supabase
-    .from("receipts")
-    .update(changes)
-    .eq("id", receiptId);
-  if (updateError) {
-    throw updateError;
-  }
+    const { error: updateError } = await supabase
+      .from("receipts")
+      .update(changes)
+      .eq("id", receiptId);
+    if (updateError) {
+      throw updateError;
+    }
+  });
 }
 
 // Section 13: after confirming, check each item's product for a >15% price
