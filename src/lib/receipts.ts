@@ -8,6 +8,7 @@ import {
   storeAsRead,
   storeChoiceName,
   storeChoiceOf,
+  storeChoiceOfNames,
   storeNameOf,
   type Store,
   type StoreChoice,
@@ -16,7 +17,7 @@ import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
 import { bilingualName, type BilingualName } from "@/lib/bilingualName";
-import { receiptStoreName, STORE_NAMES_EMBED } from "@/lib/storeName";
+import { receiptStoreName, STORE_NAMES_EMBED, type StoreNames } from "@/lib/storeName";
 
 export interface UploadReceiptResult {
   receiptId: string;
@@ -260,13 +261,12 @@ function recognizedStoreOf(receipt: RecognizedStoreColumns): StoreChoice | null 
   if (receipt.recognized_chain_en == null) {
     return null;
   }
-  return {
-    chain: { en: receipt.recognized_chain_en, zh: receipt.recognized_chain_zh },
-    // The AI writes a branch it couldn't read as empty text.
-    branch: receipt.recognized_branch_en
-      ? { en: receipt.recognized_branch_en, zh: receipt.recognized_branch_zh }
-      : null,
-  };
+  return storeChoiceOfNames({
+    chain_name_en: receipt.recognized_chain_en,
+    chain_name_zh: receipt.recognized_chain_zh,
+    branch_name_en: receipt.recognized_branch_en,
+    branch_name_zh: receipt.recognized_branch_zh,
+  });
 }
 
 // The Store the store picker starts a receipt on (StorePicker's
@@ -274,19 +274,10 @@ function recognizedStoreOf(receipt: RecognizedStoreColumns): StoreChoice | null 
 function startingStore(receipt: RecognizedStoreColumns & {
   store_name_en: string;
   store_name_zh: string | null;
-  stores?: {
-    chain_name_en: string;
-    chain_name_zh: string | null;
-    branch_name_en: string | null;
-    branch_name_zh: string | null;
-  } | null;
+  stores?: StoreNames | null;
 }): StoreChoice {
   if (receipt.stores) {
-    const { chain_name_en, chain_name_zh, branch_name_en, branch_name_zh } = receipt.stores;
-    return {
-      chain: { en: chain_name_en, zh: chain_name_zh },
-      branch: branch_name_en === null ? null : { en: branch_name_en, zh: branch_name_zh },
-    };
+    return storeChoiceOfNames(receipt.stores);
   }
   return storeAsRead({
     recognizedStore: recognizedStoreOf(receipt),

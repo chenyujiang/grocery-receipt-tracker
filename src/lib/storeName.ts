@@ -2,7 +2,8 @@
 // this, and `api/` imports that at runtime (api/cron/low-stock-check.ts).
 import { bilingualName, type BilingualName } from "./bilingualName.js";
 
-interface StoreNames {
+// A Store's four name columns, as stored.
+export interface StoreNames {
   chain_name_en: string;
   chain_name_zh: string | null;
   branch_name_en: string | null;

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import type { BilingualName } from "@/lib/bilingualName";
-import { storeName } from "@/lib/storeName";
+import { storeName, type StoreNames } from "@/lib/storeName";
 
 // The normalized match keys for a Store, stored as stores.chain_key /
 // stores.branch_key. Matching is exact on these keys, so everything that
@@ -94,20 +94,31 @@ export interface Store {
 // A Store as the chain/branch names resolveStore takes — what a page passes
 // to confirm or edit a receipt at that Store.
 export function storeChoiceOf(store: Store): StoreChoice {
+  return storeChoiceOfNames(storeNamesOf(store));
+}
+
+// A chain/branch pair from its four name columns — a Store's, or what the AI
+// read. The one place that decides a branch is unknown: no name at all, or
+// the empty text the AI writes for a branch it couldn't read.
+export function storeChoiceOfNames(names: StoreNames): StoreChoice {
   return {
-    chain: { en: store.chainNameEn, zh: store.chainNameZh },
-    branch: store.branchNameEn === null ? null : { en: store.branchNameEn, zh: store.branchNameZh },
+    chain: { en: names.chain_name_en, zh: names.chain_name_zh },
+    branch: names.branch_name_en ? { en: names.branch_name_en, zh: names.branch_name_zh } : null,
+  };
+}
+
+function storeNamesOf(store: Store): StoreNames {
+  return {
+    chain_name_en: store.chainNameEn,
+    chain_name_zh: store.chainNameZh,
+    branch_name_en: store.branchNameEn,
+    branch_name_zh: store.branchNameZh,
   };
 }
 
 // A Store's name as one line — chain, then branch if it has one.
 export function storeNameOf(store: Store): BilingualName {
-  return storeName({
-    chain_name_en: store.chainNameEn,
-    chain_name_zh: store.chainNameZh,
-    branch_name_en: store.branchNameEn,
-    branch_name_zh: store.branchNameZh,
-  });
+  return storeName(storeNamesOf(store));
 }
 
 // Whether a chain/branch pair names a chain at all — a Store with no chain
