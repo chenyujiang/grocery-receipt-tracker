@@ -1,8 +1,4 @@
-import {
-  calculatePriceChangesByStore,
-  comparedPurchasesAtStore,
-  type StorePurchaseRecord,
-} from "@/lib/priceChange";
+import { calculatePriceChangesByStore, type StorePurchaseRecord } from "@/lib/priceChange";
 
 // A purchase as the leaderboard reads it: priced, at a Store, with that
 // Store's display name for labelling the row.
@@ -51,13 +47,8 @@ export function buildPriceChangeLeaderboard(
     if (!biggestRise) {
       continue;
     }
-    // Labelled with the purchase the change's "current" price came from —
-    // there always is one when there's a rise, since the rise compared it.
-    const compared = comparedPurchasesAtStore(history.purchases, biggestRise.storeId);
-    if (!compared) {
-      continue;
-    }
-    const { current: latestAtStore } = compared;
+    // Labelled with the purchase the change's "current" price came from.
+    const { current: latestAtStore } = biggestRise;
     entries.push({
       productId: history.productId,
       nameEn: history.nameEn,

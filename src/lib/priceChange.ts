@@ -14,26 +14,32 @@ export interface PriceChange {
   current: NormalizedUnitPrice;
 }
 
+// A price change with the two purchases it compared, for callers that need
+// more of them than their prices — a date, a Store name.
+export interface PurchaseComparison<T> {
+  change: PriceChange;
+  baseline: T;
+  current: T;
+}
+
 // Section 10: the two most recent *normal-price* purchases — promotional
 // rows are filtered out entirely before picking "current" and "baseline", so
 // a promo never becomes the baseline and a promo purchase never gets
 // evaluated as "current" either. Null with fewer than two.
-function comparedPurchases<T extends PurchaseRecord>(records: T[]): { baseline: T; current: T } | null {
+function comparePurchases<T extends PurchaseRecord>(records: T[]): PurchaseComparison<T> | null {
   const normalPriceRecords = records.filter((record) => !record.isPromotion);
   if (normalPriceRecords.length < 2) {
     return null;
   }
   const [baseline, current] = normalPriceRecords.slice(-2);
-  return { baseline, current };
+  return { change: priceChangeBetween(baseline, current), baseline, current };
 }
 
 export function calculatePriceChange(records: PurchaseRecord[]): PriceChange | null {
-  const compared = comparedPurchases(records);
-  if (!compared) {
-    return null;
-  }
-  const { baseline: baselineRecord, current: currentRecord } = compared;
+  return comparePurchases(records)?.change ?? null;
+}
 
+function priceChangeBetween(baselineRecord: PurchaseRecord, currentRecord: PurchaseRecord): PriceChange {
   const baseline = normalizeUnitPrice(
     baselineRecord.unitPrice,
     baselineRecord.specValue,
@@ -59,14 +65,14 @@ export interface StorePurchaseRecord extends PurchaseRecord {
   storeId: string | null;
 }
 
-export interface StorePriceChange {
+export interface StorePriceChange<T extends StorePurchaseRecord = StorePurchaseRecord>
+  extends PurchaseComparison<T> {
   storeId: string;
-  change: PriceChange;
 }
 
 // The Same-Store Price Change rule, in its one home: purchases are grouped by
-// Store before calculatePriceChange ever sees them, so two purchases at two
-// different Stores are never compared. calculatePriceChange stays
+// Store before they're ever compared, so two purchases at two
+// different Stores are never compared. The comparison stays
 // store-unaware — it answers "what did these purchases do", this decides
 // which purchases belong together. Every per-Store function below starts
 // here. Stores come back in order of first appearance. A purchase with no
@@ -84,33 +90,24 @@ function recordsByStore<T extends StorePurchaseRecord>(records: T[]): Map<string
   return byStore;
 }
 
-export function calculatePriceChangesByStore(
-  records: StorePurchaseRecord[]
-): StorePriceChange[] {
-  const changes: StorePriceChange[] = [];
+export function calculatePriceChangesByStore<T extends StorePurchaseRecord>(
+  records: T[]
+): StorePriceChange<T>[] {
+  const changes: StorePriceChange<T>[] = [];
   for (const [storeId, storeRecords] of recordsByStore(records)) {
-    const change = calculatePriceChange(storeRecords);
-    if (change) {
-      changes.push({ storeId, change });
+    const comparison = comparePurchases(storeRecords);
+    if (comparison) {
+      changes.push({ storeId, ...comparison });
     }
   }
   return changes;
 }
 
-// The two purchases the Same-Store Price Change at one Store compares, for
-// callers that need more of them than their prices — a date, a Store name.
-export function comparedPurchasesAtStore<T extends StorePurchaseRecord>(
+// The Same-Store Price Change at one Store, with the two purchases it
+// compared, or null when that Store has too few normal-price purchases.
+export function priceChangeAtStore<T extends StorePurchaseRecord>(
   records: T[],
   storeId: string
-): { baseline: T; current: T } | null {
-  return comparedPurchases(recordsByStore(records).get(storeId) ?? []);
-}
-
-// The Same-Store Price Change at one Store, or null when that Store has too
-// few normal-price purchases to compare.
-export function priceChangeAtStore(
-  records: StorePurchaseRecord[],
-  storeId: string
-): PriceChange | null {
-  return calculatePriceChange(recordsByStore(records).get(storeId) ?? []);
+): PurchaseComparison<T> | null {
+  return comparePurchases(recordsByStore(records).get(storeId) ?? []);
 }

@@ -41,7 +41,7 @@ function headlinePriceChange(purchases: Purchase[]): HeadlinePriceChange | null 
     return null;
   }
   return {
-    ...atStore,
+    ...atStore.change,
     storeId: latest.storeId,
     storeNameEn: latest.storeNameEn,
     storeNameZh: latest.storeNameZh,
