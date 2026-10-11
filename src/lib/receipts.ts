@@ -18,6 +18,7 @@ import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
 import { bilingualName, type BilingualName } from "@/lib/bilingualName";
 import { receiptStoreName, STORE_NAMES_EMBED, type StoreNames } from "@/lib/storeName";
+import type { Database } from "@/types/database.types";
 
 export interface UploadReceiptResult {
   receiptId: string;
@@ -379,8 +380,9 @@ async function writeConfirmation(
   return updateReceiptWithLog(receiptId, { status: "confirmed", storeId: confirmedStore.id }, logs);
 }
 
-// A receipt-level EditLog row: the Store or the purchase date.
-type ReceiptLog = { field_name: string; old_value: string | null; new_value: string };
+// A receipt-level EditLog row — the Store or the purchase date — as
+// update_receipt_with_log takes it.
+type ReceiptLog = Database["public"]["Functions"]["update_receipt_with_log"]["Args"]["p_logs"][number];
 
 // Changes the receipt and writes its EditLog rows in one transaction
 // (update_receipt_with_log): EditLog is append-only, so a row logged for a
