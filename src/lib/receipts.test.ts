@@ -597,17 +597,41 @@ describe("confirmReceipt", () => {
   });
 
   it("does not mark the receipt confirmed if an item update fails", async () => {
-    // `receipts` is left unprepared: touching it at all would throw.
     const db = installFakeSupabase(supabase, {
       auth: SIGNED_IN,
       tables: {
         receipt_items: [EXISTING_ITEM, { error: new Error("RLS denied") }],
+        // Only the read before the Store is resolved; a status update would
+        // have nothing prepared and throw.
+        receipts: [{ data: { circle_id: "circle-1", ...READ_AS_HORNBY }, error: null }],
+        stores: HORNBY_FOUND,
         edit_logs: WROTE_OK,
       },
     });
 
     await expect(confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY)).rejects.toThrow("RLS denied");
-    expect(db.callsFor("receipts")).toEqual([]);
+    expect(db.callsFor("receipts")).not.toContainEqual(["update", expect.anything()]);
+  });
+
+  // The Store is resolved before anything is written, so a failure there —
+  // such as two members creating the same new branch at once — leaves the
+  // draft exactly as it was, rather than saving its items while it stays a
+  // draft.
+  it("writes no item edits if the Store can't be resolved", async () => {
+    // `receipt_items` and `edit_logs` are left unprepared: touching either
+    // at all would throw.
+    const db = installFakeSupabase(supabase, {
+      auth: SIGNED_IN,
+      tables: {
+        receipts: [{ data: { circle_id: "circle-1", ...READ_AS_HORNBY }, error: null }],
+        stores: { data: null, error: new Error("duplicate key value violates unique constraint") },
+      },
+    });
+
+    await expect(confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY)).rejects.toThrow(
+      "duplicate key value"
+    );
+    expect(db.callsFor("receipts")).not.toContainEqual(["update", expect.anything()]);
   });
 
   it("records a price_spike alert when a confirmed item's price exceeds the 15% threshold", async () => {

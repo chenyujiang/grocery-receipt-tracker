@@ -299,8 +299,6 @@ export async function confirmReceipt(
     throw userError ?? new Error("Not signed in");
   }
 
-  await updateReceiptItemsWithLog(items, user.id);
-
   const { data: receiptCircle, error: circleError } = await supabase
     .from("receipts")
     .select("circle_id, store_name_en, recognized_chain_en, recognized_branch_en")
@@ -310,8 +308,12 @@ export async function confirmReceipt(
     throw circleError ?? new Error("Receipt not found");
   }
 
+  // Resolved before anything is written, so a failure here leaves the draft
+  // as it was instead of saving its items while it stays a draft.
   const confirmedStore = await resolveStore(supabase, receiptCircle.circle_id, store);
   const storeId = confirmedStore.id;
+
+  await updateReceiptItemsWithLog(items, user.id);
 
   // User story 3: correcting the Store the AI read is a Correction like any
   // other — but confirming the Store the AI's reading matched is not one.
