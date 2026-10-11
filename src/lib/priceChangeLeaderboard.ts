@@ -51,8 +51,13 @@ export function buildPriceChangeLeaderboard(
     if (!biggestRise) {
       continue;
     }
-    // Labelled with the purchase the change's "current" price came from.
-    const { current: latestAtStore } = comparedPurchasesAtStore(history.purchases, biggestRise.storeId)!;
+    // Labelled with the purchase the change's "current" price came from —
+    // there always is one when there's a rise, since the rise compared it.
+    const compared = comparedPurchasesAtStore(history.purchases, biggestRise.storeId);
+    if (!compared) {
+      continue;
+    }
+    const { current: latestAtStore } = compared;
     entries.push({
       productId: history.productId,
       nameEn: history.nameEn,

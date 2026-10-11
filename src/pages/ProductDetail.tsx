@@ -51,8 +51,10 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
   const span = max - min || 1;
 
   // Stores in order of first purchase, so a product's colours stay put as
-  // newer purchases arrive.
-  const storeIds = [...new Set(points.map((point) => point.storeId))];
+  // newer purchases arrive — each with its legend label, which every purchase
+  // at one Store shares.
+  const storeLines = [...new Map(points.map((point) => [point.storeId, point.storeShortName]))];
+  const storeIds = storeLines.map(([storeId]) => storeId);
   const colourOf = (storeId: string | null) =>
     `var(--series-${(storeIds.indexOf(storeId) % SERIES_COLOURS) + 1})`;
 
@@ -94,8 +96,7 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
         ))}
       </svg>
       <ul className="price-trend-legend" aria-label={t("product.trendLegend")}>
-        {storeIds.map((storeId) => {
-          const { storeShortName } = points.find((point) => point.storeId === storeId)!;
+        {storeLines.map(([storeId, storeShortName]) => {
           return (
             <li key={storeId}>
               <svg width="10" height="10" aria-hidden="true">

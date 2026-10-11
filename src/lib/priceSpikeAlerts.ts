@@ -56,11 +56,12 @@ export function detectPriceSpikes(
     }
     const upToReceipt = history.purchases.slice(0, ownIndex + 1);
     const storeChange = priceChangeAtStore(upToReceipt, receipt.storeId);
-    if (!storeChange || storeChange.changePercent <= SPIKE_THRESHOLD_PERCENT) {
+    const compared = comparedPurchasesAtStore(upToReceipt, receipt.storeId);
+    if (!storeChange || !compared || storeChange.changePercent <= SPIKE_THRESHOLD_PERCENT) {
       continue;
     }
 
-    const { baseline, current } = comparedPurchasesAtStore(upToReceipt, receipt.storeId)!;
+    const { baseline, current } = compared;
     if (daysBetween(baseline.purchaseDate, receipt.purchaseDate) > MAX_BASELINE_AGE_DAYS) {
       continue;
     }
