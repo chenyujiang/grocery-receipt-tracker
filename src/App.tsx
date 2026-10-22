@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import RequireAuth from "@/components/RequireAuth";
@@ -11,9 +12,14 @@ import ProductDetail from "@/pages/ProductDetail";
 import MonthlyReport from "@/pages/MonthlyReport";
 import Notifications from "@/pages/Notifications";
 import CircleSettings from "@/pages/CircleSettings";
-import AdminDashboard from "@/pages/AdminDashboard";
 import RequireGlobalAdmin from "@/components/RequireGlobalAdmin";
 import { ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
+
+// Issue 32: its own chunk, fetched only once RequireGlobalAdmin has passed,
+// so non-admins never download the dashboard's code. ADMIN_DASHBOARD_PATH
+// itself stays in the main bundle (routing + post-login redirect need it);
+// see the ticket's Answer for why that's acceptable.
+const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
 
 // Everything except /auth requires a signed-in session and shows the bottom
 // nav; /auth renders standalone (no nav, nothing to navigate to yet).
@@ -53,7 +59,9 @@ export default function App() {
         path={ADMIN_DASHBOARD_PATH}
         element={
           <RequireGlobalAdmin>
-            <AdminDashboard />
+            <Suspense fallback={null}>
+              <AdminDashboard />
+            </Suspense>
           </RequireGlobalAdmin>
         }
       />
