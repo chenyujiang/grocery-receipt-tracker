@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { parseBearerToken } from "../_lib/bearerToken.js";
-import { getAccessStatus, recordSuccess } from "../_lib/userAiAccess.js";
+import { recordSuccess, releaseReservation, reserveCall } from "../_lib/userAiAccess.js";
 import { aiAccessRefusalMessage } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt.js";
@@ -10,9 +10,10 @@ import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
 
 // Section 3.2 (End-to-end data flow) + Section 8 (Product Matching):
 // 1. Verify the caller's Supabase session and look up their circle.
-// 2. Refuse if this caller's user_ai_access says they're out of allowance
-//    (Section 16: one free call for a brand-new user, then a dollar cap
-//    an admin grants — per-user, not the old circle-wide cap).
+// 2. Reserve a call against this caller's user_ai_access, or refuse if
+//    they're out of allowance (Section 16: FREE_TRIAL_LIMIT free calls for a
+//    brand-new user, then a dollar cap an admin grants — per-user, not the
+//    old circle-wide cap). A reservation whose call fails is released.
 // 3. Store the uploaded image in a private Supabase Storage bucket.
 // 4. Call Claude (claude-haiku-4-5) to OCR the receipt, translate
 //    English -> Chinese, and suggest a product match, all in one call.
@@ -91,11 +92,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Issue 15: per-user access, checked before every Claude call — a brand
   // new user gets FREE_TRIAL_LIMIT free successful calls, then needs an
   // admin to grant them a real dollar-based credit; no auto-reset either way.
-  const accessStatus = await getAccessStatus(user.id);
-  if (!accessStatus.allowed) {
-    res.status(402).json({ error: aiAccessRefusalMessage(accessStatus) });
+  // Ticket 37: the check also reserves the call atomically, so concurrent
+  // uploads can't all slip through on the last free call.
+  const reservation = await reserveCall(user.id);
+  if (!reservation.allowed) {
+    res.status(402).json({ error: aiAccessRefusalMessage(reservation) });
     return;
   }
+  // Set once Claude has answered: from then on the call counts as spent, even
+  // if saving the Draft fails afterwards. Until then, any exit hands the
+  // reservation back (the Free Trial counts successful calls only).
+  let callSucceeded = false;
 
   // Everything past this point can throw (a bad/oversized image, a Claude
   // API error, an unexpected Supabase failure) — without this, an uncaught
@@ -126,12 +133,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }));
 
     const { receipt, usage } = await recognizeReceipt({ imageBase64, mediaType, existingProducts });
+    callSucceeded = true;
 
     const cost = calculateHaikuCost({
       input_tokens: usage.inputTokens,
       output_tokens: usage.outputTokens,
     });
-    await recordSuccess(user.id, cost);
+    await recordSuccess(user.id, reservation.mode, cost);
 
     const { receiptId } = await saveDraftReceipt({
       circleId,
@@ -146,5 +154,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     console.error("[api/receipts/recognize] failed:", err);
     res.status(500).json({ error: extractErrorMessage(err) });
+  } finally {
+    if (!callSucceeded) {
+      // The response is already sent; a failed hand-back is logged, never
+      // allowed to replace it. Worst case the user loses one trial call.
+      try {
+        await releaseReservation(user.id, reservation.mode);
+      } catch (releaseErr) {
+        console.error("[api/receipts/recognize] failed to release reservation:", releaseErr);
+      }
+    }
   }
 }
