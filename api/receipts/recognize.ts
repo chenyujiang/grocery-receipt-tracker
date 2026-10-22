@@ -30,17 +30,20 @@ function isAllowedMediaType(value: unknown): value is AllowedMediaType {
   return typeof value === "string" && (ALLOWED_MEDIA_TYPES as readonly string[]).includes(value);
 }
 
-// Supabase's PostgrestError is a plain object (not an Error instance), so a
-// bare `err instanceof Error` check missed it entirely and fell through to
-// a generic message with no way to tell what actually failed.
+// An Error's message is shown to the user: the ones thrown on this path were
+// written for them (a photo that can't be read, a receipt too long to read in
+// one go). Supabase's PostgrestError is a plain object (not an Error
+// instance), and its message names tables, columns and constraints — so it,
+// like anything else that isn't an Error, gets the generic message instead
+// (ticket 38). The raw error is still logged by the caller.
 //
-// Mirrored on the frontend by errorMessage() in src/lib/errorMessage.ts —
-// kept as a separate copy rather than a shared import. Change both together.
+// The frontend's errorMessage() in src/lib/errorMessage.ts is the same check
+// for an Error, kept as a separate copy rather than a shared import — change
+// both together. It deliberately still shows a PostgrestError's message: in
+// the browser that's the user's own RLS/constraint failure, already visible
+// to them in the network tab, and the only clue to what went wrong.
 function extractErrorMessage(err: unknown): string {
-  if (err instanceof Error) {
-    return err.message;
-  }
-  if (err && typeof err === "object" && "message" in err && typeof err.message === "string") {
+  if (err instanceof Error && err.message.trim()) {
     return err.message;
   }
   return "Failed to recognize receipt";
@@ -103,18 +106,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // if saving the Draft fails afterwards. Until then, any exit hands the
   // reservation back (the Free Trial counts successful calls only).
   let claudeAnswered = false;
+  // Set once the image is in the bucket. A failure after that deletes it again
+  // (ticket 38) — otherwise it stays there with no receipt pointing at it.
+  let storedPath: string | null = null;
 
   // Every failure response goes through here, so the hand-back is awaited
   // *before* the response is written — once it's sent, Vercel may freeze the
   // function and the release would never run. A failed hand-back is logged,
   // never allowed to replace the original error; worst case the user loses
-  // one trial call.
+  // one trial call. Deleting the stored image is best effort the same way:
+  // worst case it's left orphaned in the bucket, as it always used to be.
   async function fail(status: number, error: string) {
     if (!claudeAnswered) {
       try {
         await reservation.release();
       } catch (releaseErr) {
         console.error("[api/receipts/recognize] failed to release reservation:", releaseErr);
+      }
+    }
+    if (storedPath) {
+      try {
+        const { error: removeError } = await supabaseAdmin.storage.from("receipts").remove([storedPath]);
+        if (removeError) {
+          throw removeError;
+        }
+      } catch (removeErr) {
+        console.error("[api/receipts/recognize] failed to delete the stored image:", removeErr);
       }
     }
     res.status(status).json({ error });
@@ -134,6 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await fail(500, "Failed to store the receipt image");
       return;
     }
+    storedPath = storagePath;
 
     const { data: existingProductRows, error: productsError } = await supabaseAdmin
       .from("products")

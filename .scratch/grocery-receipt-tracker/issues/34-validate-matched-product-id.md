@@ -1,5 +1,5 @@
 Type: bug
-Status: ready-for-agent
+Status: resolved
 GitHub: #38
 
 ## Problem
@@ -16,6 +16,10 @@ In `recognizeReceipt`, accept `matched_product_id` only if it's in the `existing
 
 - An id that is in `existingProducts` passes through.
 - An id that isn't (including a malformed string) comes back as `null`.
+
+## Answer
+
+Done as proposed. `recognizeReceipt` builds a `Set` of the `existingProducts` ids the prompt listed and keeps an item's `matched_product_id` only if it's in that set; anything else (a mistyped, invented or malformed id) becomes `null`, so the item is saved as a new product and the user can re-link it on the review page. Tests in `api/_lib/recognizeReceipt.test.ts` cover an offered id passing through and an unoffered or malformed one coming back as `null`.
 
 ---
 
@@ -35,3 +39,7 @@ In `recognizeReceipt`, accept `matched_product_id` only if it's in the `existing
 
 - 在 `existingProducts` 里的 id 原样保留。
 - 不在里面的 id（包括格式不对的字符串）返回 `null`。
+
+## 答案
+
+按方案做完了。`recognizeReceipt` 用提示词里列出的 `existingProducts` 的 id 建一个 `Set`，只有在这个集合里的 `matched_product_id` 才保留；其他值（写错的、编造的、格式不对的 id）一律变成 `null`，这一行就按新商品保存，用户可以在核对页重新关联。测试在 `api/_lib/recognizeReceipt.test.ts`：给出过的 id 原样保留，没给出过的或格式不对的返回 `null`。
