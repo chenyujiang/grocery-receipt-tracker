@@ -40,7 +40,7 @@ All three are SECURITY DEFINER with `set search_path = ''`, and execute is grant
 
 **A grant during an in-flight call.** If an admin grants credit while one of the user's dollar-cap calls is in flight, that call's cost lands on the new cap, because `record_ai_spend` adds to whatever `spent_usd` is at the time. This follows from grants being a reset, not a top-up. It was the same before this change and is accepted.
 
-**Not yet applied live.** The migration file is written and committed but has **not** been applied to the Supabase project. Apply it before deploying this code, because the new `recognize` route calls these RPCs.
+**Applied live on 2026-10-23** (Supabase migration version `20261022191435`, name `atomic_ai_access`). Verified after applying: all three functions exist, are `SECURITY DEFINER` with `search_path=""`, and their ACL is `{postgres=X/postgres,service_role=X/postgres}` — `anon`, `authenticated` and `PUBLIC` cannot execute them. The migration only adds functions, so it was safe to apply ahead of deploying this code; the new `recognize` route needs them.
 
 ---
 
@@ -84,4 +84,4 @@ All three are SECURITY DEFINER with `set search_path = ''`, and execute is grant
 
 **调用进行中时发放额度。** 如果管理员在用户的某次美元额度调用进行中时发放额度，这次调用的花费会记到新的额度上，因为 `record_ai_spend` 是加到当时的 `spent_usd` 上。这是"发放额度是重置而不是充值"的结果。改之前也是这样，属于已接受的行为。
 
-**还没应用到线上。** 迁移文件已经写好并提交，但**还没有**应用到 Supabase 项目。部署这份代码之前要先应用它，因为新的 `recognize` 路由会调用这些 RPC。
+**已于 2026-10-23 应用到线上**（Supabase 迁移版本 `20261022191435`，名称 `atomic_ai_access`）。应用后已核对：三个函数都在，都是 `SECURITY DEFINER`、`search_path=""`，ACL 是 `{postgres=X/postgres,service_role=X/postgres}`——`anon`、`authenticated` 和 `PUBLIC` 都不能执行。这个迁移只新增函数，所以可以先于代码部署应用；新的 `recognize` 路由需要它们。
