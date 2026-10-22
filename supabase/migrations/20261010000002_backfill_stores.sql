@@ -1,6 +1,6 @@
 -- Issue 29, step 2: point every receipt confirmed before Stores existed at a
 -- Store, by a mapping the user confirmed by hand rather than by the spec's
--- automatic "one unknown-branch Store per raw name" rule — with 18 receipts
+-- automatic "one unknown-branch Store per raw name" rule — with 19 receipts
 -- and 11 names, a manual mapping was realistic, and it keeps the three
 -- spellings of PAK'nSAVE Albany as one Store instead of splitting its history.
 --
@@ -14,7 +14,7 @@
 -- names are transliterated. Drafts are left alone: they get a Store when
 -- they're confirmed.
 --
--- The mapping is pinned to the one Circle it was drawn up for (all 18
+-- The mapping is pinned to the one Circle it was drawn up for (all 19
 -- receipts were in it). A confirmed receipt in any other Circle is therefore
 -- unmapped, and the check below stops the migration rather than handing it
 -- this Circle's branches.
@@ -33,7 +33,7 @@ create temporary table store_backfill_map (
 
 insert into store_backfill_map
 select c.circle_id, m.*
-from (values ('3f2a9c1e-7b4d-4e8a-9c2f-1a5b6d7e8f90'::uuid)) as c(circle_id)
+from (values ('21981d82-8aec-480a-9540-980d43e9b977'::uuid)) as c(circle_id)
 cross join (values
   ('Pak n Save Albany',        'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'paknsave',                  'albany'),
   ('Pak''nSave Albany',        'PAK''nSAVE',                'PAK''nSAVE',                'Albany',      '奥尔巴尼',   'paknsave',                  'albany'),
