@@ -7,6 +7,7 @@ import DatePickerField from "@/components/DatePickerField";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 function CalendarIcon() {
   return (
@@ -51,17 +52,22 @@ export default function MonthlyReport() {
   const [yearGridStart, setYearGridStart] = useState(() => new Date().getFullYear() - 5);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
+  const startLoad = useLatestRequest();
+
   useEffect(() => {
     setReport(null);
     setError(null);
     setExpandedCategories(new Set());
+    // Drops a stale response (another month was picked, or the page was left).
+    const { guard, cancel } = startLoad();
     fetchMonthlyReport(month)
-      .then(setReport)
-      .catch((err) => setError(errorMessage(err, "Failed to load report")));
+      .then(guard(setReport))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load report"))));
 
     const bounds = monthBounds(month);
     setExportFrom(parseDateString(bounds.start));
     setExportTo(parseDateString(bounds.end));
+    return cancel;
   }, [month]);
 
   const currentMonth = startOfMonth(new Date());
@@ -314,7 +320,8 @@ export default function MonthlyReport() {
               <ul>
                 {report.priceChangeLeaderboard.map((entry) => (
                   <li key={entry.productId}>
-                    {pickText(entry.nameEn, entry.nameZh, language)} — +{entry.changePercent}%
+                    {pickText(entry.nameEn, entry.nameZh, language)} — +{entry.changePercent}% ·{" "}
+                    {pickText(entry.storeNameEn, entry.storeNameZh, language)}
                   </li>
                 ))}
               </ul>

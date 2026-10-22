@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { monthBounds } from "@/lib/dateRange";
-import { bilingualName } from "@/lib/bilingualName";
+import { receiptStoreName, STORE_NAMES_EMBED } from "@/lib/storeName";
 
 export interface CategoryBreakdownItem {
   category: string;
@@ -9,6 +9,8 @@ export interface CategoryBreakdownItem {
 
 export interface RecentReceiptItem {
   id: string;
+  // The Store's own chain and branch; the printed header only for a
+  // receipt with no Store yet, i.e. a draft (issue 29).
   storeNameEn: string;
   storeNameZh: string;
   purchaseDate: string;
@@ -67,7 +69,7 @@ export async function fetchHomeSummary(today: Date = new Date()): Promise<HomeSu
 
   const { data: recentRows, error: recentError } = await supabase
     .from("receipts")
-    .select("id, store_name_en, store_name_zh, purchase_date, total_amount, status")
+    .select(`id, store_name_en, store_name_zh, purchase_date, total_amount, status, ${STORE_NAMES_EMBED}`)
     .order("purchase_date", { ascending: false })
     .limit(RECENT_RECEIPTS_LIMIT);
   if (recentError) {
@@ -75,11 +77,11 @@ export async function fetchHomeSummary(today: Date = new Date()): Promise<HomeSu
   }
 
   const recentReceipts = (recentRows ?? []).map((row) => {
-    const storeName = bilingualName(row.store_name_en, row.store_name_zh);
+    const name = receiptStoreName(row);
     return {
       id: row.id,
-      storeNameEn: storeName.en,
-      storeNameZh: storeName.zh,
+      storeNameEn: name.en,
+      storeNameZh: name.zh,
       purchaseDate: row.purchase_date,
       totalAmount: row.total_amount,
       status: row.status,

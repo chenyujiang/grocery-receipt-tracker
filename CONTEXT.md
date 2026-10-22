@@ -17,12 +17,24 @@ _Avoid_: Superuser, site admin, owner
 ## Buying
 
 **Store**:
-Where a Receipt was rung up. The app keeps no record of a Store beyond the name printed on the Receipts that name it, so two Receipts are from the same Store exactly when they carry the same Source Text.
+One Branch of one Chain that a Circle shops at, kept as a record of its own — where a confirmed Receipt was rung up. Two Receipts are from the same Store exactly when they point at the same Store, however their Receipt Headers were spelled. A Store whose Branch is unknown is a Store in its own right, not any of that Chain's known Branches. A Draft has no Store yet; it gets one when it is confirmed.
 _Avoid_: Supermarket, retailer, merchant, vendor, shop
+
+**Chain**:
+The supermarket brand a Store belongs to — "Woolworths", "PAK'nSAVE". A name a Store carries, not a record of its own: two Stores of one Chain are still two Stores.
+_Avoid_: Brand, banner, company, retailer
+
+**Branch**:
+Which of its Chain's locations a Store is — "Hornby", "Albany". Unknown when the Receipt Header doesn't name one; a Store with an unknown Branch is named by its Chain alone.
+_Avoid_: Location, outlet, site
 
 **Receipt**:
 One shopping trip at one store, captured as a photo and the line items extracted from it.
 _Avoid_: Transaction, bill, docket
+
+**Receipt Header**:
+The store name as printed on one Receipt, kept on that Receipt exactly as it was read. It is only how that one Receipt spelled its Store — one Store can be printed many ways — so it identifies nothing. A Draft is named by it until it has a Store.
+_Avoid_: Store name, printed name, merchant name
 
 **Receipt Item**:
 A single line on a Receipt: what was bought, how many, at what price.
@@ -113,12 +125,24 @@ _避免_：超级用户、站点管理员、所有者
 ## 购买
 
 **Store（门店）**：
-Receipt 结账的地方。除了印在提到它的那些 Receipt 上的名称之外，应用不为 Store 保留任何记录；因此两张 Receipt 来自同一家 Store，当且仅当它们带有相同的 Source Text。
+一个 Circle 去购物的某个 Chain 的某个 Branch，作为一条独立的记录保存——已确认的 Receipt 在那里结账。两张 Receipt 来自同一家 Store，当且仅当它们指向同一家 Store，无论各自的 Receipt Header 怎么拼写。Branch 未知的 Store 本身就是一家独立的 Store，而不是那个 Chain 任何一家已知的 Branch。Draft 还没有 Store；确认时才得到一家。
 _避免_：超市、零售商、商家、店铺
+
+**Chain（连锁）**：
+Store 所属的超市品牌——"Woolworths"、"PAK'nSAVE"。它是 Store 带有的一个名称，而不是一条独立的记录：同一个 Chain 的两家 Store 仍然是两家 Store。
+_避免_：品牌、招牌、公司、零售商
+
+**Branch（分店）**：
+Store 是它所属 Chain 的哪一处门店——"Hornby"、"Albany"。Receipt Header 没有写明时即为未知；Branch 未知的 Store 只以其 Chain 命名。
+_避免_：地点、网点、店址
 
 **Receipt（小票）**：
 在一家店的一次购物，以一张照片及从中提取的行项目的形式留存。
 _避免_：交易、账单、收据单
+
+**Receipt Header（小票抬头）**：
+一张 Receipt 上印着的店名，按读取时的原样保存在那张 Receipt 上。它只是那一张 Receipt 对其 Store 的拼写——同一家 Store 可以被印成许多种样子——因此它不标识任何东西。Draft 在得到 Store 之前以它命名。
+_避免_：店名、印刷名称、商户名称
 
 **Receipt Item（小票行项目）**：
 小票上的一行：买了什么、买了多少、单价多少。

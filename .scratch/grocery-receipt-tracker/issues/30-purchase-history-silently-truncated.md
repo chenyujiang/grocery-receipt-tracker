@@ -1,5 +1,5 @@
 Type: bug
-Status: ready-for-agent
+Status: resolved
 GitHub: #34
 
 ## Problem
@@ -25,6 +25,10 @@ Keep it inside `fetchPurchaseHistories` — that's what the single-entry-point r
 - More than 1000 matching rows → all of them come back.
 - More ids than one batch holds → every id gets its history, still in request order.
 - Same-date ordering stays stable across page boundaries.
+
+## Resolution
+
+`fetchPurchaseHistories` (`src/lib/purchaseHistory.ts`) now splits the requested ids into batches of 100 and, per batch, pages with `.range()` ordered by row `id`, stopping on a short page. The page size is `POSTGREST_PAGE_SIZE` (1000) from `src/lib/postgrestPaging.ts`, which must stay ≤ the project's PostgREST max-rows setting, or every page comes back short and paging stops early. Rows are sorted in memory afterwards by `purchase_date`, then row `id`, so the output contract (one history per requested id, in request order, each oldest-first) is unchanged. Test fixtures that build `receipt_items` rows now carry an `id`.
 
 ---
 
@@ -53,3 +57,7 @@ Keep it inside `fetchPurchaseHistories` — that's what the single-entry-point r
 - 匹配行超过 1000 → 全部返回。
 - id 数量超过一批 → 每个 id 都拿到自己的历史，仍按请求顺序。
 - 跨页时同一天的行顺序保持稳定。
+
+## 解决方案
+
+`fetchPurchaseHistories`（`src/lib/purchaseHistory.ts`）现在把请求的 id 按 100 个一批拆开，每批按行 `id` 排序、用 `.range()` 分页，遇到不满一页就停。页大小是 `src/lib/postgrestPaging.ts` 里的 `POSTGREST_PAGE_SIZE`（1000），它必须 ≤ 项目 PostgREST 的 max-rows 设置，否则每页都会"不满"，分页提前停止。之后在内存里按 `purchase_date`、再按行 `id` 排序，所以输出约定（每个请求 id 一条历史、按请求顺序、各自从旧到新）不变。构造 `receipt_items` 行的测试 fixture 现在都带 `id`。

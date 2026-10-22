@@ -143,6 +143,50 @@ export interface Database {
           },
         ];
       };
+      stores: {
+        Row: {
+          id: string;
+          circle_id: string;
+          chain_name_en: string;
+          chain_name_zh: string | null;
+          branch_name_en: string | null;
+          branch_name_zh: string | null;
+          chain_key: string;
+          branch_key: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          circle_id: string;
+          chain_name_en: string;
+          chain_name_zh?: string | null;
+          branch_name_en?: string | null;
+          branch_name_zh?: string | null;
+          chain_key: string;
+          branch_key?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          circle_id?: string;
+          chain_name_en?: string;
+          chain_name_zh?: string | null;
+          branch_name_en?: string | null;
+          branch_name_zh?: string | null;
+          chain_key?: string;
+          branch_key?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stores_circle_id_fkey";
+            columns: ["circle_id"];
+            isOneToOne: false;
+            referencedRelation: "circles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       receipts: {
         Row: {
           id: string;
@@ -155,6 +199,11 @@ export interface Database {
           original_image_url: string | null;
           uploaded_at: string;
           status: "pending_review" | "confirmed";
+          store_id: string | null;
+          recognized_chain_en: string | null;
+          recognized_chain_zh: string | null;
+          recognized_branch_en: string | null;
+          recognized_branch_zh: string | null;
         };
         Insert: {
           id?: string;
@@ -167,6 +216,11 @@ export interface Database {
           original_image_url?: string | null;
           uploaded_at?: string;
           status?: "pending_review" | "confirmed";
+          store_id?: string | null;
+          recognized_chain_en?: string | null;
+          recognized_chain_zh?: string | null;
+          recognized_branch_en?: string | null;
+          recognized_branch_zh?: string | null;
         };
         Update: {
           id?: string;
@@ -179,6 +233,11 @@ export interface Database {
           original_image_url?: string | null;
           uploaded_at?: string;
           status?: "pending_review" | "confirmed";
+          store_id?: string | null;
+          recognized_chain_en?: string | null;
+          recognized_chain_zh?: string | null;
+          recognized_branch_en?: string | null;
+          recognized_branch_zh?: string | null;
         };
         Relationships: [
           {
@@ -187,6 +246,13 @@ export interface Database {
             isOneToOne: false;
             referencedRelation: "circles";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "receipts_store_id_circle_id_fkey";
+            columns: ["store_id", "circle_id"];
+            isOneToOne: false;
+            referencedRelation: "stores";
+            referencedColumns: ["id", "circle_id"];
           },
         ];
       };
@@ -415,6 +481,48 @@ export interface Database {
     };
     Views: Record<never, never>;
     Functions: {
+      save_draft_receipt: {
+        Args: {
+          p_receipt: {
+            circle_id: string;
+            uploaded_by: string;
+            store_name_en: string;
+            store_name_zh: string | null;
+            recognized_chain_en: string | null;
+            recognized_chain_zh: string | null;
+            recognized_branch_en: string | null;
+            recognized_branch_zh: string | null;
+            purchase_date: string;
+            total_amount: number;
+            original_image_url: string | null;
+          };
+          p_new_products: {
+            canonical_name_en: string;
+            canonical_name_zh: string | null;
+            category: string;
+          }[];
+          // Each item sets product_id (an existing Product) or
+          // new_product_index (0-based, into p_new_products).
+          p_items: {
+            raw_name_en: string;
+            raw_name_zh: string | null;
+            product_id: string | null;
+            new_product_index: number | null;
+            quantity: number;
+            unit_spec_value: number | null;
+            unit_spec_unit: string | null;
+            unit_price: number;
+            original_price: number | null;
+            is_promotion: boolean;
+            subtotal: number;
+          }[];
+        };
+        Returns: string;
+      };
+      record_low_stock_alerts: {
+        Args: { p_product_ids: string[] };
+        Returns: number;
+      };
       merge_users_into_new_circle: {
         Args: { p_user_ids: string[] };
         Returns: string;
@@ -442,6 +550,16 @@ export interface Database {
       record_ai_spend: {
         Args: { p_user_id: string; p_cost_usd: number };
         Returns: undefined;
+      };
+      update_receipt_with_log: {
+        Args: {
+          p_receipt_id: string;
+          p_status: "pending_review" | "confirmed" | null;
+          p_store_id: string | null;
+          p_purchase_date: string | null;
+          p_logs: { field_name: string; old_value: string | null; new_value: string }[];
+        };
+        Returns: string;
       };
     };
     Enums: Record<never, never>;

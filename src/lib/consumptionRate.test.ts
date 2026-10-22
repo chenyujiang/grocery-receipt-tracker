@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateConsumption } from "@/lib/consumptionRate";
+import { calculateConsumption, type ConsumptionPurchaseRecord } from "@/lib/consumptionRate";
 
 describe("calculateConsumption", () => {
   it("estimates daily consumption and days remaining from a purchase history", () => {
@@ -79,6 +79,26 @@ describe("calculateConsumption", () => {
       dailyRate: 62.5,
       estimatedRemaining: 250,
       estimatedDaysRemaining: 4,
+    });
+  });
+
+  it("counts purchases from every Store together — consumption is never narrowed to one branch", () => {
+    // You use what you bought regardless of which branch sold it. Same worked
+    // example as the first test, but each purchase is at a different Store:
+    // narrowed per Store, each would have one purchase and this would be null.
+    const purchases: (ConsumptionPurchaseRecord & { storeId: string })[] = [
+      { storeId: "hornby", purchaseDate: "2026-01-01", quantity: 1, specValue: 500, specUnit: "g" },
+      { storeId: "riccarton", purchaseDate: "2026-01-11", quantity: 1, specValue: 500, specUnit: "g" },
+      { storeId: "papanui", purchaseDate: "2026-01-21", quantity: 1, specValue: 500, specUnit: "g" },
+    ];
+
+    const result = calculateConsumption(purchases, new Date("2026-01-25"));
+
+    expect(result).toEqual({
+      basis: "g",
+      dailyRate: 75,
+      estimatedRemaining: 200,
+      estimatedDaysRemaining: 2.67,
     });
   });
 });

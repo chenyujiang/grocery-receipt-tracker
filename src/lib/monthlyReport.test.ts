@@ -472,58 +472,94 @@ describe("fetchMonthlyReport", () => {
     const historyResult = {
       data: [
         {
+          id: "item-1",
           product_id: "product-1",
           unit_price: 6.0,
           quantity: 1,
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-20", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-20",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
         {
+          id: "item-2",
           product_id: "product-2",
           unit_price: 5.0,
           quantity: 1,
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-02", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-02",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
         {
+          id: "item-3",
           product_id: "product-3",
           unit_price: 6.0,
           quantity: 1,
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-20", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-20",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
         {
+          id: "item-4",
           product_id: "product-1",
           unit_price: 4.0,
           quantity: 1,
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-02", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-02",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
         {
+          id: "item-5",
           product_id: "product-3",
           unit_price: 5.0,
           quantity: 1,
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-02", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-02",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
         {
+          id: "item-6",
           product_id: "product-2",
           unit_price: 4.0,
           quantity: 1,
           unit_spec_value: 500,
           unit_spec_unit: "g",
           is_promotion: false,
-          receipts: { purchase_date: "2026-08-20", store_name_en: "Countdown", store_name_zh: "倒数超市" },
+          receipts: {
+            purchase_date: "2026-08-20",
+            store_id: "store-countdown",
+            store_name_en: "Countdown",
+            store_name_zh: "倒数超市",
+          },
         },
       ],
       error: null,
@@ -550,10 +586,153 @@ describe("fetchMonthlyReport", () => {
       "product_id",
       ["product-1", "product-2", "product-3"],
     ]);
-    // product-1 +50%, product-3 +20%, product-2 fell and is excluded.
+    // product-1 +50%, product-3 +20%, product-2 fell and is excluded. All at
+    // one Store, which each row names.
+    const AT_COUNTDOWN = { storeId: "store-countdown", storeNameEn: "Countdown", storeNameZh: "倒数超市" };
     expect(report.priceChangeLeaderboard).toEqual([
-      { productId: "product-1", nameEn: "Milk", nameZh: "牛奶", changePercent: 50 },
-      { productId: "product-3", nameEn: "Eggs", nameZh: "鸡蛋", changePercent: 20 },
+      { productId: "product-1", nameEn: "Milk", nameZh: "牛奶", ...AT_COUNTDOWN, changePercent: 50 },
+      { productId: "product-3", nameEn: "Eggs", nameZh: "鸡蛋", ...AT_COUNTDOWN, changePercent: 20 },
+    ]);
+  });
+
+  // Issue 29: the leaderboard is this month's increases, so a Store the
+  // Product wasn't bought at this month doesn't count — however big its
+  // rise a year ago, it isn't where to stop shopping now.
+  it("ranks a product only by the Stores it was bought at this month", async () => {
+    const milkLine = {
+      subtotal: 4.2,
+      quantity: 1,
+      original_price: null,
+      is_promotion: false,
+      product_id: "product-1",
+      raw_name_en: "Milk",
+      raw_name_zh: "牛奶",
+      products: { category: "Food", canonical_name_en: "Milk", canonical_name_zh: "牛奶" },
+    };
+    const milkAt = (purchaseDate: string, storeId: string, storeNameEn: string, unitPrice: number) => ({
+      product_id: "product-1",
+      unit_price: unitPrice,
+      quantity: 1,
+      unit_spec_value: 500,
+      unit_spec_unit: "g",
+      is_promotion: false,
+      receipts: { purchase_date: purchaseDate, store_id: storeId, store_name_en: storeNameEn, store_name_zh: null },
+    });
+
+    installFakeSupabase(supabase, {
+      tables: {
+        receipts: [
+          { data: [{ total_amount: 4.2, uploaded_by: "user-1", receipt_items: [milkLine] }], error: null },
+          { data: [], error: null },
+        ],
+        alerts: { count: 0, error: null },
+        products: { data: [{ id: "product-1", canonical_name_en: "Milk", canonical_name_zh: "牛奶" }], error: null },
+        receipt_items: {
+          data: [
+            // A year ago at Riccarton: +25%.
+            milkAt("2025-07-01", "store-riccarton", "Riccarton", 4.0),
+            milkAt("2025-07-15", "store-riccarton", "Riccarton", 5.0),
+            // This month at Hornby: +5%.
+            milkAt("2026-07-20", "store-hornby", "Hornby", 4.0),
+            milkAt("2026-08-10", "store-hornby", "Hornby", 4.2),
+          ],
+          error: null,
+        },
+      },
+    });
+    vi.mocked(fetchCircleMembers).mockResolvedValue([
+      { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
+    ]);
+
+    const report = await fetchMonthlyReport(MONTH);
+
+    expect(report.priceChangeLeaderboard).toEqual([
+      {
+        productId: "product-1",
+        nameEn: "Milk",
+        nameZh: "牛奶",
+        storeId: "store-hornby",
+        storeNameEn: "Hornby",
+        storeNameZh: "Hornby",
+        changePercent: 5,
+      },
+    ]);
+  });
+
+  // A promotional purchase is never compared (Section 10), so a Store whose
+  // only purchase this month was on promotion has no change from this month
+  // to show — counting it would bring back its year-old rise.
+  it("doesn't count a Store whose only purchase this month was on promotion", async () => {
+    const milkAt = (
+      purchaseDate: string,
+      storeId: string,
+      storeNameEn: string,
+      unitPrice: number,
+      isPromotion = false
+    ) => ({
+      product_id: "product-1",
+      unit_price: unitPrice,
+      quantity: 1,
+      unit_spec_value: 500,
+      unit_spec_unit: "g",
+      is_promotion: isPromotion,
+      receipts: { purchase_date: purchaseDate, store_id: storeId, store_name_en: storeNameEn, store_name_zh: null },
+    });
+    const milkLine = (subtotal: number, isPromotion: boolean) => ({
+      subtotal,
+      quantity: 1,
+      original_price: null,
+      is_promotion: isPromotion,
+      product_id: "product-1",
+      raw_name_en: "Milk",
+      raw_name_zh: "牛奶",
+      products: { category: "Food", canonical_name_en: "Milk", canonical_name_zh: "牛奶" },
+    });
+
+    installFakeSupabase(supabase, {
+      tables: {
+        receipts: [
+          {
+            data: [
+              { total_amount: 3.0, uploaded_by: "user-1", receipt_items: [milkLine(3.0, true)] },
+              { total_amount: 4.2, uploaded_by: "user-1", receipt_items: [milkLine(4.2, false)] },
+            ],
+            error: null,
+          },
+          { data: [], error: null },
+        ],
+        alerts: { count: 0, error: null },
+        products: { data: [{ id: "product-1", canonical_name_en: "Milk", canonical_name_zh: "牛奶" }], error: null },
+        receipt_items: {
+          data: [
+            // A year ago at Riccarton: +25%. This month, only on promotion.
+            milkAt("2025-07-01", "store-riccarton", "Riccarton", 4.0),
+            milkAt("2025-07-15", "store-riccarton", "Riccarton", 5.0),
+            milkAt("2026-08-03", "store-riccarton", "Riccarton", 3.0, true),
+            // This month at Hornby: +5%.
+            milkAt("2026-07-20", "store-hornby", "Hornby", 4.0),
+            milkAt("2026-08-10", "store-hornby", "Hornby", 4.2),
+          ],
+          error: null,
+        },
+      },
+    });
+    vi.mocked(fetchCircleMembers).mockResolvedValue([
+      { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
+    ]);
+
+    const report = await fetchMonthlyReport(MONTH);
+
+    expect(report.priceChangeLeaderboard).toEqual([
+      {
+        productId: "product-1",
+        nameEn: "Milk",
+        nameZh: "牛奶",
+        storeId: "store-hornby",
+        storeNameEn: "Hornby",
+        storeNameZh: "Hornby",
+        changePercent: 5,
+      },
     ]);
   });
 });

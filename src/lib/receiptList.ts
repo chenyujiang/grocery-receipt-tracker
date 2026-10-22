@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-import { bilingualName } from "@/lib/bilingualName";
+import { receiptStoreName, STORE_NAMES_EMBED } from "@/lib/storeName";
 
 export interface ReceiptFilters {
   storeQuery?: string;
@@ -10,6 +10,8 @@ export interface ReceiptFilters {
 
 export interface ReceiptListItem {
   id: string;
+  // The Store's own chain and branch; the printed header only for a
+  // receipt with no Store yet, i.e. a draft (issue 29).
   storeNameEn: string;
   storeNameZh: string;
   purchaseDate: string;
@@ -29,11 +31,25 @@ function sanitizeSearchTerm(value: string): string {
 export async function fetchReceipts(filters: ReceiptFilters = {}): Promise<ReceiptListItem[]> {
   let query = supabase
     .from("receipts")
-    .select("id, store_name_en, store_name_zh, purchase_date, total_amount, status, uploaded_by");
+    .select(`id, store_name_en, store_name_zh, purchase_date, total_amount, status, uploaded_by, ${STORE_NAMES_EMBED}`);
 
   if (filters.storeQuery) {
     const term = sanitizeSearchTerm(filters.storeQuery);
-    query = query.or(`store_name_en.ilike.%${term}%,store_name_zh.ilike.%${term}%`);
+    // A receipt matches by its printed header or by its Store's names
+    // (issue 29). .or() can't filter through the stores embed, so the
+    // matching Stores are looked up first and matched by id.
+    const { data: storeRows, error: storeError } = await supabase
+      .from("stores")
+      .select("id")
+      .or(
+        `chain_name_en.ilike.%${term}%,chain_name_zh.ilike.%${term}%,branch_name_en.ilike.%${term}%,branch_name_zh.ilike.%${term}%`
+      );
+    if (storeError) {
+      throw storeError;
+    }
+    const storeIds = (storeRows ?? []).map((row) => row.id);
+    const byStore = storeIds.length > 0 ? `,store_id.in.(${storeIds.join(",")})` : "";
+    query = query.or(`store_name_en.ilike.%${term}%,store_name_zh.ilike.%${term}%${byStore}`);
   }
   if (filters.dateFrom) {
     query = query.gte("purchase_date", filters.dateFrom);
@@ -58,11 +74,11 @@ export async function fetchReceipts(filters: ReceiptFilters = {}): Promise<Recei
   const rows = data ?? [];
 
   return rows.map((row) => {
-    const storeName = bilingualName(row.store_name_en, row.store_name_zh);
+    const name = receiptStoreName(row);
     return {
       id: row.id,
-      storeNameEn: storeName.en,
-      storeNameZh: storeName.zh,
+      storeNameEn: name.en,
+      storeNameZh: name.zh,
       purchaseDate: row.purchase_date,
       totalAmount: row.total_amount,
       status: row.status,

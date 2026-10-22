@@ -1,5 +1,5 @@
 Type: grilling
-Status: open
+Status: resolved
 GitHub: #29
 Blocked by: 23, 24
 
@@ -18,6 +18,17 @@ Open within that:
 - Duplicate detection (`src/lib/duplicateCheck.ts`) currently keys on store name + date + amount. Does it key on `store_id` now?
 - Does editing a confirmed Receipt (ticket 16) let you change its Store? If so, every price comparison that Receipt participated in shifts underneath — including alerts already raised.
 - Whether a Correction to a Store name is recorded in `EditLog` like the other corrections are.
+
+## Answer
+
+Answered by [spec 29](29-branch-level-store-identity.md) (its **[assumption → 25]** decisions), implemented in PR #43.
+
+- **Recognition**: `recognizeReceipt` returns the chain and the branch as separate fields (an empty branch when the header names none), saved on the draft as `receipts.recognized_*`; the raw store-name fields stay.
+- **Matching**: exact, on normalized keys within the Circle — case, whitespace, macrons, street-type abbreviations, separators, and chain aliases such as Countdown → Woolworths (`src/lib/storeKey.ts`).
+- **Confirmation**: a store picker on the preview screen pre-fills what was read; a branch that matches no Store offers the same chain's Stores to pick from (no closer guess), or creates a new branch.
+- **When a Store is created**: on confirm, not on draft save, so an abandoned draft leaves no junk branch; a confirm that fails afterwards takes back the Store it created.
+- **Editing**: a confirmed Receipt's Store can be changed with the same picker, logged in `EditLog`; alerts are not re-raised or withdrawn. Editing a receipt that has no Store attaches one.
+- **Duplicate detection**: unchanged — raw store name + date + total.
 
 ---
 
@@ -38,3 +49,14 @@ Open within that:
 - 查重（`src/lib/duplicateCheck.ts`）目前按 店名 + 日期 + 金额 判定，现在改成按 `store_id` 吗？
 - 编辑已确认的小票（ticket 16）允许改它的 Store 吗？如果允许，这张小票参与过的所有比价都会随之变动——包括已经发出去的提醒。
 - 对店名的更正要不要像其他更正那样记进 `EditLog`。
+
+## 答案
+
+由 [spec 29](29-branch-level-store-identity.md) 回答（其中标为 **[assumption → 25]** 的决定），已在 PR #43 实现。
+
+- **识别**：`recognizeReceipt` 把连锁和分店作为分开的字段返回（小票没印分店时分店为空），随草稿存进 `receipts.recognized_*`；原始店名字段保留。
+- **匹配**：在 Circle 内按规范化键精确匹配——大小写、空白、长音符号、街道类型缩写、分隔符，以及 Countdown → Woolworths 这类连锁别名（`src/lib/storeKey.ts`）。
+- **确认**：预览页的门店选择器预填识别结果；分店匹配不上任何 Store 时，列出同一连锁的 Store 供选择（不做更近的猜测），或新建分店。
+- **何时创建 Store**：确认时创建，不在保存草稿时创建，所以放弃的草稿不会留下垃圾分店；确认在之后失败的话，会撤回它刚创建的 Store。
+- **编辑**：已确认小票可以用同一个选择器改 Store，记入 `EditLog`；不重新触发也不撤回提醒。编辑一张没有 Store 的小票会给它挂上 Store。
+- **查重**：不变——原始店名 + 日期 + 总额。

@@ -1,5 +1,5 @@
 Type: bug
-Status: ready-for-agent
+Status: resolved
 GitHub: #35
 
 ## Problem
@@ -33,6 +33,10 @@ Later, if the page count keeps growing: consider TanStack Query for caching, ret
 
 For at least one page: render with id A, rerender with id B, resolve B before A → the page shows B.
 
+## Resolution
+
+New hook `src/lib/useLatestRequest.ts`: each data-loading effect gets a "still current?" check, and a response that arrives after a newer request started (or after unmount) is dropped instead of written to state. All nine pages use it — ProductDetail, ReceiptReview, ReceiptDetail, MonthlyReport, Home, Notifications, CircleSettings, ReceiptList, AdminDashboard — including ReceiptList's filter submit, so two quick submits can't land out of order. Covered by a route-change race test in `src/pages/ProductDetail.test.tsx` and a double-submit test in `src/pages/ReceiptList.test.tsx`. No cache was added: TanStack Query stays the ticket's "later" option, not taken, so no ADR.
+
 ---
 
 > **中文版**（上方为英文原文；两者不一致时以英文为准）
@@ -58,3 +62,7 @@ For at least one page: render with id A, rerender with id B, resolve B before A 
 ## 测试
 
 至少一个页面：先用 id A 渲染，再用 id B 重新渲染，让 B 先于 A 返回 → 页面显示 B。
+
+## 解决方案
+
+新增 hook `src/lib/useLatestRequest.ts`：每个加载数据的 effect 都能检查"自己还是不是最新请求"，如果更新的请求已经发出（或组件已卸载），迟到的响应直接丢弃，不写入 state。九个页面都用上了——ProductDetail、ReceiptReview、ReceiptDetail、MonthlyReport、Home、Notifications、CircleSettings、ReceiptList、AdminDashboard——包括 ReceiptList 的筛选提交，连续两次提交不会乱序落地。测试：`src/pages/ProductDetail.test.tsx` 的路由切换竞态测试，`src/pages/ReceiptList.test.tsx` 的连续提交测试。没有加缓存：TanStack Query 仍是 ticket 里"以后再说"的选项，这次没采用，所以没有 ADR。

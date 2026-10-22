@@ -1,11 +1,20 @@
 import { supabase } from "@/lib/supabaseClient";
 import { fetchCircleMembers } from "@/lib/circleMembers";
 import { bilingualName } from "@/lib/bilingualName";
+import { STORE_NAMES_EMBED, storeNameParts } from "@/lib/storeName";
 
 export interface ExportRow {
   purchaseDate: string;
-  storeNameEn: string;
-  storeNameZh: string;
+  // The Receipt Header: the store name exactly as the receipt printed it.
+  receiptHeaderEn: string;
+  receiptHeaderZh: string;
+  // The receipt's Store's chain; null when it has no Store (issue 29).
+  chainNameEn: string | null;
+  chainNameZh: string | null;
+  // The receipt's Store's branch; null when it has no Store or the branch
+  // is unknown (issue 29).
+  branchNameEn: string | null;
+  branchNameZh: string | null;
   productNameEn: string;
   productNameZh: string;
   category: string;
@@ -21,6 +30,10 @@ const CSV_HEADER = [
   "purchase_date",
   "store_name_en",
   "store_name_zh",
+  "chain_name_en",
+  "chain_name_zh",
+  "branch_name_en",
+  "branch_name_zh",
   "product_name_en",
   "product_name_zh",
   "category",
@@ -50,8 +63,12 @@ export function rowsToCsv(rows: ExportRow[]): string {
     lines.push(
       [
         row.purchaseDate,
-        row.storeNameEn,
-        row.storeNameZh,
+        row.receiptHeaderEn,
+        row.receiptHeaderZh,
+        row.chainNameEn,
+        row.chainNameZh,
+        row.branchNameEn,
+        row.branchNameZh,
         row.productNameEn,
         row.productNameZh,
         row.category,
@@ -80,7 +97,7 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
   const { data, error } = await supabase
     .from("receipt_items")
     .select(
-      "quantity, unit_spec_value, unit_spec_unit, unit_price, is_promotion, raw_name_en, raw_name_zh, products(canonical_name_en, canonical_name_zh, category), receipts!inner(purchase_date, store_name_en, store_name_zh, status, uploaded_by)"
+      `quantity, unit_spec_value, unit_spec_unit, unit_price, is_promotion, raw_name_en, raw_name_zh, products(canonical_name_en, canonical_name_zh, category), receipts!inner(purchase_date, store_name_en, store_name_zh, status, uploaded_by, ${STORE_NAMES_EMBED})`
     )
     .eq("receipts.status", "confirmed")
     .gte("receipts.purchase_date", range.from)
@@ -96,15 +113,22 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
   const rows = data ?? [];
 
   return rows.map((row) => {
-    const storeName = bilingualName(row.receipts.store_name_en, row.receipts.store_name_zh);
+    const header = bilingualName(row.receipts.store_name_en, row.receipts.store_name_zh);
     const productName = bilingualName(
       row.products?.canonical_name_en ?? row.raw_name_en,
       row.products?.canonical_name_zh ?? row.raw_name_zh
     );
+    const store = row.receipts.stores ? storeNameParts(row.receipts.stores) : null;
+    const chain = store?.chain ?? null;
+    const branch = store?.branch ?? null;
     return {
       purchaseDate: row.receipts.purchase_date,
-      storeNameEn: storeName.en,
-      storeNameZh: storeName.zh,
+      receiptHeaderEn: header.en,
+      receiptHeaderZh: header.zh,
+      chainNameEn: chain?.en ?? null,
+      chainNameZh: chain?.zh ?? null,
+      branchNameEn: branch?.en ?? null,
+      branchNameZh: branch?.zh ?? null,
       productNameEn: productName.en,
       productNameZh: productName.zh,
       category: row.products?.category ?? "",
