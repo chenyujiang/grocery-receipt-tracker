@@ -14,6 +14,7 @@ vi.mock("@/lib/adminApi", () => ({
 }));
 
 import { fetchAdminUsers, grantAdminCredit, setAdminUserBanned, mergeUsersIntoCircle } from "@/lib/adminApi";
+import { LanguageProvider } from "@/lib/LanguageProvider";
 import AdminDashboard from "@/pages/AdminDashboard";
 
 const ALICE = {
@@ -122,6 +123,25 @@ describe("AdminDashboard", () => {
     renderPage();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("network error");
+  });
+
+  it("shows the generic fallback in the chosen display language when the error has no message", async () => {
+    vi.mocked(fetchAdminUsers).mockRejectedValue({ code: "42501" });
+    localStorage.setItem("language", "zh");
+
+    try {
+      render(
+        <MemoryRouter>
+          <LanguageProvider>
+            <AdminDashboard />
+          </LanguageProvider>
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("加载用户列表失败");
+    } finally {
+      localStorage.clear();
+    }
   });
 
   it("does not show the merge button until at least 2 users are selected", async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLanguage } from "@/lib/LanguageProvider";
 import { useLatestRequest } from "@/lib/useLatestRequest";
 import {
   fetchAdminUsers,
@@ -36,6 +37,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
   const [showCustom, setShowCustom] = useState(false);
   const [customAmount, setCustomAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  const { t } = useLanguage();
   const flagged = needsAttention(user);
 
   // Issue 22: every action here is consequential — a grant is a reset, not a
@@ -50,7 +52,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
       await action();
       onChange();
     } catch (err) {
-      onError(errorMessage(err, "Action failed"));
+      onError(errorMessage(err, t("errors.adminActionFailed")));
     } finally {
       setBusy(false);
     }
@@ -180,6 +182,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [users, setUsers] = useState<AdminUserRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedCircles, setExpandedCircles] = useState<Set<string>>(new Set());
@@ -201,7 +204,7 @@ export default function AdminDashboard() {
     setError(null);
     fetchAdminUsers()
       .then(guard(setUsers))
-      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load users"))));
+      .catch(guard((err: unknown) => setError(errorMessage(err, t("errors.loadUsers")))));
     return cancel;
   }
 
@@ -239,7 +242,7 @@ export default function AdminDashboard() {
       // Kept out of `error`, which hides the whole roster: a failed merge should
       // leave the selection on screen to retry or adjust. merge_users_into_new_circle
       // refuses a multi-member circle, and that reason is worth reading.
-      setMergeError(errorMessage(err, "Failed to merge users"));
+      setMergeError(errorMessage(err, t("errors.mergeUsers")));
     } finally {
       setMerging(false);
     }

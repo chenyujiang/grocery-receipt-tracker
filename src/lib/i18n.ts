@@ -176,6 +176,9 @@ export const translations = {
     "errors.updateName": "Failed to update name",
     "errors.removeMember": "Failed to remove member",
     "errors.dissolveCircle": "Failed to dissolve circle",
+    "errors.adminActionFailed": "Action failed",
+    "errors.loadUsers": "Failed to load users",
+    "errors.mergeUsers": "Failed to merge users",
   },
   zh: {
     "auth.signIn": "登录",
@@ -346,6 +349,9 @@ export const translations = {
     "errors.updateName": "修改昵称失败",
     "errors.removeMember": "移除成员失败",
     "errors.dissolveCircle": "解散圈子失败",
+    "errors.adminActionFailed": "操作失败",
+    "errors.loadUsers": "加载用户列表失败",
+    "errors.mergeUsers": "合并用户失败",
   },
 } as const;
 
