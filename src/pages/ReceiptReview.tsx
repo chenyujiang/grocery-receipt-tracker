@@ -13,6 +13,7 @@ import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 import StorePicker from "@/components/StorePicker";
 import { useStorePick } from "@/lib/useStorePick";
 
@@ -36,22 +37,33 @@ export default function ReceiptReview() {
   const [duplicateDismissed, setDuplicateDismissed] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const startLoad = useLatestRequest();
+
   useEffect(() => {
     if (!receiptId) return;
+    // Drops a stale response (another receipt, or the page was left).
+    // storePick.load() sets the Circle's Stores itself, unguarded; they're
+    // the same whichever receipt asked, so a stale copy is harmless.
+    const { guard, cancel } = startLoad();
     Promise.all([fetchReceiptDraft(receiptId), storePick.load()])
-      .then(([loaded, circleStores]) => {
-        setDraft(loaded);
-        setItems(loaded.items);
-        storePick.start(loaded, circleStores);
-        return findDuplicateReceipt({
-          storeNameEn: loaded.receiptHeader.en,
-          purchaseDate: loaded.purchaseDate,
-          totalAmount: loaded.totalAmount,
-          excludeReceiptId: loaded.id,
-        });
-      })
-      .then(setDuplicate)
-      .catch((err) => setError(errorMessage(err, "Failed to load receipt")));
+      .then(
+        guard(([loaded, circleStores]) => {
+          setDraft(loaded);
+          setItems(loaded.items);
+          storePick.start(loaded, circleStores);
+          return findDuplicateReceipt({
+            storeNameEn: loaded.receiptHeader.en,
+            purchaseDate: loaded.purchaseDate,
+            totalAmount: loaded.totalAmount,
+            excludeReceiptId: loaded.id,
+          });
+        })
+      )
+      // `found` is undefined only when the step above was superseded, in
+      // which case guard drops this step as well.
+      .then(guard((found) => setDuplicate(found ?? null)))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load receipt"))));
+    return cancel;
   }, [receiptId]);
 
   async function handleDeleteDuplicate() {

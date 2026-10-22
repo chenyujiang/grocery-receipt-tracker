@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText } from "@/lib/bilingual";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 const today = new Date();
 
@@ -28,20 +29,32 @@ export default function ReceiptList() {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const startReceiptsLoad = useLatestRequest();
+  const startMembersLoad = useLatestRequest();
+
+  // Each call supersedes the previous one, so a quick second filter submit
+  // can't have its results overwritten by the first's late response.
   function load(filters: ReceiptFilters) {
+    const { guard, cancel } = startReceiptsLoad();
     setError(null);
     fetchReceipts(filters)
-      .then(setReceipts)
-      .catch((err) => setError(errorMessage(err, "Failed to load receipts")));
+      .then(guard(setReceipts))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load receipts"))));
+    return cancel;
   }
 
   useEffect(() => {
-    load({});
+    const cancelLoad = load({});
+    const { guard, cancel: cancelMembers } = startMembersLoad();
     fetchCircleMembers()
-      .then(setMembers)
+      .then(guard(setMembers))
       .catch(() => {
         // Non-fatal: the uploader dropdown just stays empty.
       });
+    return () => {
+      cancelLoad();
+      cancelMembers();
+    };
   }, []);
 
   function handleSubmit(event: FormEvent) {

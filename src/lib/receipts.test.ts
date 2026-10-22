@@ -391,8 +391,13 @@ const WROTE_OK = { error: null };
 
 // receiptId defaults to an earlier receipt; the receipt being confirmed in
 // these tests is "receipt-1".
+// Row ids count up, so same-date rows keep the order a test lists them in.
+let nextHistoryRowId = 0;
+
 function historyRow(productId: string, unitPrice: number, purchaseDate: string, receiptId = "receipt-earlier") {
+  nextHistoryRowId += 1;
   return {
+    id: `history-item-${String(nextHistoryRowId).padStart(6, "0")}`,
     product_id: productId,
     receipt_id: receiptId,
     unit_price: unitPrice,

@@ -14,6 +14,7 @@ import { formatDateString, parseDateString } from "@/lib/dateRange";
 import DatePickerField from "@/components/DatePickerField";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 import StorePicker from "@/components/StorePicker";
 import { useStorePick } from "@/lib/useStorePick";
 
@@ -35,11 +36,19 @@ export default function ReceiptDetail() {
   const storePick = useStorePick();
   const [saving, setSaving] = useState(false);
 
+  const startLoad = useLatestRequest();
+
+  // Each call supersedes the previous one; returns a canceller, so the effect
+  // below can drop a stale response (another receipt, or the page was left).
+  // storePick.load() sets the Circle's Stores itself, unguarded; they're the
+  // same whichever receipt asked, so a stale copy is harmless.
   function load() {
     if (!receiptId) return;
+    const { guard, cancel } = startLoad();
     Promise.all([fetchReceiptDraft(receiptId), storePick.load()])
-      .then(([loaded]) => setDraft(loaded))
-      .catch((err) => setError(errorMessage(err, "Failed to load receipt")));
+      .then(guard(([loaded]) => setDraft(loaded)))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load receipt"))));
+    return cancel;
   }
 
   useEffect(load, [receiptId]);

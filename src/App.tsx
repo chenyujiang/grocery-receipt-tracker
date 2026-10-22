@@ -1,19 +1,26 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import RequireAuth from "@/components/RequireAuth";
 import Auth from "@/pages/Auth";
 import Home from "@/pages/Home";
 import ReceiptUpload from "@/pages/ReceiptUpload";
-import ReceiptReview from "@/pages/ReceiptReview";
 import ReceiptDetail from "@/pages/ReceiptDetail";
 import ReceiptList from "@/pages/ReceiptList";
 import ProductDetail from "@/pages/ProductDetail";
-import MonthlyReport from "@/pages/MonthlyReport";
 import Notifications from "@/pages/Notifications";
 import CircleSettings from "@/pages/CircleSettings";
-import AdminDashboard from "@/pages/AdminDashboard";
 import RequireGlobalAdmin from "@/components/RequireGlobalAdmin";
 import { ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
+
+// Ticket 32: code-split so they aren't in the main bundle. AdminDashboard
+// especially — its chunk is fetched only after RequireGlobalAdmin passes, so
+// non-admins never download the dashboard code. (ADMIN_DASHBOARD_PATH itself
+// still ships in the main bundle; routing and the post-login redirect need it.)
+// The other two are just the heaviest pages a session may never open.
+const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
+const MonthlyReport = lazy(() => import("@/pages/MonthlyReport"));
+const ReceiptReview = lazy(() => import("@/pages/ReceiptReview"));
 
 // Everything except /auth requires a signed-in session and shows the bottom
 // nav; /auth renders standalone (no nav, nothing to navigate to yet).
@@ -22,17 +29,19 @@ function AppShell() {
     <RequireAuth>
       <div className="app-shell">
         <main className="app-content">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/upload" element={<ReceiptUpload />} />
-            <Route path="/receipts/:receiptId/review" element={<ReceiptReview />} />
-            <Route path="/receipts/:receiptId" element={<ReceiptDetail />} />
-            <Route path="/receipts" element={<ReceiptList />} />
-            <Route path="/products/:productId" element={<ProductDetail />} />
-            <Route path="/report" element={<MonthlyReport />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/settings" element={<CircleSettings />} />
-          </Routes>
+          <Suspense fallback={null}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/upload" element={<ReceiptUpload />} />
+              <Route path="/receipts/:receiptId/review" element={<ReceiptReview />} />
+              <Route path="/receipts/:receiptId" element={<ReceiptDetail />} />
+              <Route path="/receipts" element={<ReceiptList />} />
+              <Route path="/products/:productId" element={<ProductDetail />} />
+              <Route path="/report" element={<MonthlyReport />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/settings" element={<CircleSettings />} />
+            </Routes>
+          </Suspense>
         </main>
         <BottomNav />
       </div>
@@ -53,7 +62,9 @@ export default function App() {
         path={ADMIN_DASHBOARD_PATH}
         element={
           <RequireGlobalAdmin>
-            <AdminDashboard />
+            <Suspense fallback={null}>
+              <AdminDashboard />
+            </Suspense>
           </RequireGlobalAdmin>
         }
       />

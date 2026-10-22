@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { render, screen, within } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { Link, MemoryRouter, Routes, Route } from "react-router-dom";
 
 // @/lib/productDetail is the boundary — its own Supabase behavior and the
 // underlying math are already covered by productDetail.test.ts and the pure
@@ -311,6 +311,40 @@ describe("ProductDetail", () => {
     renderPage();
 
     expect(await screen.findByText(/no purchase records from other stores yet/i)).toBeInTheDocument();
+  });
+
+  // Ticket 31: going from product A to B quickly must not let A's late
+  // response overwrite B's page.
+  it("shows the product it was switched to, even when the previous product's response lands last", async () => {
+    let resolveA!: (detail: typeof SAMPLE_DETAIL) => void;
+    let resolveB!: (detail: typeof SAMPLE_DETAIL) => void;
+    vi.mocked(fetchProductDetail).mockImplementation((productId) =>
+      new Promise((resolve) => {
+        if (productId === "product-1") resolveA = resolve;
+        else resolveB = resolve;
+      })
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/products/product-1"]}>
+        <Link to="/products/product-2">go to B</Link>
+        <Routes>
+          <Route path="/products/:productId" element={<ProductDetail />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByText("go to B"));
+    expect(fetchProductDetail).toHaveBeenLastCalledWith("product-2");
+
+    await act(async () => {
+      resolveB({ ...SAMPLE_DETAIL, id: "product-2", canonicalNameEn: "Product B" });
+    });
+    await act(async () => {
+      resolveA({ ...SAMPLE_DETAIL, canonicalNameEn: "Product A" });
+    });
+
+    expect(screen.getByText(/Product B/)).toBeInTheDocument();
+    expect(screen.queryByText(/Product A/)).not.toBeInTheDocument();
   });
 
   it("shows an error message when loading fails", async () => {

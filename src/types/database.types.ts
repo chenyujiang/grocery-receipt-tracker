@@ -481,6 +481,48 @@ export interface Database {
     };
     Views: Record<never, never>;
     Functions: {
+      save_draft_receipt: {
+        Args: {
+          p_receipt: {
+            circle_id: string;
+            uploaded_by: string;
+            store_name_en: string;
+            store_name_zh: string | null;
+            recognized_chain_en: string | null;
+            recognized_chain_zh: string | null;
+            recognized_branch_en: string | null;
+            recognized_branch_zh: string | null;
+            purchase_date: string;
+            total_amount: number;
+            original_image_url: string | null;
+          };
+          p_new_products: {
+            canonical_name_en: string;
+            canonical_name_zh: string | null;
+            category: string;
+          }[];
+          // Each item sets product_id (an existing Product) or
+          // new_product_index (0-based, into p_new_products).
+          p_items: {
+            raw_name_en: string;
+            raw_name_zh: string | null;
+            product_id: string | null;
+            new_product_index: number | null;
+            quantity: number;
+            unit_spec_value: number | null;
+            unit_spec_unit: string | null;
+            unit_price: number;
+            original_price: number | null;
+            is_promotion: boolean;
+            subtotal: number;
+          }[];
+        };
+        Returns: string;
+      };
+      record_low_stock_alerts: {
+        Args: { p_product_ids: string[] };
+        Returns: number;
+      };
       merge_users_into_new_circle: {
         Args: { p_user_ids: string[] };
         Returns: string;

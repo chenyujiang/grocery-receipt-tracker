@@ -4,6 +4,7 @@ import type { Database } from "@/types/database.types";
 // `api/` imports at runtime (api/cron/low-stock-check.ts), and the alias is
 // a bundler concern the serverless build should not have to resolve.
 import { receiptStoreName, STORE_NAMES_EMBED, storeShortName } from "./storeName.js";
+import { POSTGREST_PAGE_SIZE } from "./postgrestPaging.js";
 
 // One confirmed ReceiptItem, flattened together with its Receipt's date and
 // store — the shared shape every price/consumption feature reads from.
@@ -43,7 +44,37 @@ export interface PurchaseHistory {
 // `as const` keeps the interpolated string a literal type, which is what
 // supabase-js parses to type the rows; a plain template widens to `string`.
 const PURCHASE_SELECT =
-  `product_id, receipt_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, uploaded_at, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
+  `id, product_id, receipt_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, uploaded_at, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
+
+// 100 UUIDs keep the `in.(...)` filter under ~4KB of URL.
+const ID_BATCH_SIZE = 100;
+
+// One id batch's rows, read a page at a time so PostgREST's max-rows can't
+// silently truncate them (see postgrestPaging.ts).
+async function fetchAllPages(client: SupabaseClient<Database>, productIds: string[]) {
+  const rows = [];
+  for (let from = 0; ; from += POSTGREST_PAGE_SIZE) {
+    const { data, error } = await client
+      .from("receipt_items")
+      .select(PURCHASE_SELECT)
+      .in("product_id", productIds)
+      .eq("receipts.status", "confirmed")
+      // .range() pages are only consistent over a total order of the
+      // receipt_items rows themselves — ordering by the embedded receipt's
+      // date orders the embed, not these rows — so page by the unique id.
+      // The oldest-first contract is applied per product afterwards.
+      .order("id", { ascending: true })
+      .range(from, from + POSTGREST_PAGE_SIZE - 1);
+    if (error) {
+      throw error;
+    }
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < POSTGREST_PAGE_SIZE) {
+      return rows;
+    }
+  }
+}
 
 // Sections 10-13: price change, price trend, store comparison, consumption
 // rate, price-spike alerts and low-stock alerts all start from the same
@@ -68,24 +99,24 @@ export async function fetchPurchaseHistories(
     return [];
   }
 
-  const { data, error } = await client
-    .from("receipt_items")
-    .select(PURCHASE_SELECT)
-    .in("product_id", uniqueIds)
-    .eq("receipts.status", "confirmed")
-    .order("purchase_date", { foreignTable: "receipts", ascending: true });
-  if (error) {
-    throw error;
+  // Every id is encoded into the request URL; a few hundred UUIDs at once
+  // (~37 bytes each) can overrun the gateway's URL length limit. Batches run
+  // one after another, so a sweep of every circle stays a gentle read.
+  const rows = [];
+  for (let start = 0; start < uniqueIds.length; start += ID_BATCH_SIZE) {
+    rows.push(...(await fetchAllPages(client, uniqueIds.slice(start, start + ID_BATCH_SIZE))));
   }
 
   // Oldest first; same-day rows by when their receipts were uploaded, then
-  // by receipt, so "the latest purchase" never depends on the order
-  // PostgREST happened to return a tie in.
-  const rows = [...(data ?? [])].sort(
+  // by receipt, so "the latest purchase" never depends on the order a tie
+  // came back in, and finally by the row's own unique id: a total order, so
+  // the result can't depend on how pages or batches arrived either.
+  rows.sort(
     (a, b) =>
       compare(a.receipts.purchase_date, b.receipts.purchase_date) ||
       compare(a.receipts.uploaded_at, b.receipts.uploaded_at) ||
-      compare(a.receipt_id, b.receipt_id)
+      compare(a.receipt_id, b.receipt_id) ||
+      compare(a.id, b.id)
   );
 
   const byProduct = new Map<string, Purchase[]>(uniqueIds.map((id) => [id, []]));

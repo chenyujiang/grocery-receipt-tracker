@@ -1,5 +1,5 @@
 Type: bug
-Status: ready-for-agent
+Status: resolved
 GitHub: #40
 Related: 30
 
@@ -21,6 +21,10 @@ Related: 30
 
 - More than 1000 products → all of them are checked.
 - A failure between the alert insert and the flag update leaves no alert behind, so a re-run doesn't duplicate it.
+
+## Resolution
+
+`api/cron/low-stock-check.ts` now pages through products by keyset (`order("id")`, `.limit(POSTGREST_PAGE_SIZE)`, `.gt("id", lastId)`), so it no longer stops at PostgREST's row cap. Flagging and alerting moved into one Postgres function, `record_low_stock_alerts(p_product_ids uuid[])` (`supabase/migrations/20261022000001_record_low_stock_alerts.sql`, applied live): one statement flags only Products not already flagged and inserts an Alert for each, reading `circle_id` from the Product. A failure leaves neither half behind, and a re-run or overlapping run can't duplicate an Alert. The cron's `newAlerts` count sums the function's return values, so it reports rows actually written; a test covers a re-run writing fewer. Service-role-only EXECUTE.
 
 ---
 
@@ -44,3 +48,7 @@ Related: 30
 
 - 商品超过 1000 个 → 全部被检查。
 - 在插入提醒和更新标记之间失败时，不留下提醒，重跑不会重复。
+
+## 解决方案
+
+`api/cron/low-stock-check.ts` 现在按 keyset 分页遍历 products（`order("id")`、`.limit(POSTGREST_PAGE_SIZE)`、`.gt("id", lastId)`），不会再停在 PostgREST 的行数上限。打标记和写提醒合进一个 Postgres 函数 `record_low_stock_alerts(p_product_ids uuid[])`（`supabase/migrations/20261022000001_record_low_stock_alerts.sql`，已在线上应用）：一条语句只给还没打标记的 Product 打标记，并为每个插入一条 Alert，`circle_id` 从 Product 本身读。失败时两半都不会留下；重跑或并发运行也不会产生重复 Alert。cron 的 `newAlerts` 计数累加函数返回值，报的是真正写入的行数；有测试覆盖重跑时写入更少。EXECUTE 只授予 service_role。
