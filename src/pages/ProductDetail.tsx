@@ -128,9 +128,19 @@ export default function ProductDetail() {
 
   useEffect(() => {
     if (!productId) return;
+    // Drops a response that lands after the user has moved to another product
+    // (or left the page), so it can't overwrite the current one.
+    let cancelled = false;
     fetchProductDetail(productId)
-      .then(setDetail)
-      .catch((err) => setError(errorMessage(err, "Failed to load product")));
+      .then((loaded) => {
+        if (!cancelled) setDetail(loaded);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, "Failed to load product"));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [productId]);
 
   return (

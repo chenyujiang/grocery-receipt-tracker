@@ -12,9 +12,18 @@ export default function Notifications() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Drops a response that lands after the page was left.
+    let cancelled = false;
     fetchAlerts()
-      .then(setAlerts)
-      .catch((err) => setError(errorMessage(err, "Failed to load alerts")));
+      .then((loaded) => {
+        if (!cancelled) setAlerts(loaded);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, "Failed to load alerts"));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

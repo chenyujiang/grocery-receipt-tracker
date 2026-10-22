@@ -40,14 +40,23 @@ export default function ReceiptDetail() {
   // The chain/branch the picker currently names, which saving sends.
   const storeChoice = storeChoiceOfPick(stores, storePick);
 
+  // Returns a canceller, so the effect below can drop a stale response
+  // (another receipt, or the page was left).
   function load() {
     if (!receiptId) return;
+    let cancelled = false;
     Promise.all([fetchReceiptDraft(receiptId), fetchStores()])
       .then(([loaded, circleStores]) => {
+        if (cancelled) return;
         setDraft(loaded);
         setStores(circleStores);
       })
-      .catch((err) => setError(errorMessage(err, "Failed to load receipt")));
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, "Failed to load receipt"));
+      });
+    return () => {
+      cancelled = true;
+    };
   }
 
   useEffect(load, [receiptId]);

@@ -20,9 +20,18 @@ export default function Home() {
   const justSignedUp = Boolean((location.state as { justSignedUp?: boolean } | null)?.justSignedUp);
 
   useEffect(() => {
+    // Drops a response that lands after the page was left.
+    let cancelled = false;
     fetchHomeSummary()
-      .then(setSummary)
-      .catch((err) => setError(errorMessage(err, "Failed to load summary")));
+      .then((loaded) => {
+        if (!cancelled) setSummary(loaded);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, "Failed to load summary"));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

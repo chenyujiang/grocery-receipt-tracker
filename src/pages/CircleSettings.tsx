@@ -44,22 +44,39 @@ export default function CircleSettings() {
 
   useEffect(() => {
     if (!session) return;
+    let cancelled = false;
     isGlobalAdmin(session.userId)
-      .then(setIsAdmin)
-      .catch(() => setIsAdmin(false));
+      .then((admin) => {
+        if (!cancelled) setIsAdmin(admin);
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [session?.userId]);
 
+  // Returns a canceller, so the effect below can drop a stale response
+  // (another user signed in, or the page was left).
   function load() {
+    let cancelled = false;
     setError(null);
     fetchCircleMembers()
       .then((loaded) => {
+        if (cancelled) return;
         setMembers(loaded);
         const self = loaded.find((member) => member.userId === session?.userId);
         if (self) {
           setDisplayNameInput(self.displayName);
         }
       })
-      .catch((err) => setError(errorMessage(err, "Failed to load members")));
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, "Failed to load members"));
+      });
+    return () => {
+      cancelled = true;
+    };
   }
 
   useEffect(load, [session?.userId]);

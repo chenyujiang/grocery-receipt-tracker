@@ -43,8 +43,11 @@ export default function ReceiptReview() {
 
   useEffect(() => {
     if (!receiptId) return;
+    // Drops a stale response (another receipt, or the page was left).
+    let cancelled = false;
     Promise.all([fetchReceiptDraft(receiptId), fetchStores()])
       .then(([loaded, circleStores]) => {
+        if (cancelled) return null;
         setDraft(loaded);
         setItems(loaded.items);
         setStores(circleStores);
@@ -56,8 +59,15 @@ export default function ReceiptReview() {
           excludeReceiptId: loaded.id,
         });
       })
-      .then(setDuplicate)
-      .catch((err) => setError(errorMessage(err, "Failed to load receipt")));
+      .then((found) => {
+        if (!cancelled) setDuplicate(found);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, "Failed to load receipt"));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [receiptId]);
 
   async function handleDeleteDuplicate() {

@@ -191,11 +191,21 @@ export default function AdminDashboard() {
     setCardErrors((prev) => ({ ...prev, [userId]: message }));
   }
 
+  // Returns a canceller, so the effect below can drop a response that lands
+  // after the page was left.
   function load() {
+    let cancelled = false;
     setError(null);
     fetchAdminUsers()
-      .then(setUsers)
-      .catch((err) => setError(errorMessage(err, "Failed to load users")));
+      .then((loaded) => {
+        if (!cancelled) setUsers(loaded);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, "Failed to load users"));
+      });
+    return () => {
+      cancelled = true;
+    };
   }
 
   useEffect(load, []);

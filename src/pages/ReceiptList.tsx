@@ -28,20 +28,37 @@ export default function ReceiptList() {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Returns a canceller, so the effect below can drop a response that lands
+  // after the page was left.
   function load(filters: ReceiptFilters) {
+    let cancelled = false;
     setError(null);
     fetchReceipts(filters)
-      .then(setReceipts)
-      .catch((err) => setError(errorMessage(err, "Failed to load receipts")));
+      .then((loaded) => {
+        if (!cancelled) setReceipts(loaded);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, "Failed to load receipts"));
+      });
+    return () => {
+      cancelled = true;
+    };
   }
 
   useEffect(() => {
-    load({});
+    const cancelLoad = load({});
+    let cancelled = false;
     fetchCircleMembers()
-      .then(setMembers)
+      .then((loaded) => {
+        if (!cancelled) setMembers(loaded);
+      })
       .catch(() => {
         // Non-fatal: the uploader dropdown just stays empty.
       });
+    return () => {
+      cancelLoad();
+      cancelled = true;
+    };
   }, []);
 
   function handleSubmit(event: FormEvent) {

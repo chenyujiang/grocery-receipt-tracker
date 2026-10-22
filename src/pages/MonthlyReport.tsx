@@ -55,13 +55,22 @@ export default function MonthlyReport() {
     setReport(null);
     setError(null);
     setExpandedCategories(new Set());
+    // Drops a stale response (another month was picked, or the page was left).
+    let cancelled = false;
     fetchMonthlyReport(month)
-      .then(setReport)
-      .catch((err) => setError(errorMessage(err, "Failed to load report")));
+      .then((loaded) => {
+        if (!cancelled) setReport(loaded);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorMessage(err, "Failed to load report"));
+      });
 
     const bounds = monthBounds(month);
     setExportFrom(parseDateString(bounds.start));
     setExportTo(parseDateString(bounds.end));
+    return () => {
+      cancelled = true;
+    };
   }, [month]);
 
   const currentMonth = startOfMonth(new Date());
