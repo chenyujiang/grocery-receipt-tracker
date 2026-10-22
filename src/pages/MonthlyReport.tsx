@@ -7,6 +7,7 @@ import DatePickerField from "@/components/DatePickerField";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 function CalendarIcon() {
   return (
@@ -51,26 +52,22 @@ export default function MonthlyReport() {
   const [yearGridStart, setYearGridStart] = useState(() => new Date().getFullYear() - 5);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
+  const startLoad = useLatestRequest();
+
   useEffect(() => {
     setReport(null);
     setError(null);
     setExpandedCategories(new Set());
     // Drops a stale response (another month was picked, or the page was left).
-    let cancelled = false;
+    const { guard, cancel } = startLoad();
     fetchMonthlyReport(month)
-      .then((loaded) => {
-        if (!cancelled) setReport(loaded);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err, "Failed to load report"));
-      });
+      .then(guard(setReport))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load report"))));
 
     const bounds = monthBounds(month);
     setExportFrom(parseDateString(bounds.start));
     setExportTo(parseDateString(bounds.end));
-    return () => {
-      cancelled = true;
-    };
+    return cancel;
   }, [month]);
 
   const currentMonth = startOfMonth(new Date());

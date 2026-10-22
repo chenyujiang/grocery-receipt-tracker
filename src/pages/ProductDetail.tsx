@@ -5,6 +5,7 @@ import type { PriceTrendPoint } from "@/lib/priceTrend";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 const PRICE_BASIS_LABEL: Record<string, string> = {
   per_100g: "/100g",
@@ -126,21 +127,17 @@ export default function ProductDetail() {
   const [detail, setDetail] = useState<ProductDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const startLoad = useLatestRequest();
+
   useEffect(() => {
     if (!productId) return;
     // Drops a response that lands after the user has moved to another product
     // (or left the page), so it can't overwrite the current one.
-    let cancelled = false;
+    const { guard, cancel } = startLoad();
     fetchProductDetail(productId)
-      .then((loaded) => {
-        if (!cancelled) setDetail(loaded);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err, "Failed to load product"));
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then(guard(setDetail))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load product"))));
+    return cancel;
   }, [productId]);
 
   return (

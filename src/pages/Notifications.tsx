@@ -4,6 +4,7 @@ import { fetchAlerts, type AlertListItem } from "@/lib/alerts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText } from "@/lib/bilingual";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 // Section 13 + 15, page 6: price-spike and low-stock alert list (shared UI, ticket 11).
 export default function Notifications() {
@@ -11,19 +12,15 @@ export default function Notifications() {
   const [alerts, setAlerts] = useState<AlertListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const startLoad = useLatestRequest();
+
   useEffect(() => {
     // Drops a response that lands after the page was left.
-    let cancelled = false;
+    const { guard, cancel } = startLoad();
     fetchAlerts()
-      .then((loaded) => {
-        if (!cancelled) setAlerts(loaded);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err, "Failed to load alerts"));
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then(guard(setAlerts))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load alerts"))));
+    return cancel;
   }, []);
 
   return (

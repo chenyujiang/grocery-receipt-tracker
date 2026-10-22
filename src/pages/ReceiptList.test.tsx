@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
@@ -115,6 +115,53 @@ describe("ReceiptList", () => {
     await userEvent.click(screen.getByRole("button", { name: /filter/i }));
 
     expect(fetchReceipts).toHaveBeenLastCalledWith({ storeQuery: "Countdown" });
+  });
+
+  // Ticket 31: submitting the filter twice quickly must not let the first
+  // submit's late response overwrite the second's results.
+  it("shows the latest filter's results, even when an earlier submit's response lands last", async () => {
+    const pending = new Map<string, (rows: Awaited<ReturnType<typeof fetchReceipts>>) => void>();
+    vi.mocked(fetchReceipts).mockImplementation(
+      (filters) =>
+        new Promise((resolve) => {
+          pending.set(filters?.storeQuery ?? "", resolve);
+        })
+    );
+    const receiptAt = (id: string, storeNameEn: string) => ({
+      id,
+      storeNameEn,
+      storeNameZh: storeNameEn,
+      purchaseDate: "2026-08-04",
+      totalAmount: 10,
+      status: "confirmed" as const,
+      uploadedBy: "user-1",
+    });
+
+    render(
+      <MemoryRouter>
+        <ReceiptList />
+      </MemoryRouter>
+    );
+    await act(async () => {
+      pending.get("")?.([]);
+    });
+
+    const storeInput = screen.getByLabelText("Store");
+    await userEvent.type(storeInput, "First");
+    await userEvent.click(screen.getByRole("button", { name: /filter/i }));
+    await userEvent.clear(storeInput);
+    await userEvent.type(storeInput, "Second");
+    await userEvent.click(screen.getByRole("button", { name: /filter/i }));
+
+    await act(async () => {
+      pending.get("Second")?.([receiptAt("receipt-2", "Second Mart")]);
+    });
+    await act(async () => {
+      pending.get("First")?.([receiptAt("receipt-1", "First Mart")]);
+    });
+
+    expect(screen.getByText(/Second Mart/)).toBeInTheDocument();
+    expect(screen.queryByText(/First Mart/)).not.toBeInTheDocument();
   });
 
   it("re-queries with a year-month-day-picked date range on submit", async () => {

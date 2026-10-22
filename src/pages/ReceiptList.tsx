@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText } from "@/lib/bilingual";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 const today = new Date();
 
@@ -28,36 +29,31 @@ export default function ReceiptList() {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Returns a canceller, so the effect below can drop a response that lands
-  // after the page was left.
+  const startReceiptsLoad = useLatestRequest();
+  const startMembersLoad = useLatestRequest();
+
+  // Each call supersedes the previous one, so a quick second filter submit
+  // can't have its results overwritten by the first's late response.
   function load(filters: ReceiptFilters) {
-    let cancelled = false;
+    const { guard, cancel } = startReceiptsLoad();
     setError(null);
     fetchReceipts(filters)
-      .then((loaded) => {
-        if (!cancelled) setReceipts(loaded);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err, "Failed to load receipts"));
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then(guard(setReceipts))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load receipts"))));
+    return cancel;
   }
 
   useEffect(() => {
     const cancelLoad = load({});
-    let cancelled = false;
+    const { guard, cancel: cancelMembers } = startMembersLoad();
     fetchCircleMembers()
-      .then((loaded) => {
-        if (!cancelled) setMembers(loaded);
-      })
+      .then(guard(setMembers))
       .catch(() => {
         // Non-fatal: the uploader dropdown just stays empty.
       });
     return () => {
       cancelLoad();
-      cancelled = true;
+      cancelMembers();
     };
   }, []);
 

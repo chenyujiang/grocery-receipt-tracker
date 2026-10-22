@@ -5,6 +5,7 @@ import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import { FREE_TRIAL_LIMIT } from "@/lib/adminApi";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 // Section 15, page 1: Home/Dashboard — this month's total spend, category
 // breakdown, a pending-alerts summary, and recent receipts.
@@ -19,19 +20,15 @@ export default function Home() {
   // persistent banner).
   const justSignedUp = Boolean((location.state as { justSignedUp?: boolean } | null)?.justSignedUp);
 
+  const startLoad = useLatestRequest();
+
   useEffect(() => {
     // Drops a response that lands after the page was left.
-    let cancelled = false;
+    const { guard, cancel } = startLoad();
     fetchHomeSummary()
-      .then((loaded) => {
-        if (!cancelled) setSummary(loaded);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err, "Failed to load summary"));
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then(guard(setSummary))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load summary"))));
+    return cancel;
   }, []);
 
   return (

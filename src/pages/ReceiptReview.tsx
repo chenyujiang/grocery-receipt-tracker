@@ -14,6 +14,7 @@ import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 import StorePicker, { initialStorePick, pickHasChain, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
 import type { Store } from "@/lib/stores";
 
@@ -41,33 +42,32 @@ export default function ReceiptReview() {
   // The chain/branch the picker currently names, which confirming sends.
   const storeChoice = storeChoiceOfPick(stores, storePick);
 
+  const startLoad = useLatestRequest();
+
   useEffect(() => {
     if (!receiptId) return;
     // Drops a stale response (another receipt, or the page was left).
-    let cancelled = false;
+    const { guard, cancel } = startLoad();
     Promise.all([fetchReceiptDraft(receiptId), fetchStores()])
-      .then(([loaded, circleStores]) => {
-        if (cancelled) return null;
-        setDraft(loaded);
-        setItems(loaded.items);
-        setStores(circleStores);
-        setStorePick(initialStorePick(circleStores, loaded));
-        return findDuplicateReceipt({
-          storeNameEn: loaded.receiptHeader.en,
-          purchaseDate: loaded.purchaseDate,
-          totalAmount: loaded.totalAmount,
-          excludeReceiptId: loaded.id,
-        });
-      })
-      .then((found) => {
-        if (!cancelled) setDuplicate(found);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err, "Failed to load receipt"));
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then(
+        guard(([loaded, circleStores]) => {
+          setDraft(loaded);
+          setItems(loaded.items);
+          setStores(circleStores);
+          setStorePick(initialStorePick(circleStores, loaded));
+          return findDuplicateReceipt({
+            storeNameEn: loaded.receiptHeader.en,
+            purchaseDate: loaded.purchaseDate,
+            totalAmount: loaded.totalAmount,
+            excludeReceiptId: loaded.id,
+          });
+        })
+      )
+      // `found` is undefined only when the step above was superseded, in
+      // which case guard drops this step as well.
+      .then(guard((found) => setDuplicate(found ?? null)))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load receipt"))));
+    return cancel;
   }, [receiptId]);
 
   async function handleDeleteDuplicate() {

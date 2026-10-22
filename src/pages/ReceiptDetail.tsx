@@ -15,6 +15,7 @@ import { formatDateString, parseDateString } from "@/lib/dateRange";
 import DatePickerField from "@/components/DatePickerField";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 import StorePicker, { initialStorePick, pickHasChain, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
 import type { Store } from "@/lib/stores";
 
@@ -40,23 +41,22 @@ export default function ReceiptDetail() {
   // The chain/branch the picker currently names, which saving sends.
   const storeChoice = storeChoiceOfPick(stores, storePick);
 
-  // Returns a canceller, so the effect below can drop a stale response
-  // (another receipt, or the page was left).
+  const startLoad = useLatestRequest();
+
+  // Each call supersedes the previous one; returns a canceller, so the effect
+  // below can drop a stale response (another receipt, or the page was left).
   function load() {
     if (!receiptId) return;
-    let cancelled = false;
+    const { guard, cancel } = startLoad();
     Promise.all([fetchReceiptDraft(receiptId), fetchStores()])
-      .then(([loaded, circleStores]) => {
-        if (cancelled) return;
-        setDraft(loaded);
-        setStores(circleStores);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err, "Failed to load receipt"));
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then(
+        guard(([loaded, circleStores]) => {
+          setDraft(loaded);
+          setStores(circleStores);
+        })
+      )
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load receipt"))));
+    return cancel;
   }
 
   useEffect(load, [receiptId]);

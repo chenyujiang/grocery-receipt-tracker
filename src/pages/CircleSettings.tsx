@@ -7,6 +7,7 @@ import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
 import { updateOwnDisplayName, removeMember, dissolveCircle } from "@/lib/circleActions";
 import { isGlobalAdmin, ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 const DISSOLVE_CONFIRM_TEXT = "DISSOLVE";
 
@@ -42,41 +43,36 @@ export default function CircleSettings() {
   // regardless of what this shows).
   const [isAdmin, setIsAdmin] = useState(false);
 
+  const startAdminCheck = useLatestRequest();
+  const startMembersLoad = useLatestRequest();
+
   useEffect(() => {
     if (!session) return;
-    let cancelled = false;
+    const { guard, cancel } = startAdminCheck();
     isGlobalAdmin(session.userId)
-      .then((admin) => {
-        if (!cancelled) setIsAdmin(admin);
-      })
-      .catch(() => {
-        if (!cancelled) setIsAdmin(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then(guard(setIsAdmin))
+      .catch(guard(() => setIsAdmin(false)));
+    return cancel;
   }, [session?.userId]);
 
-  // Returns a canceller, so the effect below can drop a stale response
-  // (another user signed in, or the page was left).
+  // Each call supersedes the previous one; returns a canceller, so the effect
+  // below can drop a stale response (another user signed in, or the page was
+  // left).
   function load() {
-    let cancelled = false;
+    const { guard, cancel } = startMembersLoad();
     setError(null);
     fetchCircleMembers()
-      .then((loaded) => {
-        if (cancelled) return;
-        setMembers(loaded);
-        const self = loaded.find((member) => member.userId === session?.userId);
-        if (self) {
-          setDisplayNameInput(self.displayName);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err, "Failed to load members"));
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then(
+        guard((loaded: CircleMember[]) => {
+          setMembers(loaded);
+          const self = loaded.find((member) => member.userId === session?.userId);
+          if (self) {
+            setDisplayNameInput(self.displayName);
+          }
+        })
+      )
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load members"))));
+    return cancel;
   }
 
   useEffect(load, [session?.userId]);

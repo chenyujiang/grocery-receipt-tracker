@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { errorMessage } from "@/lib/errorMessage";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 import {
   fetchAdminUsers,
   grantAdminCredit,
@@ -191,21 +192,17 @@ export default function AdminDashboard() {
     setCardErrors((prev) => ({ ...prev, [userId]: message }));
   }
 
-  // Returns a canceller, so the effect below can drop a response that lands
-  // after the page was left.
+  const startLoad = useLatestRequest();
+
+  // Each call supersedes the previous one; returns a canceller, so the effect
+  // below can drop a response that lands after the page was left.
   function load() {
-    let cancelled = false;
+    const { guard, cancel } = startLoad();
     setError(null);
     fetchAdminUsers()
-      .then((loaded) => {
-        if (!cancelled) setUsers(loaded);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err, "Failed to load users"));
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then(guard(setUsers))
+      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load users"))));
+    return cancel;
   }
 
   useEffect(load, []);
