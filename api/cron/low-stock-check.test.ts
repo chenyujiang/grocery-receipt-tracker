@@ -14,8 +14,13 @@ const PRODUCTS = [
   { id: "product-2", circle_id: "circle-2", low_stock_alert_active: true },
 ];
 
+// Row ids count up, so same-date rows keep the order a test lists them in.
+let nextItemRowId = 0;
+
 function itemRow(overrides: Record<string, unknown> = {}) {
+  nextItemRowId += 1;
   return {
+    id: `item-${String(nextItemRowId).padStart(6, "0")}`,
     product_id: "product-1",
     quantity: 1,
     unit_price: 5,

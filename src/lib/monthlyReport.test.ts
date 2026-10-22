@@ -472,6 +472,7 @@ describe("fetchMonthlyReport", () => {
     const historyResult = {
       data: [
         {
+          id: "item-1",
           product_id: "product-1",
           unit_price: 6.0,
           quantity: 1,
@@ -486,6 +487,7 @@ describe("fetchMonthlyReport", () => {
           },
         },
         {
+          id: "item-2",
           product_id: "product-2",
           unit_price: 5.0,
           quantity: 1,
@@ -500,6 +502,7 @@ describe("fetchMonthlyReport", () => {
           },
         },
         {
+          id: "item-3",
           product_id: "product-3",
           unit_price: 6.0,
           quantity: 1,
@@ -514,6 +517,7 @@ describe("fetchMonthlyReport", () => {
           },
         },
         {
+          id: "item-4",
           product_id: "product-1",
           unit_price: 4.0,
           quantity: 1,
@@ -528,6 +532,7 @@ describe("fetchMonthlyReport", () => {
           },
         },
         {
+          id: "item-5",
           product_id: "product-3",
           unit_price: 5.0,
           quantity: 1,
@@ -542,6 +547,7 @@ describe("fetchMonthlyReport", () => {
           },
         },
         {
+          id: "item-6",
           product_id: "product-2",
           unit_price: 4.0,
           quantity: 1,
