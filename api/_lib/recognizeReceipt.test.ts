@@ -141,3 +141,67 @@ describe("recognizeReceipt", () => {
     expect(textBlock?.text).toContain("Vogel's Bread");
   });
 });
+
+// Ticket 34: Claude's suggested match is only a suggestion — an id the prompt
+// never offered would fail receipt_items' foreign key after the call was
+// already charged, so it's dropped and the item treated as a new product.
+describe("recognizeReceipt's matched product id", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function itemMatching(matchedProductId: string | null) {
+    return { ...SAMPLE_PARSED.items[0], matched_product_id: matchedProductId };
+  }
+
+  it("passes through an id from the existing products the prompt offered", async () => {
+    mockClaudeResponse({ ...SAMPLE_PARSED, items: [itemMatching("product-1")] });
+
+    const result = await recognizeReceipt({
+      imageBase64: "base64-image-data",
+      mediaType: "image/jpeg",
+      existingProducts: [{ id: "product-1", canonicalNameEn: "Anchor Blue Milk" }],
+    });
+
+    expect(result.receipt.items[0].matchedProductId).toBe("product-1");
+  });
+
+  it("drops an id that wasn't offered, or isn't an id at all, to null", async () => {
+    mockClaudeResponse({
+      ...SAMPLE_PARSED,
+      items: [itemMatching("product-2"), itemMatching("not an id"), itemMatching(null)],
+    });
+
+    const result = await recognizeReceipt({
+      imageBase64: "base64-image-data",
+      mediaType: "image/jpeg",
+      existingProducts: [{ id: "product-1", canonicalNameEn: "Anchor Blue Milk" }],
+    });
+
+    expect(result.receipt.items.map((item) => item.matchedProductId)).toEqual([null, null, null]);
+  });
+});
+
+// Ticket 35: a long receipt can run past max_tokens, cutting the JSON off
+// mid-object; that should read as "too long", not as a JSON parse error.
+describe("recognizeReceipt on a receipt too long for one response", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("throws a clear message when Claude stopped at max_tokens", async () => {
+    vi.mocked(anthropicClient.messages.create).mockResolvedValue({
+      content: [{ type: "text", text: JSON.stringify(SAMPLE_PARSED).slice(0, 120) }],
+      stop_reason: "max_tokens",
+      usage: { input_tokens: 1200, output_tokens: 16000 },
+    } as never);
+
+    await expect(
+      recognizeReceipt({
+        imageBase64: "base64-image-data",
+        mediaType: "image/jpeg",
+        existingProducts: [],
+      })
+    ).rejects.toThrow(/too long to read in one go/i);
+  });
+});
