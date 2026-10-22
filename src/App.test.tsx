@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+﻿import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { sessionFor, type FakeSupabaseOptions } from "@/test/fakeSupabase";
+import { ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
+
+type FakeInstaller = (options: FakeSupabaseOptions) => void;
 
 // Issue 32: App's admin route. AdminDashboard is lazy-loaded behind
 // RequireGlobalAdmin, so the dashboard only appears once the guard passes and
@@ -8,19 +11,34 @@ import { MemoryRouter } from "react-router-dom";
 // Chunk splitting itself is verified by `npm run build` output, not here.
 vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
-import { supabase } from "@/lib/supabaseClient";
-import { installFakeSupabase } from "@/test/fakeSupabase";
-import { AuthProvider } from "@/lib/AuthProvider";
-import { LanguageProvider } from "@/lib/LanguageProvider";
-import { ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
-import App from "@/App";
+// A marker stands in for the real dashboard, so this test owns only the
+// routing: what the dashboard fetches or renders is AdminDashboard.test.tsx's
+// job. The factory runs only when the module is imported, so "never called"
+// means the dashboard's chunk was never requested.
+const loadDashboard = vi.fn();
 
-/** A signed-in session for `userId`, in the shape AuthProvider reads. */
-function sessionFor(userId: string) {
-  return { data: { session: { user: { id: userId }, access_token: "tok-1" } } };
-}
+// Each render imports App into a fresh module graph and re-registers the
+// dashboard mock with vi.doMock (a hoisted vi.mock's result outlives
+// vi.resetModules, so its factory would fire only once per file). That way a
+// regression back to a static `import AdminDashboard` fires the factory at
+// import time and fails the non-admin test, instead of hiding behind a module
+// cached by an earlier test or a lazy() promise React already resolved.
+async function renderAppAt(path: string, prepare: (installFake: FakeInstaller) => void) {
+  vi.resetModules();
+  loadDashboard.mockClear();
+  vi.doMock("@/pages/AdminDashboard", () => {
+    loadDashboard();
+    return { default: () => <p>Admin dashboard marker</p> };
+  });
 
-function renderAppAt(path: string) {
+  const { MemoryRouter } = await import("react-router-dom");
+  const { supabase } = await import("@/lib/supabaseClient");
+  const { installFakeSupabase } = await import("@/test/fakeSupabase");
+  prepare((options) => installFakeSupabase(supabase, options));
+  const { AuthProvider } = await import("@/lib/AuthProvider");
+  const { LanguageProvider } = await import("@/lib/LanguageProvider");
+  const { default: App } = await import("@/App");
+
   return render(
     <MemoryRouter initialEntries={[path]}>
       <AuthProvider>
@@ -32,36 +50,33 @@ function renderAppAt(path: string) {
   );
 }
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+// Transform App's whole import graph once up front: transforms survive
+// vi.resetModules, so each test's own import() stays inside its timeout.
+beforeAll(async () => {
+  await import("@/App");
+}, 30_000);
 
 describe("App admin route", () => {
   it("shows the admin dashboard to a global admin", async () => {
-    installFakeSupabase(supabase, {
-      auth: { getSession: sessionFor("admin-1") },
-      tables: { global_admins: { data: { user_id: "admin-1" }, error: null } },
-    });
-    // The dashboard's own user list load (GET /api/admin/users).
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ users: [] }), { status: 200 }))
+    await renderAppAt(ADMIN_DASHBOARD_PATH, (installFake) =>
+      installFake({
+        auth: { getSession: sessionFor("admin-1") },
+        tables: { global_admins: { data: { user_id: "admin-1" }, error: null } },
+      })
     );
 
-    renderAppAt(ADMIN_DASHBOARD_PATH);
-
-    expect(await screen.findByRole("heading", { name: "Admin — Users" })).toBeInTheDocument();
+    expect(await screen.findByText("Admin dashboard marker")).toBeInTheDocument();
   });
 
-  it("shows a 404 to a signed-in user who is not a global admin", async () => {
-    installFakeSupabase(supabase, {
-      auth: { getSession: sessionFor("user-1") },
-      tables: { global_admins: { data: null, error: null } },
-    });
-
-    renderAppAt(ADMIN_DASHBOARD_PATH);
+  it("shows a 404 to a non-admin without ever loading the dashboard", async () => {
+    await renderAppAt(ADMIN_DASHBOARD_PATH, (installFake) =>
+      installFake({
+        auth: { getSession: sessionFor("user-1") },
+        tables: { global_admins: { data: null, error: null } },
+      })
+    );
 
     expect(await screen.findByText("Not found")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Admin — Users" })).not.toBeInTheDocument();
+    expect(loadDashboard).not.toHaveBeenCalled();
   });
 });
