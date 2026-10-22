@@ -6,6 +6,10 @@
 //
 // Mirrored server-side by extractErrorMessage in api/receipts/recognize.ts —
 // kept as a separate copy rather than a shared import. Change both together.
+// One deliberate difference: the server hides a PostgrestError's message
+// behind a generic one (ticket 38), since there it describes the admin
+// client's own queries. Here it's the user's own RLS/constraint failure,
+// already visible in their network tab, and the only clue to what went wrong.
 export function errorMessage(err: unknown, fallback: string): string {
   const message =
     err instanceof Error

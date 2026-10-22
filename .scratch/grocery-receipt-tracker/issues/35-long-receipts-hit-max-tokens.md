@@ -1,5 +1,5 @@
 Type: bug
-Status: ready-for-agent
+Status: resolved
 GitHub: #39
 
 ## Problem
@@ -16,6 +16,12 @@ When it does, the JSON is cut off mid-object, `JSON.parse` throws, and the user 
 ## Tests
 
 - A response with `stop_reason: "max_tokens"` produces the clear message, not a JSON parse error.
+
+## Answer
+
+Done as proposed. `max_tokens` goes from 4096 to 16000 (`MAX_OUTPUT_TOKENS` in `api/_lib/recognizeReceipt.ts`); the model stays `claude-haiku-4-5`. Only generated tokens are billed, so a normal receipt costs the same; the worst case per call rises from about $0.02 to about $0.08 in output ($5/MTok). Before parsing, a response with `stop_reason === "max_tokens"` throws "This receipt is too long to read in one go — try photographing it in two halves." — an `Error`, so the route shows it to the user as-is.
+
+That throw happens before the route marks Claude as having answered, so, like any other failed call or parse, the trial reservation is handed back and no spend is recorded. The user isn't charged for a receipt they couldn't use; the app absorbs that one call's cost. Test: a `max_tokens` response produces the message, not a JSON parse error.
 
 ---
 
@@ -35,3 +41,9 @@ When it does, the JSON is cut off mid-object, `JSON.parse` throws, and the user 
 ## 测试
 
 - `stop_reason` 为 `"max_tokens"` 的响应给出明确的提示，而不是 JSON 解析错误。
+
+## 答案
+
+按方案做完了。`max_tokens` 从 4096 调到 16000（`api/_lib/recognizeReceipt.ts` 里的 `MAX_OUTPUT_TOKENS`）；模型仍是 `claude-haiku-4-5`。只按实际生成的 token 计费，所以普通小票花费不变；单次调用的最坏输出花费从约 $0.02 升到约 $0.08（$5/MTok）。解析前，`stop_reason === "max_tokens"` 的响应会抛出 "This receipt is too long to read in one go — try photographing it in two halves."——这是一个 `Error`，所以路由会原样显示给用户。
+
+这次抛错发生在路由把 Claude 标记为已返回之前，所以和其他调用或解析失败一样，试用预占会被归还，也不记花费。用户不会为一张用不了的小票付费；这一次调用的花费由应用承担。测试：`max_tokens` 响应给出这条提示，而不是 JSON 解析错误。

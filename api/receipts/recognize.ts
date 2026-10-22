@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { parseBearerToken } from "../_lib/bearerToken.js";
-import { getAccessStatus, recordSuccess } from "../_lib/userAiAccess.js";
+import { reserveCall } from "../_lib/userAiAccess.js";
 import { aiAccessRefusalMessage } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt.js";
@@ -10,9 +10,10 @@ import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
 
 // Section 3.2 (End-to-end data flow) + Section 8 (Product Matching):
 // 1. Verify the caller's Supabase session and look up their circle.
-// 2. Refuse if this caller's user_ai_access says they're out of allowance
-//    (Section 16: one free call for a brand-new user, then a dollar cap
-//    an admin grants — per-user, not the old circle-wide cap).
+// 2. Reserve a call against this caller's user_ai_access, or refuse if
+//    they're out of allowance (Section 16: FREE_TRIAL_LIMIT free calls for a
+//    brand-new user, then a dollar cap an admin grants — per-user, not the
+//    old circle-wide cap). A reservation whose call fails is released.
 // 3. Store the uploaded image in a private Supabase Storage bucket.
 // 4. Call Claude (claude-haiku-4-5) to OCR the receipt, translate
 //    English -> Chinese, and suggest a product match, all in one call.
@@ -29,17 +30,20 @@ function isAllowedMediaType(value: unknown): value is AllowedMediaType {
   return typeof value === "string" && (ALLOWED_MEDIA_TYPES as readonly string[]).includes(value);
 }
 
-// Supabase's PostgrestError is a plain object (not an Error instance), so a
-// bare `err instanceof Error` check missed it entirely and fell through to
-// a generic message with no way to tell what actually failed.
+// An Error's message is shown to the user: the ones thrown on this path were
+// written for them (a photo that can't be read, a receipt too long to read in
+// one go). Supabase's PostgrestError is a plain object (not an Error
+// instance), and its message names tables, columns and constraints — so it,
+// like anything else that isn't an Error, gets the generic message instead
+// (ticket 38). The raw error is still logged by the caller.
 //
-// Mirrored on the frontend by errorMessage() in src/lib/errorMessage.ts —
-// kept as a separate copy rather than a shared import. Change both together.
+// The frontend's errorMessage() in src/lib/errorMessage.ts is the same check
+// for an Error, kept as a separate copy rather than a shared import — change
+// both together. It deliberately still shows a PostgrestError's message: in
+// the browser that's the user's own RLS/constraint failure, already visible
+// to them in the network tab, and the only clue to what went wrong.
 function extractErrorMessage(err: unknown): string {
-  if (err instanceof Error) {
-    return err.message;
-  }
-  if (err && typeof err === "object" && "message" in err && typeof err.message === "string") {
+  if (err instanceof Error && err.message.trim()) {
     return err.message;
   }
   return "Failed to recognize receipt";
@@ -91,10 +95,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Issue 15: per-user access, checked before every Claude call — a brand
   // new user gets FREE_TRIAL_LIMIT free successful calls, then needs an
   // admin to grant them a real dollar-based credit; no auto-reset either way.
-  const accessStatus = await getAccessStatus(user.id);
-  if (!accessStatus.allowed) {
-    res.status(402).json({ error: aiAccessRefusalMessage(accessStatus) });
+  // Ticket 37: the check also reserves the call atomically, so concurrent
+  // uploads can't all slip through on the last free call.
+  const reservation = await reserveCall(user.id);
+  if (!reservation.status.allowed) {
+    res.status(402).json({ error: aiAccessRefusalMessage(reservation.status) });
     return;
+  }
+  // Set once Claude has answered: from then on the call counts as spent, even
+  // if saving the Draft fails afterwards. Until then, any exit hands the
+  // reservation back (the Free Trial counts successful calls only).
+  let claudeAnswered = false;
+  // Set once the image is in the bucket. A failure after that deletes it again
+  // (ticket 38) — otherwise it stays there with no receipt pointing at it.
+  let storedPath: string | null = null;
+
+  // Every failure response goes through here, so the hand-back is awaited
+  // *before* the response is written — once it's sent, Vercel may freeze the
+  // function and the release would never run. A failed hand-back is logged,
+  // never allowed to replace the original error; worst case the user loses
+  // one trial call. Deleting the stored image is best effort the same way:
+  // worst case it's left orphaned in the bucket, as it always used to be.
+  async function fail(status: number, error: string) {
+    if (!claudeAnswered) {
+      try {
+        await reservation.release();
+      } catch (releaseErr) {
+        console.error("[api/receipts/recognize] failed to release reservation:", releaseErr);
+      }
+    }
+    if (storedPath) {
+      try {
+        const { error: removeError } = await supabaseAdmin.storage.from("receipts").remove([storedPath]);
+        if (removeError) {
+          throw removeError;
+        }
+      } catch (removeErr) {
+        console.error("[api/receipts/recognize] failed to delete the stored image:", removeErr);
+      }
+    }
+    res.status(status).json({ error });
   }
 
   // Everything past this point can throw (a bad/oversized image, a Claude
@@ -108,16 +148,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from("receipts")
       .upload(storagePath, Buffer.from(imageBase64, "base64"), { contentType: mediaType });
     if (uploadError) {
-      res.status(500).json({ error: "Failed to store the receipt image" });
+      await fail(500, "Failed to store the receipt image");
       return;
     }
+    storedPath = storagePath;
 
     const { data: existingProductRows, error: productsError } = await supabaseAdmin
       .from("products")
       .select("id, canonical_name_en")
       .eq("circle_id", circleId);
     if (productsError) {
-      res.status(500).json({ error: "Failed to load this circle's existing products" });
+      await fail(500, "Failed to load this circle's existing products");
       return;
     }
     const existingProducts: ExistingProduct[] = (existingProductRows ?? []).map((row) => ({
@@ -126,12 +167,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }));
 
     const { receipt, usage } = await recognizeReceipt({ imageBase64, mediaType, existingProducts });
+    claudeAnswered = true;
 
     const cost = calculateHaikuCost({
       input_tokens: usage.inputTokens,
       output_tokens: usage.outputTokens,
     });
-    await recordSuccess(user.id, cost);
+    await reservation.recordSpend(cost);
 
     const { receiptId } = await saveDraftReceipt({
       circleId,
@@ -145,6 +187,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({ receiptId });
   } catch (err) {
     console.error("[api/receipts/recognize] failed:", err);
-    res.status(500).json({ error: extractErrorMessage(err) });
+    await fail(500, extractErrorMessage(err));
   }
 }

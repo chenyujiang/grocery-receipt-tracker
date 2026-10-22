@@ -49,6 +49,11 @@ export interface RecognizeReceiptParams {
 }
 
 const CATEGORY_NAMES = CATEGORIES.map((category) => category.en);
+
+// Ticket 35: each line item costs ~150 output tokens (names in two languages
+// plus nine fields), so 4096 cut off a shop of a few dozen lines. Output is
+// billed per token actually generated, so the headroom itself costs nothing.
+const MAX_OUTPUT_TOKENS = 16000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const ITEM_SCHEMA = {
@@ -168,7 +173,7 @@ export async function recognizeReceipt(
 ): Promise<RecognizeReceiptResult> {
   const response = await anthropicClient.messages.create({
     model: "claude-haiku-4-5",
-    max_tokens: 4096,
+    max_tokens: MAX_OUTPUT_TOKENS,
     output_config: { format: { type: "json_schema", schema: RECEIPT_SCHEMA } },
     messages: [
       {
@@ -183,6 +188,14 @@ export async function recognizeReceipt(
       },
     ],
   });
+
+  // Cut off mid-object, the JSON would only fail to parse with a message no
+  // one can act on.
+  if (response.stop_reason === "max_tokens") {
+    throw new Error(
+      "This receipt is too long to read in one go — try photographing it in two halves."
+    );
+  }
 
   const textBlock = response.content.find((block) => block.type === "text");
   if (!textBlock || textBlock.type !== "text") {
@@ -211,6 +224,12 @@ export async function recognizeReceipt(
     );
   }
 
+  // Ticket 34: the schema only makes matched_product_id a string, so an id
+  // the prompt never offered would fail receipt_items' foreign key after the
+  // call was already charged. Treat it as a new product instead; the user can
+  // re-link it on the review page.
+  const offeredIds = new Set(params.existingProducts.map((product) => product.id));
+
   return {
     receipt: {
       storeNameEn: parsed.store_name_en,
@@ -232,7 +251,10 @@ export async function recognizeReceipt(
         isPromotion: item.is_promotion,
         subtotal: item.subtotal,
         category: item.category,
-        matchedProductId: item.matched_product_id,
+        matchedProductId:
+          item.matched_product_id !== null && offeredIds.has(item.matched_product_id)
+            ? item.matched_product_id
+            : null,
       })),
     },
     usage: {
