@@ -30,6 +30,10 @@ export type AdminUserCredit =
 // Must match api/_lib/userAiAccess.ts's FREE_TRIAL_LIMIT.
 export const FREE_TRIAL_LIMIT = 5;
 
+// Must match api/_lib/adminUsers.ts's DEFAULT_CAP_USD — the amount the server
+// grants when the one-click action omits capUsd. Only used to label that button.
+export const DEFAULT_GRANT_USD = 1;
+
 export interface AdminUserRow {
   userId: string;
   displayName: string;
@@ -71,7 +75,7 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
 }
 
 // Issue 15 decision 4: always a reset to a fresh allowance — omit capUsd for
-// the one-click "Grant $1" action, or pass a custom amount.
+// the one-click default grant (DEFAULT_GRANT_USD), or pass a custom amount.
 export async function grantAdminCredit(userId: string, capUsd?: number): Promise<void> {
   await authorizedFetch(`/api/admin/users/${userId}/grant-credit`, {
     method: "POST",

@@ -24,7 +24,7 @@ import { fetchReceipts } from "@/lib/receiptList";
 import { fetchCircleMembers } from "@/lib/circleMembers";
 import { deleteReceipt } from "@/lib/receipts";
 import { useAuth } from "@/lib/AuthProvider";
-import { LanguageProvider } from "@/lib/LanguageProvider";
+import { renderInZh } from "@/test/renderInZh";
 import ReceiptList from "@/pages/ReceiptList";
 
 describe("ReceiptList", () => {
@@ -224,21 +224,10 @@ describe("ReceiptList", () => {
 
   it("shows the generic fallback in the chosen display language when the error has no message", async () => {
     vi.mocked(fetchReceipts).mockRejectedValue({ code: "42501" });
-    localStorage.setItem("language", "zh");
 
-    try {
-      render(
-        <MemoryRouter>
-          <LanguageProvider>
-            <ReceiptList />
-          </LanguageProvider>
-        </MemoryRouter>
-      );
+    renderInZh(<ReceiptList />);
 
-      expect(await screen.findByRole("alert")).toHaveTextContent("加载小票列表失败");
-    } finally {
-      localStorage.clear();
-    }
+    expect(await screen.findByRole("alert")).toHaveTextContent("加载小票列表失败");
   });
 
   it("deletes a receipt after the user confirms", async () => {

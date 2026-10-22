@@ -10,6 +10,7 @@ import {
   setAdminUserBanned,
   mergeUsersIntoCircle,
   FREE_TRIAL_LIMIT,
+  DEFAULT_GRANT_USD,
   type AdminUserRow,
 } from "@/lib/adminApi";
 
@@ -125,7 +126,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
             disabled={busy}
             onClick={() => withBusy(() => grantAdminCredit(user.userId))}
           >
-            {t("admin.grantDefault")}
+            {t("admin.grantDefault", { amount: DEFAULT_GRANT_USD })}
           </button>
           <button
             type="button"
