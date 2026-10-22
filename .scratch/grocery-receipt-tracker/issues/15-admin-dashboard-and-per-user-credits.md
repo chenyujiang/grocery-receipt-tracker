@@ -45,7 +45,7 @@ Needs deciding:
 
 Resolved via `/prototype` (see mattpocock-skills prototype/UI.md): three structurally different layouts were built with mock data — **A** (dense admin table), **B** (card grid matching the app's existing `.receipt-card` look), **C** (a "needs attention" triage queue + circle-grouped roster with click-to-expand rows). After reviewing all three, the chosen direction is **C's structure rendered with B's card as the display unit**: a "needs attention" queue up top surfacing exactly who is blocked and why (free trial used / cap hit) with one-click "Grant $1" already visible on the card, followed by the full roster grouped by circle in collapsible sections, each user shown as a full card (name/email, circle/role/joined date, credit state, Grant $1 / custom-amount / ban-unban actions) rather than a plain row needing a separate expand step.
 
-The full prototype (all four variants, switchable via `?variant=`) is captured on the throwaway branch `prototype/admin-dashboard-ui`, not on main — main only keeps this written decision. Pull that branch if the direction needs revisiting instead of rebuilding from scratch.
+The full prototype (all four variants, switchable via `?variant=`) is kept under the git tag `prototype/admin-dashboard-ui` (commit `a7061f5`), not on main — main only keeps this written decision. It used to be a throwaway branch of the same name; the branch was deleted and replaced by the tag. Check out that tag (`git checkout prototype/admin-dashboard-ui`) if the direction needs revisiting instead of rebuilding from scratch.
 
 ## Schema Design (draft)
 
@@ -192,7 +192,7 @@ on conflict (user_id) do update
 
 通过 `/prototype` 解决（见 mattpocock-skills prototype/UI.md）：用模拟数据搭了三个结构完全不同的方案——**A**（密集的后台管理表格）、**B**（复用 app 现有 `.receipt-card` 样式的卡片列表）、**C**（"需要处理"分诊队列 + 按圈子分组、点击展开的名单）。三个都过了一遍之后，最终选定的方向是**用 C 的结构，配上 B 的卡片作为展示单元**：最上面是"需要处理"队列，直接标出谁被卡住了、为什么（免费试用用完/额度打满），卡片上已经能一键"给$1"；下面是按圈子分组、可折叠的完整名单，每个用户都是一张完整卡片（姓名/邮箱、圈子/角色/加入日期、额度状态、给$1/自定义额度/封禁-解封操作），而不是 C 原来那种点一下才展开详情的简单行。
 
-完整的原型代码（四个方案，靠 `?variant=` 切换）保存在临时分支 `prototype/admin-dashboard-ui` 上，不在主分支——主分支只留这段文字记录的决定。以后要重新审视这个方向的话，拉这个分支看，不用从头再搭一遍。
+完整的原型代码（四个方案，靠 `?variant=` 切换）保存在 git tag `prototype/admin-dashboard-ui`（commit `a7061f5`）上，不在主分支——主分支只留这段文字记录的决定。它原先是同名的临时分支，分支已删除，改用这个 tag 保留。以后要重新审视这个方向的话，检出这个 tag（`git checkout prototype/admin-dashboard-ui`）看，不用从头再搭一遍。
 
 ## Schema 设计（草案）
 
