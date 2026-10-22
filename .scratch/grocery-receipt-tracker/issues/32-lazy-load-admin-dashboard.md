@@ -1,5 +1,5 @@
 Type: task
-Status: ready-for-agent
+Status: resolved
 GitHub: #36
 
 ## Problem
@@ -16,6 +16,12 @@ Note: the path constant itself still lives in `src/lib/adminApi.ts`, which the m
 
 - `src/index.css` is a single ~840-line global stylesheet. Class-name collisions and dead rules get harder to spot as it grows. Revisit (CSS Modules or per-component files) if it keeps growing.
 - Error fallback strings are still English in Chinese mode — already tracked in CLAUDE.md as an open follow-up.
+
+## Resolution
+
+`src/App.tsx` now lazy-loads `AdminDashboard`, `MonthlyReport` and `ReceiptReview` with `React.lazy` + `Suspense fallback={null}`. The admin route's `Suspense` sits inside `RequireGlobalAdmin`, so a non-admin gets the 404 and never fetches the chunk. `npm run build` emits `AdminDashboard-*.js` (~5 kB) separately. Covered by `src/App.test.tsx`.
+
+**Decision: the path constant stays client-side.** Moving `ADMIN_DASHBOARD_PATH` and the post-login redirect server-side isn't worth it. The path was never a security boundary — every `api/admin/` route re-checks `global_admins` server-side, and a non-admin who finds the path gets a 404 and no dashboard code. Hiding the string would only add a server round-trip to every login for a one-admin, family-only app.
 
 ---
 
@@ -35,3 +41,9 @@ Note: the path constant itself still lives in `src/lib/adminApi.ts`, which the m
 
 - `src/index.css` 是一个约 840 行的全局样式文件。文件越大，类名冲突和无用规则越难发现。如果继续增长，再考虑改用 CSS Modules 或按组件拆分。
 - 中文模式下错误提示的兜底文字仍是英文——CLAUDE.md 里已记为待办。
+
+## 解决方案
+
+`src/App.tsx` 现在用 `React.lazy` + `Suspense fallback={null}` 懒加载 `AdminDashboard`、`MonthlyReport` 和 `ReceiptReview`。管理后台路由的 `Suspense` 放在 `RequireGlobalAdmin` 里面，非管理员拿到 404，根本不会下载那个 chunk。`npm run build` 单独产出 `AdminDashboard-*.js`（约 5 kB）。测试见 `src/App.test.tsx`。
+
+**决定：路径常量留在前端。** 把 `ADMIN_DASHBOARD_PATH` 和登录后跳转挪到服务端不值得。这个路径从来不是安全边界——`api/admin/` 下每个接口都在服务端重新检查 `global_admins`，非管理员就算找到路径也只得到 404，拿不到后台代码。藏住这个字符串只会让每次登录多一次服务端往返，对一个只有一个管理员、只给家人用的应用没有意义。

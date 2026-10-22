@@ -1,5 +1,5 @@
 Type: bug
-Status: ready-for-agent
+Status: resolved
 GitHub: #37
 
 ## Problem
@@ -22,6 +22,10 @@ Within one receipt, dedupe new products by name before creating them.
 
 - A failure on the items insert leaves no receipt and no new products behind.
 - Two unmatched items with the same English name produce one Product, and both items point at it.
+
+## Resolution
+
+`saveDraftReceipt` (`api/_lib/saveDraftReceipt.ts`) now makes one `supabaseAdmin.rpc("save_draft_receipt")` call instead of three separate writes. The new Postgres function (`supabase/migrations/20261022000002_save_draft_receipt.sql`, applied live) inserts the `pending_review` receipt, the new Products, and the `receipt_items` in one transaction, so a failure at any step leaves nothing behind. New Products are deduped in TypeScript by `rawNameEn.trim().toLowerCase()` (`planDraftRows`), so two lines for one new product create one Product. Each item carries either `product_id` or a 0-based `new_product_index`; an item with neither (or an out-of-range index) makes the function raise, so an unlinked line is never saved. EXECUTE is revoked from `anon`/`authenticated` and granted only to `service_role`.
 
 ---
 
@@ -47,3 +51,7 @@ Within one receipt, dedupe new products by name before creating them.
 
 - 插入明细失败时，不留下小票，也不留下新商品。
 - 两行英文名相同、都没匹配到的明细只产生一个 Product，两行都指向它。
+
+## 解决方案
+
+`saveDraftReceipt`（`api/_lib/saveDraftReceipt.ts`）现在只调一次 `supabaseAdmin.rpc("save_draft_receipt")`，不再分三次写。新的 Postgres 函数（`supabase/migrations/20261022000002_save_draft_receipt.sql`，已在线上应用）在一个事务里插入 `pending_review` 小票、新 Product 和 `receipt_items`，任何一步失败都不会留下残留。新 Product 在 TypeScript 里按 `rawNameEn.trim().toLowerCase()` 去重（`planDraftRows`），同一张小票上两行同一个新商品只建一个 Product。每个 item 要么带 `product_id`，要么带从 0 开始的 `new_product_index`；两个都没有（或下标越界）时函数直接报错，所以不会存下没挂 Product 的行。`anon`/`authenticated` 的 EXECUTE 已撤销，只授予 `service_role`。
