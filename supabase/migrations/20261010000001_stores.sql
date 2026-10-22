@@ -47,12 +47,7 @@ create policy "members can update their circle's stores"
 on stores for update to authenticated
 using (circle_id = current_circle_id());
 
-create policy "members can delete their circle's unused stores"
-on stores for delete to authenticated
-using (
-  circle_id = current_circle_id()
-  and not exists (select 1 from receipts where receipts.store_id = stores.id)
-);
+-- The delete policy is created below, once receipts.store_id exists.
 
 -- store_name_en / store_name_zh stay: they keep the raw header text read off
 -- this particular receipt, the way receipt_items keeps raw_name_en alongside
@@ -70,6 +65,15 @@ alter table receipts
   deferrable initially deferred;
 
 create index receipts_store_id_idx on receipts(store_id);
+
+-- Only an unused Store can be deleted (see the policies above). Created here
+-- rather than with them because it reads receipts.store_id.
+create policy "members can delete their circle's unused stores"
+on stores for delete to authenticated
+using (
+  circle_id = current_circle_id()
+  and not exists (select 1 from receipts where receipts.store_id = stores.id)
+);
 
 -- The chain/branch split the AI read off the header, saved with the draft so
 -- the preview screen's store picker can pre-fill "create this as a new
