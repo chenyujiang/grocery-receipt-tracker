@@ -3,20 +3,23 @@ import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { parseBearerToken } from "../_lib/bearerToken.js";
 import { detectLowStock, type ProductConsumptionCheck } from "../../src/lib/lowStockAlerts.js";
 import { fetchPurchaseHistories } from "../../src/lib/purchaseHistory.js";
+import { POSTGREST_PAGE_SIZE } from "../../src/lib/postgrestPaging.js";
+import type { Database } from "../../src/types/database.types.js";
 
 // Section 12: unlike price-spike alerts (triggered on receipt confirm), the
 // low-stock check has to run on a schedule, since estimated days remaining
 // decreases over time even with no new receipts. Wired up via vercel.json's
 // cron config to run once a day.
 //
-// Thin orchestration only — the detection logic lives in
-// src/lib/lowStockAlerts.ts, already covered by its own tests.
+// Orchestration only: this pages through every Product, runs each page
+// through load-history, detect and write-back, and sums what each page wrote.
+// The detection logic lives in src/lib/lowStockAlerts.ts, already covered by
+// its own tests.
 
-// Matches PostgREST's default max-rows, so a full page is never itself
-// truncated by the server.
-const PRODUCTS_PAGE_SIZE = 1000;
-
-type ProductRow = { id: string; circle_id: string; low_stock_alert_active: boolean };
+type ProductRow = Pick<
+  Database["public"]["Tables"]["products"]["Row"],
+  "id" | "circle_id" | "low_stock_alert_active"
+>;
 type BatchOutcome = { newAlerts: number; recoveries: number } | { error: string };
 
 async function checkBatch(productRows: ProductRow[]): Promise<BatchOutcome> {
@@ -50,17 +53,22 @@ async function checkBatch(productRows: ProductRow[]): Promise<BatchOutcome> {
 
   const { newAlerts, recoveries } = detectLowStock(checks, new Date());
 
+  let recorded = 0;
   if (newAlerts.length > 0) {
     // Ticket 36: inserting the Alerts and flagging their Products is one
     // transaction inside this function, so a failure leaves neither behind
     // and a re-run can't raise the same Alert twice. The function reads each
     // Product's Circle itself, rather than trusting one passed in.
-    const { error: recordError } = await supabaseAdmin.rpc("record_low_stock_alerts", {
-      p_product_ids: newAlerts.map((alert) => alert.productId),
-    });
+    const { data: recordedCount, error: recordError } = await supabaseAdmin.rpc(
+      "record_low_stock_alerts",
+      { p_product_ids: newAlerts.map((alert) => alert.productId) }
+    );
     if (recordError) {
       return { error: "Failed to record low-stock alerts" };
     }
+    // What the function actually wrote, which is fewer than detected when a
+    // Product was already flagged (a re-run, or an overlapping run).
+    recorded = recordedCount ?? 0;
   }
 
   if (recoveries.length > 0) {
@@ -73,7 +81,7 @@ async function checkBatch(productRows: ProductRow[]): Promise<BatchOutcome> {
     }
   }
 
-  return { newAlerts: newAlerts.length, recoveries: recoveries.length };
+  return { newAlerts: recorded, recoveries: recoveries.length };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -103,14 +111,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // through Products over a stable order instead, and run each page through
   // the whole check-and-write cycle before reading the next, so neither the
   // history read nor the writes ever see more than one page's worth of ids.
+  //
+  // Keyset rather than offset paging: each page starts after the last id the
+  // previous one ended on, so a Product inserted (or deleted) mid-run can't
+  // shift a page boundary and get another Product checked twice or skipped.
   let totalNewAlerts = 0;
   let totalRecoveries = 0;
-  for (let offset = 0; ; offset += PRODUCTS_PAGE_SIZE) {
-    const { data: products, error: productsError } = await supabaseAdmin
+  let lastId: string | null = null;
+  for (;;) {
+    let query = supabaseAdmin
       .from("products")
       .select("id, circle_id, low_stock_alert_active")
       .order("id", { ascending: true })
-      .range(offset, offset + PRODUCTS_PAGE_SIZE - 1);
+      .limit(POSTGREST_PAGE_SIZE);
+    if (lastId !== null) {
+      query = query.gt("id", lastId);
+    }
+    const { data: products, error: productsError } = await query;
     if (productsError) {
       res.status(500).json({ error: "Failed to load products" });
       return;
@@ -128,9 +145,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // A short page is the last one. A full page may or may not be — the next
     // read finds out, at the cost of one empty page when the count is an
     // exact multiple of the page size.
-    if (productRows.length < PRODUCTS_PAGE_SIZE) {
+    if (productRows.length < POSTGREST_PAGE_SIZE) {
       break;
     }
+    lastId = productRows[productRows.length - 1].id;
   }
 
   res.status(200).json({ newAlerts: totalNewAlerts, recoveries: totalRecoveries });

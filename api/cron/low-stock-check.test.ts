@@ -237,8 +237,15 @@ describe("GET /api/cron/low-stock-check", () => {
     for (const read of reads) {
       expect(read).toContainEqual(["order", "id", { ascending: true }]);
     }
-    expect(reads[0]).toContainEqual(["range", 0, 999]);
-    expect(reads[1]).toContainEqual(["range", 1000, 1999]);
+    // Keyset, not offset: each page starts after the last id already seen, so
+    // a Product inserted mid-run can't shift a page boundary and get one
+    // checked twice or another skipped.
+    for (const read of reads) {
+      expect(read).toContainEqual(["limit", 1000]);
+      expect(read.some(([method]) => method === "range")).toBe(false);
+    }
+    expect(reads[0].some(([method]) => method === "gt")).toBe(false);
+    expect(reads[1]).toContainEqual(["gt", "id", "product-0999"]);
   });
 
   it("hands each Product its own Purchase History, normalized", async () => {
@@ -304,7 +311,7 @@ describe("GET /api/cron/low-stock-check", () => {
   // next run raised it again. Both now happen in one Postgres function, which
   // reads each Product's Circle itself.
   it("records a new Alert and flags the Product in one atomic RPC", async () => {
-    const db = installSupabase();
+    const db = installSupabase({ recordAlerts: { data: 1, error: null } });
     vi.mocked(detectLowStock).mockReturnValue({
       newAlerts: [{ productId: "product-2" }],
       recoveries: [],
@@ -318,6 +325,23 @@ describe("GET /api/cron/low-stock-check", () => {
     });
     expect(db.callsFor("alerts")).toEqual([]);
     expect(writesTo(db.queriesFor("products"))).toEqual([]);
+    expect(res.body).toEqual({ newAlerts: 1, recoveries: 0 });
+  });
+
+  // The RPC skips a Product that's already flagged (a re-run, or an
+  // overlapping run, got there first), so the count is what it reports
+  // writing, not how many this run detected.
+  it("reports the Alerts the RPC actually recorded on a re-run, not the detections", async () => {
+    installSupabase({ recordAlerts: { data: 1, error: null } });
+    vi.mocked(detectLowStock).mockReturnValue({
+      newAlerts: [{ productId: "product-1" }, { productId: "product-2" }],
+      recoveries: [],
+    } as never);
+    const res = makeRes();
+
+    await handler(cronReq(), res.res);
+
+    expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ newAlerts: 1, recoveries: 0 });
   });
 
@@ -341,7 +365,7 @@ describe("GET /api/cron/low-stock-check", () => {
   });
 
   it("handles alerts and recoveries in the same run", async () => {
-    const db = installSupabase();
+    const db = installSupabase({ recordAlerts: { data: 1, error: null } });
     vi.mocked(detectLowStock).mockReturnValue({
       newAlerts: [{ productId: "product-1" }],
       recoveries: ["product-2"],
