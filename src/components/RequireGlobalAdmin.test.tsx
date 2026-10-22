@@ -8,14 +8,9 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 import { supabase } from "@/lib/supabaseClient";
-import { installFakeSupabase } from "@/test/fakeSupabase";
+import { installFakeSupabase, sessionFor } from "@/test/fakeSupabase";
 import { AuthProvider } from "@/lib/AuthProvider";
 import RequireGlobalAdmin from "@/components/RequireGlobalAdmin";
-
-/** A signed-in session for `userId`, in the shape AuthProvider reads. */
-function sessionFor(userId: string) {
-  return { data: { session: { user: { id: userId }, access_token: "tok-1" } } };
-}
 
 function renderGuardedRoute() {
   return render(
