@@ -196,6 +196,23 @@ describe("ProductDetail", () => {
     expect(chart.querySelectorAll("circle")).toHaveLength(3);
   });
 
+  // A product bought only once still says where: its one purchase is a lone
+  // point on the chart, named in the legend like any other Store's.
+  it("draws a product's only purchase as a lone point, naming its Store in the legend", async () => {
+    vi.mocked(fetchProductDetail).mockResolvedValue({
+      ...SAMPLE_DETAIL,
+      priceTrend: [trendPoint(HORNBY, "2026-07-01", 0.8)],
+    });
+
+    renderPage();
+
+    const chart = await screen.findByRole("img", { name: /price trend/i });
+    expect(chart.querySelectorAll("polyline")).toHaveLength(0);
+    expect(chart.querySelectorAll("circle")).toHaveLength(1);
+    const legend = screen.getByRole("list", { name: /stores on the chart/i });
+    expect(within(legend).getAllByRole("listitem").map((entry) => entry.textContent)).toEqual(["Hornby"]);
+  });
+
   it("names each line's Store in a legend under the chart, in that line's colour", async () => {
     vi.mocked(fetchProductDetail).mockResolvedValue({
       ...SAMPLE_DETAIL,

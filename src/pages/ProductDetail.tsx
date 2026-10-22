@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { fetchProductDetail, type ProductDetail as ProductDetailData } from "@/lib/productDetail";
-import type { PriceTrendPoint } from "@/lib/priceTrend";
+import { trendLegend, type PriceTrendPoint } from "@/lib/priceTrend";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import { errorMessage } from "@/lib/errorMessage";
@@ -34,13 +34,6 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
   if (points.length === 0) {
     return <p>{t("product.notEnoughData")}</p>;
   }
-  if (points.length === 1) {
-    return (
-      <p>
-        ${points[0].value.toFixed(2)} {PRICE_BASIS_LABEL[points[0].basis]} ({points[0].purchaseDate})
-      </p>
-    );
-  }
 
   const width = 300;
   const height = 100;
@@ -50,28 +43,16 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
   const max = Math.max(...values);
   const span = max - min || 1;
 
-  // Stores in order of first purchase, so a product's colours stay put as
-  // newer purchases arrive — each with a purchase of its own to name it by,
-  // since every purchase at one Store shares its names.
-  const storeLines = [...new Map(points.map((point) => [point.storeId, point]))];
-  const storeIds = storeLines.map(([storeId]) => storeId);
-  // The branch alone keeps the legend short on a phone — unless another
-  // Store on the chart has a branch of the same name, when chain and branch
-  // tell the two lines apart.
-  const shortLabels = storeLines.map(([, point]) =>
-    pickText(point.storeShortNameEn, point.storeShortNameZh, language)
-  );
-  const legendEntries = storeLines.map(([storeId, point], index) => {
-    const label = shortLabels[index];
-    const clashes = shortLabels.filter((other) => other === label).length > 1;
-    return [storeId, clashes ? pickText(point.storeNameEn, point.storeNameZh, language) : label] as const;
-  });
+  const legendEntries = trendLegend(points, language);
+  const storeIds = legendEntries.map((entry) => entry.storeId);
   const colourOf = (storeId: string | null) =>
-    `var(--series-${(storeIds.indexOf(storeId) % SERIES_COLOURS) + 1})`;
+    `var(--series-${(storeIds.indexOf(storeId ?? "") % SERIES_COLOURS) + 1})`;
 
   // x is the purchase's place in the whole history, shared by every line.
   const coords = points.map((point, index) => {
-    const x = padding + (index / (points.length - 1)) * (width - padding * 2);
+    // A lone purchase sits in the middle rather than dividing by zero.
+    const x =
+      points.length === 1 ? width / 2 : padding + (index / (points.length - 1)) * (width - padding * 2);
     const y = height - padding - ((point.value - min) / span) * (height - padding * 2);
     return { x, y, point };
   });
@@ -107,7 +88,7 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
         ))}
       </svg>
       <ul className="price-trend-legend" aria-label={t("product.trendLegend")}>
-        {legendEntries.map(([storeId, label]) => (
+        {legendEntries.map(({ storeId, label }) => (
           <li key={storeId}>
             <svg width="10" height="10" aria-hidden="true">
               <circle cx="5" cy="5" r="5" fill={colourOf(storeId)} />
