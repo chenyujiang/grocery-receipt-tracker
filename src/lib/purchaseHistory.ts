@@ -43,7 +43,7 @@ export interface PurchaseHistory {
 // `as const` keeps the interpolated string a literal type, which is what
 // supabase-js parses to type the rows; a plain template widens to `string`.
 const PURCHASE_SELECT =
-  `product_id, receipt_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
+  `product_id, receipt_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, uploaded_at, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
 
 // Sections 10-13: price change, price trend, store comparison, consumption
 // rate, price-spike alerts and low-stock alerts all start from the same
@@ -73,15 +73,20 @@ export async function fetchPurchaseHistories(
     .select(PURCHASE_SELECT)
     .in("product_id", uniqueIds)
     .eq("receipts.status", "confirmed")
-    // Ordering is re-applied per product below; asking Postgres for it too
-    // means same-date rows keep a stable, database-defined order through the
-    // (stable) sort rather than depending on however PostgREST returned them.
     .order("purchase_date", { foreignTable: "receipts", ascending: true });
   if (error) {
     throw error;
   }
 
-  const rows = data ?? [];
+  // Oldest first; same-day rows by when their receipts were uploaded, then
+  // by receipt, so "the latest purchase" never depends on the order
+  // PostgREST happened to return a tie in.
+  const rows = [...(data ?? [])].sort(
+    (a, b) =>
+      compare(a.receipts.purchase_date, b.receipts.purchase_date) ||
+      compare(a.receipts.uploaded_at, b.receipts.uploaded_at) ||
+      compare(a.receipt_id, b.receipt_id)
+  );
 
   const byProduct = new Map<string, Purchase[]>(uniqueIds.map((id) => [id, []]));
   for (const row of rows) {
@@ -111,8 +116,10 @@ export async function fetchPurchaseHistories(
 
   return uniqueIds.map((productId) => ({
     productId,
-    purchases: (byProduct.get(productId) ?? []).sort((a, b) =>
-      a.purchaseDate.localeCompare(b.purchaseDate)
-    ),
+    purchases: byProduct.get(productId) ?? [],
   }));
+}
+
+function compare(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }

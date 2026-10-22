@@ -44,17 +44,20 @@ export function detectPriceSpikes(
     // Receipt's own normal-price purchase: history is cut just after it. That
     // leaves out later purchases at its Store (a Receipt confirmed late) and
     // another receipt's on the same date; and with no normal-price purchase of
-    // this product on this Receipt there is nothing to judge.
-    let ownIndex = -1;
-    history.purchases.forEach((purchase, index) => {
-      if (purchase.receiptId === receipt.id && !purchase.isPromotion) {
-        ownIndex = index;
-      }
-    });
-    if (ownIndex === -1) {
+    // this product on this Receipt there is nothing to judge. Another
+    // receipt's purchase on the same date is left out even when it sorts
+    // first: two trips on one day can't be ordered, so the baseline comes
+    // only from strictly earlier days.
+    const own = history.purchases.filter(
+      (purchase) => purchase.receiptId === receipt.id && !purchase.isPromotion
+    );
+    if (own.length === 0) {
       continue;
     }
-    const upToReceipt = history.purchases.slice(0, ownIndex + 1);
+    const upToReceipt = [
+      ...history.purchases.filter((purchase) => purchase.purchaseDate < receipt.purchaseDate),
+      own[own.length - 1],
+    ];
     const atStore = priceChangeAtStore(upToReceipt, receipt.storeId);
     if (!atStore || atStore.change.changePercent <= SPIKE_THRESHOLD_PERCENT) {
       continue;

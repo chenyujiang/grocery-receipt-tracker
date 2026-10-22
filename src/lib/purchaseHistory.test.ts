@@ -100,6 +100,32 @@ describe("fetchPurchaseHistories", () => {
     ]);
   });
 
+  // "The latest purchase" (the product page's headline Store) must not hang
+  // on whichever order PostgREST returned two same-day rows in.
+  it("orders same-day purchases by when their receipts were uploaded, then by receipt", async () => {
+    const sameDay = (receiptId: string, uploadedAt: string) =>
+      row({
+        receipt_id: receiptId,
+        receipts: { purchase_date: "2026-08-01", uploaded_at: uploadedAt, store_name_en: "A", store_name_zh: "A" },
+      });
+    const mock = fakeClient({
+      data: [
+        sameDay("receipt-evening", "2026-08-01T18:00:00Z"),
+        sameDay("receipt-b", "2026-08-01T09:00:00Z"),
+        sameDay("receipt-a", "2026-08-01T09:00:00Z"),
+      ],
+      error: null,
+    });
+
+    const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
+
+    expect(history.purchases.map((purchase) => purchase.receiptId)).toEqual([
+      "receipt-a",
+      "receipt-b",
+      "receipt-evening",
+    ]);
+  });
+
   it("maps a row into a Purchase, flattening the embedded receipt", async () => {
     const mock = fakeClient({ data: [row({ is_promotion: true, quantity: 2 })], error: null });
 
