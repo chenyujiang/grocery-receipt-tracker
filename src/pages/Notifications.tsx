@@ -19,7 +19,7 @@ export default function Notifications() {
     const { guard, cancel } = startLoad();
     fetchAlerts()
       .then(guard(setAlerts))
-      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load alerts"))));
+      .catch(guard((err: unknown) => setError(errorMessage(err, t("errors.loadAlerts")))));
     return cancel;
   }, []);
 

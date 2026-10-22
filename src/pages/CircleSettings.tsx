@@ -71,7 +71,7 @@ export default function CircleSettings() {
           }
         })
       )
-      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load members"))));
+      .catch(guard((err: unknown) => setError(errorMessage(err, t("errors.loadMembers")))));
     return cancel;
   }
 
@@ -90,7 +90,7 @@ export default function CircleSettings() {
       load();
       setEditingName(false);
     } catch (err) {
-      setError(errorMessage(err, "Failed to update name"));
+      setError(errorMessage(err, t("errors.updateName")));
     } finally {
       setSavingName(false);
     }
@@ -108,7 +108,7 @@ export default function CircleSettings() {
       await removeMember(userId);
       load();
     } catch (err) {
-      setError(errorMessage(err, "Failed to remove member"));
+      setError(errorMessage(err, t("errors.removeMember")));
     } finally {
       setRemovingUserId(null);
     }
@@ -124,7 +124,7 @@ export default function CircleSettings() {
       // No manual navigation needed — AuthProvider's onAuthStateChange
       // updates the session to null, and RequireAuth redirects to /auth.
     } catch (err) {
-      setError(errorMessage(err, "Failed to dissolve circle"));
+      setError(errorMessage(err, t("errors.dissolveCircle")));
       setDissolving(false);
     }
   }
@@ -135,7 +135,7 @@ export default function CircleSettings() {
     try {
       await signOut();
     } catch (err) {
-      setError(errorMessage(err, "Sign-out failed"));
+      setError(errorMessage(err, t("errors.signOutFailed")));
     } finally {
       setSigningOut(false);
     }

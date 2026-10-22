@@ -62,7 +62,7 @@ export default function MonthlyReport() {
     const { guard, cancel } = startLoad();
     fetchMonthlyReport(month)
       .then(guard(setReport))
-      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load report"))));
+      .catch(guard((err: unknown) => setError(errorMessage(err, t("errors.loadReport")))));
 
     const bounds = monthBounds(month);
     setExportFrom(parseDateString(bounds.start));
@@ -118,7 +118,7 @@ export default function MonthlyReport() {
       const rows = await fetchExportRows({ from, to });
       downloadCsv(`receipts_${from}_to_${to}.csv`, rowsToCsv(rows));
     } catch (err) {
-      setExportError(errorMessage(err, "Export failed"));
+      setExportError(errorMessage(err, t("errors.exportFailed")));
     } finally {
       setExporting(false);
     }

@@ -62,7 +62,7 @@ export default function ReceiptReview() {
       // `found` is undefined only when the step above was superseded, in
       // which case guard drops this step as well.
       .then(guard((found) => setDuplicate(found ?? null)))
-      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load receipt"))));
+      .catch(guard((err: unknown) => setError(errorMessage(err, t("errors.loadReceipt")))));
     return cancel;
   }, [receiptId]);
 
@@ -74,7 +74,7 @@ export default function ReceiptReview() {
       await deleteReceipt(receiptId);
       navigate("/");
     } catch (err) {
-      setError(errorMessage(err, "Failed to delete receipt"));
+      setError(errorMessage(err, t("errors.deleteReceipt")));
       setDeleting(false);
     }
   }
@@ -94,7 +94,7 @@ export default function ReceiptReview() {
       await confirmReceipt(receiptId, items.map(toItemUpdate), storeChoice);
       navigate("/");
     } catch (err) {
-      setError(errorMessage(err, "Failed to confirm receipt"));
+      setError(errorMessage(err, t("errors.confirmReceipt")));
     } finally {
       setConfirming(false);
     }

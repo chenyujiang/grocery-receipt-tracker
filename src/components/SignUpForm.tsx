@@ -30,7 +30,7 @@ export default function SignUpForm({ onSuccess }: SignUpFormProps) {
       const result = await signUpWithEmail(email, password, displayName);
       onSuccess(result);
     } catch (err) {
-      setError(errorMessage(err, "Sign-up failed"));
+      setError(errorMessage(err, t("errors.signUpFailed")));
     } finally {
       setSubmitting(false);
     }

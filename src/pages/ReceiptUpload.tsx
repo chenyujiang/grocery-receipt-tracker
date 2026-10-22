@@ -26,7 +26,7 @@ export default function ReceiptUpload() {
       const { receiptId } = await uploadReceipt(file);
       navigate(`/receipts/${receiptId}/review`);
     } catch (err) {
-      setError(errorMessage(err, "Upload failed"));
+      setError(errorMessage(err, t("errors.uploadFailed")));
     } finally {
       setUploading(false);
     }

@@ -47,7 +47,7 @@ export default function ReceiptDetail() {
     const { guard, cancel } = startLoad();
     Promise.all([fetchReceiptDraft(receiptId), storePick.load()])
       .then(guard(([loaded]) => setDraft(loaded)))
-      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load receipt"))));
+      .catch(guard((err: unknown) => setError(errorMessage(err, t("errors.loadReceipt")))));
     return cancel;
   }
 
@@ -82,7 +82,7 @@ export default function ReceiptDetail() {
       load();
       setEditing(false);
     } catch (err) {
-      setError(errorMessage(err, "Failed to save changes"));
+      setError(errorMessage(err, t("errors.saveChanges")));
     } finally {
       setSaving(false);
     }

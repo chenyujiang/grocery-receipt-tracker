@@ -34,7 +34,7 @@ This project is built TDD-first (see the `tdd` skill). Before adding tests for a
 
 Supabase's `PostgrestError` is a plain object, **not** an `Error` instance, and `src/lib/*.ts` rethrows it raw (`throw error`). So `err instanceof Error ? err.message : "..."` is false for the errors this app actually hits — RLS violations, constraint failures, permission denials — and silently shows the generic fallback instead. Always turn a caught error into display text with `errorMessage(err, fallback)` from `src/lib/errorMessage.ts`; never hand-roll an `instanceof Error` check. `api/receipts/recognize.ts` keeps its own `extractErrorMessage` copy — change both together. It differs in one deliberate way: server-side, a `PostgrestError` gets a generic message instead of its own text (ticket 38), since there it describes the admin client's queries, not the user's.
 
-The fallback strings are still hardcoded English even in Chinese mode; translating them (`errors.*` keys in `src/lib/i18n.ts`) is a known open follow-up. Note it only half-closes the gap, since Supabase's own error text is English regardless.
+Pass the fallback as `t("errors.…")` (keys in `src/lib/i18n.ts`), not a literal, so it follows the language toggle. That only half-closes the gap: Supabase's own error text, shown whenever the error carries one, is English regardless. The exception is `AdminDashboard.tsx`, whose whole UI is English-only and has no `t()`, so its fallbacks stay literal.
 
 ## UI style conventions
 

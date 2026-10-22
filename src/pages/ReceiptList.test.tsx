@@ -24,6 +24,7 @@ import { fetchReceipts } from "@/lib/receiptList";
 import { fetchCircleMembers } from "@/lib/circleMembers";
 import { deleteReceipt } from "@/lib/receipts";
 import { useAuth } from "@/lib/AuthProvider";
+import { LanguageProvider } from "@/lib/LanguageProvider";
 import ReceiptList from "@/pages/ReceiptList";
 
 describe("ReceiptList", () => {
@@ -219,6 +220,25 @@ describe("ReceiptList", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       'permission denied for table "receipts"'
     );
+  });
+
+  it("shows the generic fallback in the chosen display language when the error has no message", async () => {
+    vi.mocked(fetchReceipts).mockRejectedValue({ code: "42501" });
+    localStorage.setItem("language", "zh");
+
+    try {
+      render(
+        <MemoryRouter>
+          <LanguageProvider>
+            <ReceiptList />
+          </LanguageProvider>
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("加载小票列表失败");
+    } finally {
+      localStorage.clear();
+    }
   });
 
   it("deletes a receipt after the user confirms", async () => {

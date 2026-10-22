@@ -39,7 +39,7 @@ export default function ReceiptList() {
     setError(null);
     fetchReceipts(filters)
       .then(guard(setReceipts))
-      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load receipts"))));
+      .catch(guard((err: unknown) => setError(errorMessage(err, t("errors.loadReceipts")))));
     return cancel;
   }
 
@@ -75,7 +75,7 @@ export default function ReceiptList() {
       setReceipts((current) => (current ?? []).filter((receipt) => receipt.id !== receiptId));
       setConfirmingDeleteId(null);
     } catch (err) {
-      setError(errorMessage(err, "Failed to delete receipt"));
+      setError(errorMessage(err, t("errors.deleteReceipt")));
     } finally {
       setDeletingId(null);
     }

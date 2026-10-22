@@ -27,7 +27,7 @@ export default function Home() {
     const { guard, cancel } = startLoad();
     fetchHomeSummary()
       .then(guard(setSummary))
-      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load summary"))));
+      .catch(guard((err: unknown) => setError(errorMessage(err, t("errors.loadSummary")))));
     return cancel;
   }, []);
 

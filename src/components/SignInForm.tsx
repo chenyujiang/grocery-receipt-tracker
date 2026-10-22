@@ -27,7 +27,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
       const result = await signInWithEmail(email, password);
       onSuccess(result);
     } catch (err) {
-      setError(errorMessage(err, "Sign-in failed"));
+      setError(errorMessage(err, t("errors.signInFailed")));
     } finally {
       setSubmitting(false);
     }

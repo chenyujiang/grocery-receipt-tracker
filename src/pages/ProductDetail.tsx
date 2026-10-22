@@ -117,7 +117,7 @@ export default function ProductDetail() {
     const { guard, cancel } = startLoad();
     fetchProductDetail(productId)
       .then(guard(setDetail))
-      .catch(guard((err: unknown) => setError(errorMessage(err, "Failed to load product"))));
+      .catch(guard((err: unknown) => setError(errorMessage(err, t("errors.loadProduct")))));
     return cancel;
   }, [productId]);
 
