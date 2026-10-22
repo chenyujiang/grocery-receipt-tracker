@@ -6,10 +6,16 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 // covered by receipts.test.ts; this only checks the page's rendering and
 // its issue-16 edit-mode behavior (uploader-only, per-field inputs, the
 // weighed-item unit dropdown).
+vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
+// listStores is the boundary for the picker's options, covered by
+// stores.test.ts; the rest of @/lib/stores is pure and runs for real.
+vi.mock("@/lib/stores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/stores")>()),
+  listStores: vi.fn(),
+}));
 vi.mock("@/lib/receipts", () => ({
   fetchReceiptDraft: vi.fn(),
   editConfirmedReceipt: vi.fn(),
-  fetchStores: vi.fn(),
   // Pure field strip, not a Supabase call — stubbed with the real behavior so
   // the page's save payload stays meaningful. The strip itself is pinned down
   // in receipts.test.ts.
@@ -19,7 +25,8 @@ vi.mock("@/lib/AuthProvider", () => ({
   useAuth: vi.fn(),
 }));
 
-import { fetchReceiptDraft, editConfirmedReceipt, fetchStores } from "@/lib/receipts";
+import { fetchReceiptDraft, editConfirmedReceipt } from "@/lib/receipts";
+import { listStores } from "@/lib/stores";
 import { useAuth } from "@/lib/AuthProvider";
 import ReceiptDetail from "@/pages/ReceiptDetail";
 
@@ -69,18 +76,18 @@ const SAMPLE_DRAFT = {
 
 const HORNBY_STORE = {
   id: "store-hornby",
-  chainNameEn: "Woolworths",
-  chainNameZh: "沃尔沃斯",
-  branchNameEn: "Hornby",
-  branchNameZh: "霍恩比",
+  chain_name_en: "Woolworths",
+  chain_name_zh: "沃尔沃斯",
+  branch_name_en: "Hornby",
+  branch_name_zh: "霍恩比",
 };
 
 const RICCARTON_STORE = {
   id: "store-riccarton",
-  chainNameEn: "Woolworths",
-  chainNameZh: "沃尔沃斯",
-  branchNameEn: "Riccarton",
-  branchNameZh: "里卡顿",
+  chain_name_en: "Woolworths",
+  chain_name_zh: "沃尔沃斯",
+  branch_name_en: "Riccarton",
+  branch_name_zh: "里卡顿",
 };
 
 function renderDetailPage() {
@@ -104,7 +111,7 @@ describe("ReceiptDetail", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSession("user-1");
-    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE]);
+    vi.mocked(listStores).mockResolvedValue([HORNBY_STORE]);
   });
 
   it("loads and displays a confirmed receipt's line items, read-only by default", async () => {
@@ -194,7 +201,7 @@ describe("ReceiptDetail", () => {
   // the receipt already points at.
   it("starts the store picker on the receipt's Store, and saves with the one the user picks instead", async () => {
     vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
-    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE]);
+    vi.mocked(listStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE]);
     vi.mocked(editConfirmedReceipt).mockResolvedValue(undefined);
 
     renderDetailPage();

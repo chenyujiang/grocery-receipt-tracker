@@ -16,7 +16,7 @@ function purchase(
     storeId: "hornby",
     storeNameEn: "Woolworths Hornby",
     storeNameZh: "Woolworths Hornby",
-    storeShortName: { en: "Hornby", zh: "Hornby" },
+    storeShortNameEn: "Hornby", storeShortNameZh: "Hornby",
     quantity: 1,
     ...fields,
   };
@@ -24,6 +24,8 @@ function purchase(
 
 // The Receipt being confirmed: its own Store is the only one compared against.
 const receipt = { id: "receipt-1", storeId: "hornby", purchaseDate: "2026-08-01" };
+// A purchase on an earlier receipt, a baseline for this Receipt's own.
+const EARLIER = { receiptId: "receipt-july", purchaseDate: "2026-07-01" };
 
 describe("detectPriceSpikes", () => {
   it("flags a product whose price change exceeds the 15% threshold", () => {
@@ -31,7 +33,7 @@ describe("detectPriceSpikes", () => {
       {
         productId: "product-1",
         purchases: [
-          purchase({ unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+          purchase({ ...EARLIER, unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
           purchase({ unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
         ],
       },
@@ -45,7 +47,7 @@ describe("detectPriceSpikes", () => {
       {
         productId: "product-1",
         purchases: [
-          purchase({ unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+          purchase({ ...EARLIER, unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
           purchase({ unitPrice: 4.6, specValue: 2, specUnit: "L", isPromotion: false }),
         ],
       },
@@ -71,13 +73,13 @@ describe("detectPriceSpikes", () => {
         productId: "steady-product",
         purchases: [
           purchase({ unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
-          purchase({ unitPrice: 4.1, specValue: 2, specUnit: "L", isPromotion: false }),
+          purchase({ ...EARLIER, unitPrice: 4.1, specValue: 2, specUnit: "L", isPromotion: false }),
         ],
       },
       {
         productId: "spiking-product",
         purchases: [
-          purchase({ unitPrice: 2.0, specValue: 500, specUnit: "g", isPromotion: false }),
+          purchase({ ...EARLIER, unitPrice: 2.0, specValue: 500, specUnit: "g", isPromotion: false }),
           purchase({ unitPrice: 3.0, specValue: 500, specUnit: "g", isPromotion: false }),
         ],
       },
@@ -93,7 +95,7 @@ describe("detectPriceSpikes", () => {
         {
           productId: "product-1",
           purchases: [
-            purchase({ storeId: "riccarton", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ ...EARLIER, storeId: "riccarton", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
             purchase({ storeId: "hornby", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
           ],
         },
@@ -112,9 +114,9 @@ describe("detectPriceSpikes", () => {
         {
           productId: "product-1",
           purchases: [
-            purchase({ storeId: "hornby", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
-            purchase({ storeId: "riccarton", unitPrice: 2.0, specValue: 2, specUnit: "L", isPromotion: false }),
-            purchase({ storeId: "riccarton", unitPrice: 3.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ ...EARLIER, storeId: "hornby", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ ...EARLIER, storeId: "riccarton", unitPrice: 2.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ ...EARLIER, storeId: "riccarton", unitPrice: 3.0, specValue: 2, specUnit: "L", isPromotion: false }),
             purchase({ storeId: "hornby", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
           ],
         },
@@ -234,6 +236,28 @@ describe("detectPriceSpikes", () => {
             purchase({ purchaseDate: "2026-08-01", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
             // A second trip to the same Store that day, sorted after it.
             purchase({ receiptId: "receipt-same-day", purchaseDate: "2026-08-01", unitPrice: 5.2, specValue: 2, specUnit: "L", isPromotion: false }),
+          ],
+        },
+      ],
+      receipt
+    );
+
+    expect(spikes).toEqual([{ productId: "product-1", newPrice: 5.0, changePercent: 25 }]);
+  });
+
+  // Two trips to the same Store on one day can't be told apart in time, so a
+  // same-day purchase on another receipt is never the baseline — whichever
+  // order the fetch happened to return them in.
+  it("compares against the last earlier day's purchase, not another receipt's from the same day sorted before it", () => {
+    const spikes = detectPriceSpikes(
+      [
+        {
+          productId: "product-1",
+          purchases: [
+            purchase({ receiptId: "receipt-july", purchaseDate: "2026-07-01", unitPrice: 4.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            purchase({ receiptId: "receipt-same-day", purchaseDate: "2026-08-01", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
+            // This Receipt: +25% on July, though level with the same-day one.
+            purchase({ purchaseDate: "2026-08-01", unitPrice: 5.0, specValue: 2, specUnit: "L", isPromotion: false }),
           ],
         },
       ],

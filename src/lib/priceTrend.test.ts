@@ -1,17 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { buildPriceTrend } from "@/lib/priceTrend";
+import { buildPriceTrend, trendLegend, type PriceTrendPoint } from "@/lib/priceTrend";
 
 const AT_HORNBY = {
   storeId: "hornby",
   storeNameEn: "Woolworths Hornby",
   storeNameZh: "沃尔沃斯 霍恩比店",
-  storeShortName: { en: "Hornby", zh: "霍恩比店" },
+  storeShortNameEn: "Hornby", storeShortNameZh: "霍恩比店",
 };
 const AT_RICCARTON = {
   storeId: "riccarton",
   storeNameEn: "Woolworths Riccarton",
   storeNameZh: "沃尔沃斯 里卡顿店",
-  storeShortName: { en: "Riccarton", zh: "里卡顿店" },
+  storeShortNameEn: "Riccarton", storeShortNameZh: "里卡顿店",
 };
 
 describe("buildPriceTrend", () => {
@@ -55,11 +55,79 @@ describe("buildPriceTrend", () => {
     expect(point).toMatchObject({
       storeNameEn: "Woolworths Hornby",
       storeNameZh: "沃尔沃斯 霍恩比店",
-      storeShortName: { en: "Hornby", zh: "霍恩比店" },
+      storeShortNameEn: "Hornby", storeShortNameZh: "霍恩比店",
     });
   });
 
   it("returns an empty array for no purchase history", () => {
     expect(buildPriceTrend([])).toEqual([]);
+  });
+});
+
+function point(store: Pick<PriceTrendPoint, "storeId" | "storeNameEn" | "storeNameZh" | "storeShortNameEn" | "storeShortNameZh">): PriceTrendPoint {
+  return { ...store, purchaseDate: "2026-07-01", basis: "per_100g", value: 1, isPromotion: false };
+}
+
+const NO_STORE = {
+  storeId: null,
+  storeNameEn: "Four Square",
+  storeNameZh: "四方超市",
+  storeShortNameEn: "Four Square",
+  storeShortNameZh: "四方超市",
+};
+const PAKNSAVE_ALBANY = {
+  storeId: "paknsave-albany",
+  storeNameEn: "PAK'nSAVE Albany",
+  storeNameZh: "PAK'nSAVE 奥尔巴尼店",
+  storeShortNameEn: "Albany",
+  storeShortNameZh: "奥尔巴尼店",
+};
+const NEW_WORLD_ALBANY = {
+  storeId: "new-world-albany",
+  storeNameEn: "New World Albany",
+  storeNameZh: "新世界 奥尔巴尼店",
+  storeShortNameEn: "Albany",
+  storeShortNameZh: "奥尔巴尼店",
+};
+
+// Issue 29: the chart's legend names each Store's line.
+describe("trendLegend", () => {
+  it("lists each Store once, in order of its first purchase, by its short name", () => {
+    const legend = trendLegend(
+      [point(AT_RICCARTON), point(AT_HORNBY), point(AT_RICCARTON), point(AT_HORNBY)],
+      "en"
+    );
+
+    expect(legend).toEqual([
+      { storeId: "riccarton", label: "Riccarton" },
+      { storeId: "hornby", label: "Hornby" },
+    ]);
+  });
+
+  it("labels in the chosen language", () => {
+    expect(trendLegend([point(AT_HORNBY)], "zh")).toEqual([{ storeId: "hornby", label: "霍恩比店" }]);
+  });
+
+  // A purchase with no Store belongs to no line, so it has no legend entry.
+  it("leaves out purchases with no Store", () => {
+    expect(trendLegend([point(NO_STORE), point(AT_HORNBY)], "en")).toEqual([
+      { storeId: "hornby", label: "Hornby" },
+    ]);
+  });
+
+  // Two chains can share a branch name; the branch alone would then label two
+  // lines alike.
+  it("names Stores that share a short name by chain and branch, leaving the others short", () => {
+    expect(
+      trendLegend([point(PAKNSAVE_ALBANY), point(NEW_WORLD_ALBANY), point(AT_HORNBY)], "en")
+    ).toEqual([
+      { storeId: "paknsave-albany", label: "PAK'nSAVE Albany" },
+      { storeId: "new-world-albany", label: "New World Albany" },
+      { storeId: "hornby", label: "Hornby" },
+    ]);
+  });
+
+  it("returns no entries when no purchase has a Store", () => {
+    expect(trendLegend([point(NO_STORE)], "en")).toEqual([]);
   });
 });

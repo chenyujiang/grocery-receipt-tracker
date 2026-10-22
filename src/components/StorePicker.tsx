@@ -1,71 +1,14 @@
 import { useId } from "react";
-import type { ReceiptDraft } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, type Language } from "@/lib/bilingual";
-import { isKnownBranch } from "@/lib/storeName";
-import {
-  hasChain,
-  matchingStore,
-  nearMissStores,
-  storeAsRead,
-  storeChoiceOf,
-  storeNameOf,
-  type Store,
-  type StoreChoice,
-} from "@/lib/stores";
-
-// The picker's values for "create this as a new branch" and "branch
-// unknown"; any other value is an existing Store's id.
-const NEW_BRANCH = "new";
-const UNKNOWN_BRANCH = "unknown";
-
-// What the picker holds: which option is picked, plus the chain/branch typed
-// into the fields — kept while another option is picked, so switching back
-// doesn't lose them.
-export interface StorePick {
-  pickedStoreId: string;
-  typed: StoreChoice;
-}
-
-// Where the picker starts: the Store a confirmed receipt already points at;
-// else the Store matching what the AI read, if the Circle has one; else
-// "branch unknown" when no branch was read, else "new branch".
-export function initialStorePick(stores: Store[], draft: ReceiptDraft): StorePick {
-  const typed = storeAsRead(draft);
-  const match =
-    stores.find((store) => store.id === draft.storeId) ?? matchingStore(stores, typed);
-  const pickedStoreId = match
-    ? match.id
-    : isKnownBranch(typed.branch?.en ?? null)
-      ? NEW_BRANCH
-      : UNKNOWN_BRANCH;
-  return { pickedStoreId, typed };
-}
-
-// The chain/branch to confirm or save the receipt with; none until the
-// picker has a pick.
-export function storeChoiceOfPick(stores: Store[], pick: StorePick | null): StoreChoice | null {
-  if (!pick) return null;
-  const picked = stores.find((candidate) => candidate.id === pick.pickedStoreId);
-  if (picked) return storeChoiceOf(picked);
-  if (pick.pickedStoreId === UNKNOWN_BRANCH) {
-    return { chain: pick.typed.chain, branch: null };
-  }
-  return pick.typed;
-}
-
-// Whether the pick names a chain, which confirm and save need (resolveStore
-// refuses a blank one) — the one check both pages' buttons and the
-// picker's hint read, so they can't disagree.
-export function pickHasChain(stores: Store[], pick: StorePick | null): boolean {
-  const choice = storeChoiceOfPick(stores, pick);
-  return choice !== null && hasChain(choice);
-}
+import { isKnownBranch, storeName } from "@/lib/storeName";
+import { nearMissStores, type Store, type StoreChoice } from "@/lib/stores";
+import { NEW_BRANCH, pickHasChain, UNKNOWN_BRANCH, type StorePick } from "@/lib/storePick";
 
 function storeLabel(store: Store, language: Language, branchUnknown: string): string {
-  const name = storeNameOf(store);
+  const name = storeName(store);
   const label = pickText(name.en, name.zh, language);
-  return isKnownBranch(store.branchNameEn) ? label : `${label} (${branchUnknown})`;
+  return isKnownBranch(store.branch_name_en) ? label : `${label} (${branchUnknown})`;
 }
 
 interface StorePickerProps {

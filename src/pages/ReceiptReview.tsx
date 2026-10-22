@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   fetchReceiptDraft,
-  fetchStores,
   confirmReceipt,
   deleteReceipt,
   toItemUpdate,
@@ -15,8 +14,8 @@ import { pickText, categoryLabel } from "@/lib/bilingual";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
 import { useLatestRequest } from "@/lib/useLatestRequest";
-import StorePicker, { initialStorePick, pickHasChain, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
-import type { Store } from "@/lib/stores";
+import StorePicker from "@/components/StorePicker";
+import { useStorePick } from "@/lib/useStorePick";
 
 // Section 6, 15 page 2 (preview/confirm): the review step is the safety net
 // for OCR errors — user edits each field before it counts toward statistics.
@@ -30,8 +29,7 @@ export default function ReceiptReview() {
 
   const [draft, setDraft] = useState<ReceiptDraft | null>(null);
   const [items, setItems] = useState<DraftItem[]>([]);
-  const [stores, setStores] = useState<Store[]>([]);
-  const [storePick, setStorePick] = useState<StorePick | null>(null);
+  const storePick = useStorePick();
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
@@ -39,22 +37,20 @@ export default function ReceiptReview() {
   const [duplicateDismissed, setDuplicateDismissed] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // The chain/branch the picker currently names, which confirming sends.
-  const storeChoice = storeChoiceOfPick(stores, storePick);
-
   const startLoad = useLatestRequest();
 
   useEffect(() => {
     if (!receiptId) return;
     // Drops a stale response (another receipt, or the page was left).
+    // storePick.load() sets the Circle's Stores itself, unguarded; they're
+    // the same whichever receipt asked, so a stale copy is harmless.
     const { guard, cancel } = startLoad();
-    Promise.all([fetchReceiptDraft(receiptId), fetchStores()])
+    Promise.all([fetchReceiptDraft(receiptId), storePick.load()])
       .then(
         guard(([loaded, circleStores]) => {
           setDraft(loaded);
           setItems(loaded.items);
-          setStores(circleStores);
-          setStorePick(initialStorePick(circleStores, loaded));
+          storePick.start(loaded, circleStores);
           return findDuplicateReceipt({
             storeNameEn: loaded.receiptHeader.en,
             purchaseDate: loaded.purchaseDate,
@@ -90,6 +86,7 @@ export default function ReceiptReview() {
   }
 
   async function handleConfirm() {
+    const storeChoice = storePick.choice;
     if (!receiptId || !storeChoice) return;
     setError(null);
     setConfirming(true);
@@ -111,7 +108,7 @@ export default function ReceiptReview() {
     );
   }
 
-  if (!draft || !storePick) {
+  if (!draft || !storePick.pick) {
     return (
       <div className="page">
         <p>{t("common.loading")}</p>
@@ -126,7 +123,7 @@ export default function ReceiptReview() {
         {pickText(draft.receiptHeader.en, draft.receiptHeader.zh, language)} · {draft.purchaseDate}
       </p>
 
-      <StorePicker stores={stores} value={storePick} onChange={setStorePick} />
+      <StorePicker stores={storePick.stores} value={storePick.pick} onChange={storePick.setPick} />
 
       {duplicate && !duplicateDismissed && (
         <section>
@@ -161,7 +158,7 @@ export default function ReceiptReview() {
         type="button"
         className="btn-block"
         onClick={handleConfirm}
-        disabled={confirming || !pickHasChain(stores, storePick)}
+        disabled={confirming || !storePick.hasChain}
       >
         {confirming ? t("review.confirming") : t("review.confirm")}
       </button>

@@ -3,7 +3,6 @@ import type { Database } from "@/types/database.types";
 // Relative + `.js`, not the `@/` alias: this is the one src/lib module that
 // `api/` imports at runtime (api/cron/low-stock-check.ts), and the alias is
 // a bundler concern the serverless build should not have to resolve.
-import type { BilingualName } from "./bilingualName.js";
 import { receiptStoreName, STORE_NAMES_EMBED, storeShortName } from "./storeName.js";
 import { POSTGREST_PAGE_SIZE } from "./postgrestPaging.js";
 
@@ -27,7 +26,8 @@ export interface Purchase {
   storeNameZh: string;
   // The same Store named as briefly as possible, for the trend chart's
   // legend: its branch, else its chain, else (no Store) the header.
-  storeShortName: BilingualName;
+  storeShortNameEn: string;
+  storeShortNameZh: string;
   unitPrice: number;
   quantity: number;
   specValue: number;
@@ -44,7 +44,7 @@ export interface PurchaseHistory {
 // `as const` keeps the interpolated string a literal type, which is what
 // supabase-js parses to type the rows; a plain template widens to `string`.
 const PURCHASE_SELECT =
-  `id, product_id, receipt_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
+  `id, product_id, receipt_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, uploaded_at, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
 
 // 100 UUIDs keep the `in.(...)` filter under ~4KB of URL.
 const ID_BATCH_SIZE = 100;
@@ -107,11 +107,16 @@ export async function fetchPurchaseHistories(
     rows.push(...(await fetchAllPages(client, uniqueIds.slice(start, start + ID_BATCH_SIZE))));
   }
 
-  // Oldest first, with same-date rows broken by the row's own unique id: a
-  // total order, so the result can't depend on how pages or batches arrived.
+  // Oldest first; same-day rows by when their receipts were uploaded, then
+  // by receipt, so "the latest purchase" never depends on the order a tie
+  // came back in, and finally by the row's own unique id: a total order, so
+  // the result can't depend on how pages or batches arrived either.
   rows.sort(
     (a, b) =>
-      a.receipts.purchase_date.localeCompare(b.receipts.purchase_date) || a.id.localeCompare(b.id)
+      compare(a.receipts.purchase_date, b.receipts.purchase_date) ||
+      compare(a.receipts.uploaded_at, b.receipts.uploaded_at) ||
+      compare(a.receipt_id, b.receipt_id) ||
+      compare(a.id, b.id)
   );
 
   const byProduct = new Map<string, Purchase[]>(uniqueIds.map((id) => [id, []]));
@@ -123,13 +128,15 @@ export async function fetchPurchaseHistories(
       continue;
     }
     const name = receiptStoreName(row.receipts);
+    const shortName = row.receipts.stores ? storeShortName(row.receipts.stores) : name;
     byProduct.get(row.product_id)?.push({
       purchaseDate: row.receipts.purchase_date,
       receiptId: row.receipt_id,
       storeId: row.receipts.store_id,
       storeNameEn: name.en,
       storeNameZh: name.zh,
-      storeShortName: row.receipts.stores ? storeShortName(row.receipts.stores) : name,
+      storeShortNameEn: shortName.en,
+      storeShortNameZh: shortName.zh,
       unitPrice: row.unit_price,
       quantity: row.quantity,
       specValue: row.unit_spec_value,
@@ -142,4 +149,8 @@ export async function fetchPurchaseHistories(
     productId,
     purchases: byProduct.get(productId) ?? [],
   }));
+}
+
+function compare(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }

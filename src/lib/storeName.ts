@@ -42,9 +42,14 @@ export function storeName(store: StoreNames): BilingualName {
   return { en: `${chain.en} ${branch.en}`, zh: `${chain.zh} ${branch.zh}` };
 }
 
+// The four name columns, as a select list — the one place they're spelled
+// out, for the embed below and stores.ts's own selects alike.
+export const STORE_NAME_COLUMNS = "chain_name_en, chain_name_zh, branch_name_en, branch_name_zh";
+
 // What storeName reads, embedded from a receipt's Store. Every select that
 // names a receipt by its Store interpolates this, so they all embed alike.
-export const STORE_NAMES_EMBED = "stores(chain_name_en, chain_name_zh, branch_name_en, branch_name_zh)";
+// `as const` keeps it a literal type, which supabase-js parses to type rows.
+export const STORE_NAMES_EMBED = `stores(${STORE_NAME_COLUMNS})` as const;
 
 // A receipt named by its Store, or by its Receipt Header when it has none —
 // a draft, or one confirmed before Stores existed and not yet backfilled.

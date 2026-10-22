@@ -23,12 +23,12 @@ describe("resolveStore", () => {
       branch: { en: " Hornby ", zh: "霍恩比" },
     });
 
-    expect(store).toEqual({
+    expect(store).toMatchObject({
       id: "store-hornby",
-      chainNameEn: "Woolworths",
-      chainNameZh: "沃尔沃斯",
-      branchNameEn: "Hornby",
-      branchNameZh: "霍恩比",
+      chain_name_en: "Woolworths",
+      chain_name_zh: "沃尔沃斯",
+      branch_name_en: "Hornby",
+      branch_name_zh: "霍恩比",
     });
     // The fake doesn't filter, so pin that the lookup is by normalized key.
     const calls = db.callsFor("stores");
@@ -60,12 +60,12 @@ describe("resolveStore", () => {
       branch: { en: "Riccarton", zh: "里卡顿" },
     });
 
-    expect(store).toEqual({
+    expect(store).toMatchObject({
       id: "store-riccarton",
-      chainNameEn: "Woolworths",
-      chainNameZh: "沃尔沃斯",
-      branchNameEn: "Riccarton",
-      branchNameZh: "里卡顿",
+      chain_name_en: "Woolworths",
+      chain_name_zh: "沃尔沃斯",
+      branch_name_en: "Riccarton",
+      branch_name_zh: "里卡顿",
     });
     expect(db.callsFor("stores")).toContainEqual([
       "insert",
@@ -103,7 +103,7 @@ describe("resolveStore", () => {
       branch: null,
     });
 
-    expect(store).toMatchObject({ id: "store-woolworths-unknown", branchNameEn: null });
+    expect(store).toMatchObject({ id: "store-woolworths-unknown", branch_name_en: null });
     const [lookup, insert] = db.queriesFor("stores");
     // `eq` with null never matches in PostgREST; an unknown branch needs `is`.
     expect(lookup).toContainEqual(["is", "branch_key", null]);
@@ -210,10 +210,10 @@ describe("listStores", () => {
     ]);
     expect(stores[0]).toEqual({
       id: "paknsave-albany",
-      chainNameEn: "PAK'nSAVE",
-      chainNameZh: null,
-      branchNameEn: "Albany",
-      branchNameZh: null,
+      chain_name_en: "PAK'nSAVE",
+      chain_name_zh: null,
+      branch_name_en: "Albany",
+      branch_name_zh: null,
     });
   });
 });

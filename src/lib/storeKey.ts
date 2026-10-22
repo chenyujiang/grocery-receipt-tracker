@@ -12,13 +12,25 @@ export interface StoreKey {
 
 // Street-type abbreviations, spelled out so "Smith St" and "Smith Street"
 // key alike. "St" also abbreviates Saint ("St Lukes"); that's harmless, since
-// it's expanded the same way wherever it's printed.
+// it's expanded the same way wherever it's printed. "Mt" is deliberately
+// absent: it's Mount in a suburb's name (Mt Albert), not a street type.
 const STREET_ABBREVIATIONS: Record<string, string> = {
   rd: "road",
   st: "street",
   ave: "avenue",
   dr: "drive",
+  pl: "place",
+  cres: "crescent",
+  hwy: "highway",
+  tce: "terrace",
+  ln: "lane",
+  pde: "parade",
+  sq: "square",
+  ct: "court",
+  cl: "close",
+  blvd: "boulevard",
 };
+const STREET_ABBREVIATION = new RegExp(`\\b(${Object.keys(STREET_ABBREVIATIONS).join("|")})\\b`, "g");
 
 function normalize(text: string): string {
   return (
@@ -31,7 +43,7 @@ function normalize(text: string): string {
       // same thing printed differently — straight or curly apostrophe.
       .replace(/[.'‘’]/g, "")
       .replace(/[-–—,/]/g, " ")
-      .replace(/\b(rd|st|ave|dr)\b/g, (_, abbreviation: string) => STREET_ABBREVIATIONS[abbreviation])
+      .replace(STREET_ABBREVIATION,(_, abbreviation: string) => STREET_ABBREVIATIONS[abbreviation])
       .trim()
       .replace(/\s+/g, " ")
   );

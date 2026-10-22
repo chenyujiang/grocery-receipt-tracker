@@ -1,5 +1,5 @@
 Type: prototype
-Status: open
+Status: resolved
 GitHub: #32
 Blocked by: 24, 27
 
@@ -18,6 +18,16 @@ This is a prototype ticket because the question is how it should look and feel, 
 - Where the branch shows up elsewhere: the receipt list, the receipt detail page, the monthly report's leaderboard rows.
 
 Link the prototype as an asset on this ticket; keep it throwaway.
+
+## Answer
+
+Answered by [spec 29](29-branch-level-store-identity.md) (its **[assumption → 28]** decision and the Presentation section), implemented in PR #43.
+
+- **Trend chart**: one line per Store, with series colours from design tokens (light and dark); a Store with a single purchase, or a product bought only once, is a lone point.
+- **Legend**: the branch name, falling back to the chain when the branch is unknown; when two Stores on one chart would read the same, both use the full chain-and-branch name.
+- **Store comparison**: keyed by Store; it sits beside the trend chart, not merged into it.
+- **Where branch shows**: receipt list (whose search also matches Store names), receipt detail, leaderboard rows, and the CSV export (new `chain_name_*`/`branch_name_*` columns; the printed-header columns keep their names).
+- A Purchase without a Store is left out of the chart and the comparison.
 
 ---
 
@@ -38,3 +48,13 @@ Link the prototype as an asset on this ticket; keep it throwaway.
 - 分店还应该出现在哪些地方：小票列表、小票详情页、月报排行榜的行里。
 
 把原型作为资产链接在本 ticket 上；保持一次性、可丢弃。
+
+## 答案
+
+由 [spec 29](29-branch-level-store-identity.md) 回答（其中标为 **[assumption → 28]** 的决定以及"展示"一节），已在 PR #43 实现。
+
+- **趋势图**：每个 Store 一条线，系列颜色来自设计 token（亮色和暗色各一套）；只有一次购买的 Store，或只买过一次的商品，画成一个孤立点。
+- **图例**：用分店名，分店未知时退回连锁名；同一张图上两个 Store 标签相同时，两者都用"连锁 + 分店"的全名。
+- **门店比价**：按 Store 分组；放在趋势图旁边，不合并进去。
+- **分店显示位置**：小票列表（搜索也匹配 Store 名称）、小票详情、涨幅榜各行、CSV 导出（新增 `chain_name_*`/`branch_name_*` 列；原来的小票店名列保留原名）。
+- 没有 Store 的 Purchase 不出现在趋势图和比价里。
