@@ -72,9 +72,9 @@ describe("resolveStore", () => {
       {
         circle_id: "circle-1",
         chain_name_en: "Woolworths",
-        chain_name_zh: "沃尔沃斯",
+        chain_name_zh: null,
         branch_name_en: "Riccarton",
-        branch_name_zh: "里卡顿",
+        branch_name_zh: null,
         chain_key: "woolworths",
         branch_key: "riccarton",
       },
@@ -133,16 +133,14 @@ describe("resolveStore", () => {
       "insert",
       expect.objectContaining({
         chain_name_en: "Woolworths",
-        chain_name_zh: "沃尔沃斯",
         branch_name_en: "Hornby",
-        branch_name_zh: "霍恩比",
       }),
     ]);
   });
 
-  // A Translation that's only spaces is no Translation, stored as null like
-  // any other missing one (BilingualText) — not as an empty string.
-  it("stores a Chinese name that's only spaces as no Translation", async () => {
+  // Store names are shown in English only: a Translation the AI read is
+  // dropped, and every name falls back to its Source Text.
+  it("stores no Chinese name, even one the AI read", async () => {
     const db = createFakeSupabase({
       tables: {
         stores: [
@@ -153,8 +151,8 @@ describe("resolveStore", () => {
     });
 
     await resolveStore(db.client, "circle-1", {
-      chain: { en: "Woolworths", zh: "  " },
-      branch: { en: "Hornby", zh: " \t" },
+      chain: { en: "Woolworths", zh: "沃尔沃斯" },
+      branch: { en: "Hornby", zh: "霍恩比" },
     });
 
     expect(db.callsFor("stores")).toContainEqual([

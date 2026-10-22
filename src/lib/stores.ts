@@ -173,17 +173,19 @@ export async function resolveStore(
   // takes it back (deleteUnusedStore) just after another member's lookup
   // found it, that member's confirm then fails on the missing Store, and a
   // retry creates it afresh.
-  // An unknown branch has no name in either language; the stores check
-  // constraint requires branch_name_en and branch_key to be null together.
+  // An unknown branch has no name; the stores check constraint requires
+  // branch_name_en and branch_key to be null together. Store names are shown
+  // in English only, so a Translation the AI read is not stored: the _zh
+  // columns stay null and every name falls back to its Source Text.
   const namedBranch = key.branchKey === null ? null : branch;
   const { data: created, error: insertError } = await client
     .from("stores")
     .insert({
       circle_id: circleId,
       chain_name_en: chain.en.trim(),
-      chain_name_zh: chain.zh?.trim() || null,
+      chain_name_zh: null,
       branch_name_en: namedBranch?.en.trim() ?? null,
-      branch_name_zh: namedBranch?.zh?.trim() || null,
+      branch_name_zh: null,
       chain_key: key.chainKey,
       branch_key: key.branchKey,
     })
