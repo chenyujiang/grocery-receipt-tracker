@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import { fetchCircleMembers } from "@/lib/circleMembers";
 import { bilingualName } from "@/lib/bilingualName";
-import { isKnownBranch } from "@/lib/storeName";
+import { STORE_NAMES_EMBED, storeNameParts } from "@/lib/storeName";
 
 export interface ExportRow {
   purchaseDate: string;
@@ -97,7 +97,7 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
   const { data, error } = await supabase
     .from("receipt_items")
     .select(
-      "quantity, unit_spec_value, unit_spec_unit, unit_price, is_promotion, raw_name_en, raw_name_zh, products(canonical_name_en, canonical_name_zh, category), receipts!inner(purchase_date, store_name_en, store_name_zh, status, uploaded_by, stores(chain_name_en, chain_name_zh, branch_name_en, branch_name_zh))"
+      `quantity, unit_spec_value, unit_spec_unit, unit_price, is_promotion, raw_name_en, raw_name_zh, products(canonical_name_en, canonical_name_zh, category), receipts!inner(purchase_date, store_name_en, store_name_zh, status, uploaded_by, ${STORE_NAMES_EMBED})`
     )
     .eq("receipts.status", "confirmed")
     .gte("receipts.purchase_date", range.from)
@@ -118,12 +118,9 @@ export async function fetchExportRows(range: ExportRange): Promise<ExportRow[]> 
       row.products?.canonical_name_en ?? row.raw_name_en,
       row.products?.canonical_name_zh ?? row.raw_name_zh
     );
-    const store = row.receipts.stores;
-    const chain = store ? bilingualName(store.chain_name_en, store.chain_name_zh) : null;
-    const branch =
-      store && isKnownBranch(store.branch_name_en)
-        ? bilingualName(store.branch_name_en, store.branch_name_zh)
-        : null;
+    const store = row.receipts.stores ? storeNameParts(row.receipts.stores) : null;
+    const chain = store?.chain ?? null;
+    const branch = store?.branch ?? null;
     return {
       purchaseDate: row.receipts.purchase_date,
       receiptHeaderEn: header.en,

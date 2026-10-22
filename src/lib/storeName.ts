@@ -19,14 +19,26 @@ export function isKnownBranch(branchNameEn: string | null): branchNameEn is stri
   return branchKey(branchNameEn) !== null;
 }
 
-// A Store's name as one line: its chain, then its branch if it has one —
-// each falling back to its Source Text when it has no Translation.
+// A Store's chain and branch names apart — the branch null when it's
+// unknown — each falling back to its Source Text when it has no Translation.
+export function storeNameParts(store: StoreNames): {
+  chain: BilingualName;
+  branch: BilingualName | null;
+} {
+  return {
+    chain: bilingualName(store.chain_name_en, store.chain_name_zh),
+    branch: isKnownBranch(store.branch_name_en)
+      ? bilingualName(store.branch_name_en, store.branch_name_zh)
+      : null,
+  };
+}
+
+// A Store's name as one line: its chain, then its branch if it has one.
 export function storeName(store: StoreNames): BilingualName {
-  const chain = bilingualName(store.chain_name_en, store.chain_name_zh);
-  if (!isKnownBranch(store.branch_name_en)) {
+  const { chain, branch } = storeNameParts(store);
+  if (!branch) {
     return chain;
   }
-  const branch = bilingualName(store.branch_name_en, store.branch_name_zh);
   return { en: `${chain.en} ${branch.en}`, zh: `${chain.zh} ${branch.zh}` };
 }
 
@@ -49,7 +61,6 @@ export function receiptStoreName(receipt: {
 // A Store's name short enough for a phone-width chart legend: its branch
 // alone, or its chain when the branch is unknown.
 export function storeShortName(store: StoreNames): BilingualName {
-  return isKnownBranch(store.branch_name_en)
-    ? bilingualName(store.branch_name_en, store.branch_name_zh)
-    : bilingualName(store.chain_name_en, store.chain_name_zh);
+  const { chain, branch } = storeNameParts(store);
+  return branch ?? chain;
 }
