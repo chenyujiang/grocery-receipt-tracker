@@ -144,6 +144,30 @@ describe("AdminDashboard", () => {
     }
   });
 
+  it("renders its UI chrome in the chosen display language", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([ALICE, BEN_BLOCKED]);
+    localStorage.setItem("language", "zh");
+
+    try {
+      render(
+        <MemoryRouter>
+          <LanguageProvider>
+            <AdminDashboard />
+          </LanguageProvider>
+        </MemoryRouter>
+      );
+
+      expect(await screen.findByRole("heading", { name: "管理后台 — 用户" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "需要处理（1）" })).toBeInTheDocument();
+      expect(screen.getByText("待充值")).toBeInTheDocument();
+      expect(screen.getByText("免费试用已用完，等待充值")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "封禁账号" })).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "选择 Ben Wu" })).toBeInTheDocument();
+    } finally {
+      localStorage.clear();
+    }
+  });
+
   it("does not show the merge button until at least 2 users are selected", async () => {
     vi.mocked(fetchAdminUsers).mockResolvedValue([ALICE, CARL]);
 

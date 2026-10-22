@@ -39,6 +39,12 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
   const [busy, setBusy] = useState(false);
   const { t } = useLanguage();
   const flagged = needsAttention(user);
+  const roleLabel =
+    user.role === "owner"
+      ? t("settings.roleOwner")
+      : user.role === "member"
+        ? t("settings.roleMember")
+        : user.role;
 
   // Issue 22: every action here is consequential — a grant is a reset, not a
   // top-up (issue 15 decision 4) — so a failure must never look like a dead
@@ -67,7 +73,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <input
             type="checkbox"
-            aria-label={`Select ${user.displayName}`}
+            aria-label={t("admin.selectUser", { name: user.displayName })}
             checked={selected}
             onChange={onToggleSelect}
           />
@@ -76,20 +82,21 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
             <div className="receipt-card-date">{user.email}</div>
           </div>
         </div>
-        {flagged && <span className="receipt-card-badge">Needs credit</span>}
+        {flagged && <span className="receipt-card-badge">{t("admin.needsCredit")}</span>}
         {user.banned && (
           <span
             className="receipt-card-badge"
             style={{ color: "var(--danger)", background: "var(--danger-bg)" }}
           >
-            Banned
+            {t("admin.banned")}
           </span>
         )}
       </div>
 
       <div className="receipt-card-row">
         <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-          {user.circleName ?? "(no circle)"} · {user.role} · joined {user.joinedAt.slice(0, 10)}
+          {user.circleName ?? t("admin.noCircle")} · {roleLabel} ·{" "}
+          {t("admin.joined", { date: user.joinedAt.slice(0, 10) })}
         </span>
       </div>
 
@@ -97,12 +104,15 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
         {user.credit.mode === "trial" ? (
           <span style={{ fontSize: 13 }}>
             {user.credit.callsUsed >= FREE_TRIAL_LIMIT
-              ? "Free trial used up — awaiting credit"
-              : `Free trial: ${user.credit.callsUsed} of ${FREE_TRIAL_LIMIT} used`}
+              ? t("admin.trialUsedUp")
+              : t("admin.trialProgress", { used: user.credit.callsUsed, limit: FREE_TRIAL_LIMIT })}
           </span>
         ) : (
           <span style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
-            ${user.credit.spentUsd.toFixed(2)} of ${user.credit.capUsd.toFixed(2)} used
+            {t("admin.creditProgress", {
+              spent: user.credit.spentUsd.toFixed(2),
+              cap: user.credit.capUsd.toFixed(2),
+            })}
           </span>
         )}
       </div>
@@ -114,7 +124,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
             disabled={busy}
             onClick={() => withBusy(() => grantAdminCredit(user.userId))}
           >
-            Grant $1
+            {t("admin.grantDefault")}
           </button>
           <button
             type="button"
@@ -122,7 +132,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
             disabled={busy}
             onClick={() => setShowCustom((value) => !value)}
           >
-            Custom…
+            {t("admin.custom")}
           </button>
         </div>
       </div>
@@ -132,7 +142,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
           <input
             value={customAmount}
             onChange={(event) => setCustomAmount(event.target.value)}
-            placeholder="e.g. 5.00"
+            placeholder={t("admin.customPlaceholder")}
             style={{ flex: 1 }}
           />
           <button
@@ -148,7 +158,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
               // text is left in the box so it can be corrected, not retyped.
               const amount = Number(customAmount.trim());
               if (!Number.isFinite(amount) || amount <= 0) {
-                onError("Enter a grant amount greater than 0.");
+                onError(t("admin.invalidAmount"));
                 return;
               }
               void withBusy(async () => {
@@ -158,7 +168,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
               });
             }}
           >
-            Grant
+            {t("admin.grant")}
           </button>
         </div>
       )}
@@ -171,7 +181,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
           disabled={busy}
           onClick={() => withBusy(() => setAdminUserBanned(user.userId, !user.banned))}
         >
-          {user.banned ? "Unban account" : "Ban account"}
+          {user.banned ? t("admin.unban") : t("admin.ban")}
         </button>
       </div>
 
@@ -252,7 +262,7 @@ export default function AdminDashboard() {
 
   const byCircle = new Map<string, AdminUserRow[]>();
   for (const user of users ?? []) {
-    const key = user.circleName ?? "(no circle)";
+    const key = user.circleName ?? t("admin.noCircle");
     const list = byCircle.get(key) ?? [];
     list.push(user);
     byCircle.set(key, list);
@@ -260,24 +270,24 @@ export default function AdminDashboard() {
 
   return (
     <div className="page">
-      <h1>Admin — Users</h1>
+      <h1>{t("admin.title")}</h1>
       <button
         type="button"
         className="btn-secondary btn-block"
         style={{ marginTop: 0, marginBottom: 16 }}
         onClick={() => navigate("/")}
       >
-        Go to my account
+        {t("admin.goToMyAccount")}
       </button>
 
       {error && <p role="alert">{error}</p>}
-      {!error && users === null && <p>Loading…</p>}
+      {!error && users === null && <p>{t("common.loading")}</p>}
 
       {!error && users !== null && (
         <>
           <section>
-            <h2>Needs attention ({attention.length})</h2>
-            {attention.length === 0 && <p>Nobody is blocked right now.</p>}
+            <h2>{t("admin.needsAttention", { count: attention.length })}</h2>
+            {attention.length === 0 && <p>{t("admin.nobodyBlocked")}</p>}
             {attention.length > 0 && (
               <ul className="receipt-list">
                 {attention.map((user) => (
@@ -305,7 +315,7 @@ export default function AdminDashboard() {
                 disabled={merging}
                 onClick={() => void mergeSelected()}
               >
-                Merge {selected.size} users into a circle
+                {t("admin.mergeSelected", { count: selected.size })}
               </button>
               <button
                 type="button"
@@ -316,13 +326,13 @@ export default function AdminDashboard() {
                   setSelected(new Set());
                 }}
               >
-                Clear selection
+                {t("admin.clearSelection")}
               </button>
             </div>
           )}
 
           <section>
-            <h2>All users, by circle</h2>
+            <h2>{t("admin.allUsersByCircle")}</h2>
             {[...byCircle.entries()].map(([circleName, members]) => {
               const isOpen = expandedCircles.has(circleName);
               return (
