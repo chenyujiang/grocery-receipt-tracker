@@ -65,23 +65,23 @@ interface Wiring {
   receiptItems?: Result;
   /** Results for the write-backs to `products`, in the order they happen. */
   productUpdates?: Result[];
-  /** The `alerts` insert. */
-  alerts?: Result;
+  /** The `record_low_stock_alerts` RPC: insert Alerts + flag Products, atomically. */
+  recordAlerts?: Result;
 }
 
 function installSupabase({
   products = { data: PRODUCTS, error: null },
   receiptItems = { data: [], error: null },
   productUpdates = [OK, OK],
-  alerts = OK,
+  recordAlerts = OK,
 }: Wiring = {}) {
   return installFakeSupabase(supabaseAdmin, {
     tables: {
       // The sweep reads `products` first, then writes the flags back.
       products: [products, ...productUpdates],
       receipt_items: [receiptItems],
-      alerts,
     },
+    rpc: { record_low_stock_alerts: recordAlerts },
   });
 }
 
@@ -203,6 +203,44 @@ describe("GET /api/cron/low-stock-check", () => {
     expect(historyQueries(db.queriesFor("receipt_items"))).toEqual([["product-1", "product-2"]]);
   });
 
+  // Ticket 36: PostgREST's max-rows (default 1000) silently truncates an
+  // unpaginated read, so a database with more Products than that had the rest
+  // never checked. The sweep pages through them in a fixed order instead.
+  it("checks every Product when there are more than 1000, paging over a stable order", async () => {
+    const many = Array.from({ length: 1001 }, (_, index) => ({
+      id: `product-${String(index).padStart(4, "0")}`,
+      circle_id: "circle-1",
+      low_stock_alert_active: false,
+    }));
+    const db = installFakeSupabase(supabaseAdmin, {
+      tables: {
+        products: [
+          { data: many.slice(0, 1000), error: null },
+          { data: many.slice(1000), error: null },
+        ],
+        receipt_items: { data: [], error: null },
+      },
+    });
+    const res = makeRes();
+
+    await handler(cronReq(), res.res);
+
+    expect(res.statusCode).toBe(200);
+    const checked = vi
+      .mocked(detectLowStock)
+      .mock.calls.flatMap(([checks]) => checks.map((check) => check.productId));
+    expect(checked).toHaveLength(1001);
+    expect(new Set(checked)).toEqual(new Set(many.map((product) => product.id)));
+
+    const reads = db.queriesFor("products");
+    expect(reads).toHaveLength(2);
+    for (const read of reads) {
+      expect(read).toContainEqual(["order", "id", { ascending: true }]);
+    }
+    expect(reads[0]).toContainEqual(["range", 0, 999]);
+    expect(reads[1]).toContainEqual(["range", 1000, 1999]);
+  });
+
   it("hands each Product its own Purchase History, normalized", async () => {
     installSupabase({
       receiptItems: { data: [itemRow({ quantity: 3 })], error: null },
@@ -255,13 +293,17 @@ describe("GET /api/cron/low-stock-check", () => {
 
     await handler(cronReq(), res.res);
 
-    expect(db.callsFor("alerts")).toEqual([]);
+    expect(db.rpc).not.toHaveBeenCalled();
     expect(writesTo(db.queriesFor("products"))).toEqual([]);
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({ newAlerts: 0, recoveries: 0 });
   });
 
-  it("records a new Alert against the Product's own Circle, then flags the Product", async () => {
+  // Ticket 36: inserting the Alert and flagging the Product used to be two
+  // statements, so a failure between them left an Alert with no flag and the
+  // next run raised it again. Both now happen in one Postgres function, which
+  // reads each Product's Circle itself.
+  it("records a new Alert and flags the Product in one atomic RPC", async () => {
     const db = installSupabase();
     vi.mocked(detectLowStock).mockReturnValue({
       newAlerts: [{ productId: "product-2" }],
@@ -271,13 +313,11 @@ describe("GET /api/cron/low-stock-check", () => {
 
     await handler(cronReq(), res.res);
 
-    expect(db.callsFor("alerts")).toContainEqual([
-      "insert",
-      [{ circle_id: "circle-2", type: "low_stock", product_id: "product-2" }],
-    ]);
-    expect(writesTo(db.queriesFor("products"))).toEqual([
-      { payload: { low_stock_alert_active: true }, ids: ["product-2"] },
-    ]);
+    expect(db.rpc).toHaveBeenCalledWith("record_low_stock_alerts", {
+      p_product_ids: ["product-2"],
+    });
+    expect(db.callsFor("alerts")).toEqual([]);
+    expect(writesTo(db.queriesFor("products"))).toEqual([]);
     expect(res.body).toEqual({ newAlerts: 1, recoveries: 0 });
   });
 
@@ -293,7 +333,7 @@ describe("GET /api/cron/low-stock-check", () => {
 
     await handler(cronReq(), res.res);
 
-    expect(db.callsFor("alerts")).toEqual([]);
+    expect(db.rpc).not.toHaveBeenCalled();
     expect(writesTo(db.queriesFor("products"))).toEqual([
       { payload: { low_stock_alert_active: false }, ids: ["product-2"] },
     ]);
@@ -310,8 +350,10 @@ describe("GET /api/cron/low-stock-check", () => {
 
     await handler(cronReq(), res.res);
 
+    expect(db.rpc).toHaveBeenCalledWith("record_low_stock_alerts", {
+      p_product_ids: ["product-1"],
+    });
     expect(writesTo(db.queriesFor("products"))).toEqual([
-      { payload: { low_stock_alert_active: true }, ids: ["product-1"] },
       { payload: { low_stock_alert_active: false }, ids: ["product-2"] },
     ]);
     expect(res.body).toEqual({ newAlerts: 1, recoveries: 1 });
@@ -343,26 +385,11 @@ describe("GET /api/cron/low-stock-check", () => {
       expect(detectLowStock).not.toHaveBeenCalled();
     });
 
-    // The insert and the flag update aren't in one transaction: if flagging
-    // fails after the Alert row landed, the Alert stays and the Product is
-    // left unflagged, so the next run raises it again.
-    it("500s when the Alert can't be recorded, without flagging the Product", async () => {
-      const db = installSupabase({ alerts: { error: { message: "fk violation" } } });
-      vi.mocked(detectLowStock).mockReturnValue({
-        newAlerts: [{ productId: "product-1" }],
-        recoveries: [],
-      } as never);
-      const res = makeRes();
-
-      await handler(cronReq(), res.res);
-
-      expect(res.statusCode).toBe(500);
-      expect(res.body).toEqual({ error: "Failed to record low-stock alerts" });
-      expect(writesTo(db.queriesFor("products"))).toEqual([]);
-    });
-
-    it("500s when the Product can't be flagged, leaving the Alert already inserted", async () => {
-      const db = installSupabase({ productUpdates: [{ error: { message: "deadlock" } }, OK] });
+    // The RPC is one transaction, so its failure leaves neither the Alert nor
+    // the flag behind: the next run sees the Product unflagged and raises it
+    // exactly once. Nothing is written around the RPC either.
+    it("500s when the Alerts can't be recorded, leaving nothing half-written", async () => {
+      const db = installSupabase({ recordAlerts: { error: { message: "deadlock" } } });
       vi.mocked(detectLowStock).mockReturnValue({
         newAlerts: [{ productId: "product-1" }],
         recoveries: ["product-2"],
@@ -372,11 +399,9 @@ describe("GET /api/cron/low-stock-check", () => {
       await handler(cronReq(), res.res);
 
       expect(res.statusCode).toBe(500);
-      expect(res.body).toEqual({ error: "Failed to flag products as low stock" });
-      expect(db.callsFor("alerts")).toContainEqual([
-        "insert",
-        [{ circle_id: "circle-1", type: "low_stock", product_id: "product-1" }],
-      ]);
+      expect(res.body).toEqual({ error: "Failed to record low-stock alerts" });
+      expect(db.callsFor("alerts")).toEqual([]);
+      expect(writesTo(db.queriesFor("products"))).toEqual([]);
     });
 
     it("500s when a recovered Product can't be reset", async () => {

@@ -481,6 +481,10 @@ export interface Database {
     };
     Views: Record<never, never>;
     Functions: {
+      record_low_stock_alerts: {
+        Args: { p_product_ids: string[] };
+        Returns: number;
+      };
       merge_users_into_new_circle: {
         Args: { p_user_ids: string[] };
         Returns: string;
