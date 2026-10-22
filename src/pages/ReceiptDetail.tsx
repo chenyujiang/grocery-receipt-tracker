@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   fetchReceiptDraft,
-  fetchStores,
   editConfirmedReceipt,
   toItemUpdate,
   type ReceiptDraft,
@@ -15,8 +14,8 @@ import { formatDateString, parseDateString } from "@/lib/dateRange";
 import DatePickerField from "@/components/DatePickerField";
 import ReceiptItemFields from "@/components/ReceiptItemFields";
 import { errorMessage } from "@/lib/errorMessage";
-import StorePicker, { initialStorePick, pickHasChain, storeChoiceOfPick, type StorePick } from "@/components/StorePicker";
-import type { Store } from "@/lib/stores";
+import StorePicker from "@/components/StorePicker";
+import { useStorePick } from "@/lib/useStorePick";
 
 // Section 15, page 3 + issue 16: a confirmed receipt's own uploader can
 // toggle an inline edit mode to fix OCR mistakes — the shared
@@ -28,25 +27,18 @@ export default function ReceiptDetail() {
   const { receiptId } = useParams<{ receiptId: string }>();
 
   const [draft, setDraft] = useState<ReceiptDraft | null>(null);
-  const [stores, setStores] = useState<Store[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [editing, setEditing] = useState(false);
   const [items, setItems] = useState<DraftItem[]>([]);
   const [purchaseDate, setPurchaseDate] = useState<Date | null>(null);
-  const [storePick, setStorePick] = useState<StorePick | null>(null);
+  const storePick = useStorePick();
   const [saving, setSaving] = useState(false);
-
-  // The chain/branch the picker currently names, which saving sends.
-  const storeChoice = storeChoiceOfPick(stores, storePick);
 
   function load() {
     if (!receiptId) return;
-    Promise.all([fetchReceiptDraft(receiptId), fetchStores()])
-      .then(([loaded, circleStores]) => {
-        setDraft(loaded);
-        setStores(circleStores);
-      })
+    Promise.all([fetchReceiptDraft(receiptId), storePick.load()])
+      .then(([loaded]) => setDraft(loaded))
       .catch((err) => setError(errorMessage(err, "Failed to load receipt")));
   }
 
@@ -56,7 +48,7 @@ export default function ReceiptDetail() {
     if (!draft) return;
     setItems(draft.items);
     setPurchaseDate(parseDateString(draft.purchaseDate));
-    setStorePick(initialStorePick(stores, draft));
+    storePick.start(draft);
     setEditing(true);
   }
 
@@ -67,6 +59,7 @@ export default function ReceiptDetail() {
   }
 
   async function handleSave() {
+    const storeChoice = storePick.choice;
     if (!receiptId || !purchaseDate || !storeChoice) return;
     setError(null);
     setSaving(true);
@@ -127,7 +120,9 @@ export default function ReceiptDetail() {
             />
           </div>
 
-          {storePick && <StorePicker stores={stores} value={storePick} onChange={setStorePick} />}
+          {storePick.pick && (
+            <StorePicker stores={storePick.stores} value={storePick.pick} onChange={storePick.setPick} />
+          )}
 
           {items.map((item, index) => (
             <ReceiptItemFields
@@ -142,7 +137,7 @@ export default function ReceiptDetail() {
               type="button"
               style={{ flex: 1 }}
               onClick={handleSave}
-              disabled={saving || !pickHasChain(stores, storePick)}
+              disabled={saving || !storePick.hasChain}
             >
               {saving ? t("detail.saving") : t("detail.save")}
             </button>

@@ -1,15 +1,12 @@
 import { supabase } from "@/lib/supabaseClient";
 import { detectPriceSpikes, type SpikeCheckReceipt } from "@/lib/priceSpikeAlerts";
 import {
-  listStores,
   deleteUnusedStore,
+  nameOfStoreChoice,
   resolveStore,
   sameStoreKey,
   storeAsRead,
-  storeChoiceName,
-  storeChoiceOf,
-  storeChoiceOfNames,
-  storeNameOf,
+  storeChoiceFromNames,
   type Store,
   type StoreChoice,
 } from "@/lib/stores";
@@ -17,7 +14,7 @@ import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
 import { bilingualName, type BilingualName } from "@/lib/bilingualName";
-import { receiptStoreName, STORE_NAMES_EMBED, type StoreNames } from "@/lib/storeName";
+import { receiptStoreName, storeName, STORE_NAMES_EMBED, type StoreNames } from "@/lib/storeName";
 import type { Database } from "@/types/database.types";
 
 export interface UploadReceiptResult {
@@ -99,11 +96,6 @@ export interface ReceiptDraft {
   status: string;
   originalImageUrl: string | null;
   items: DraftItem[];
-}
-
-// The preview screen's store picker options: the Circle's Stores, scoped by RLS.
-export function fetchStores(): Promise<Store[]> {
-  return listStores(supabase);
 }
 
 // Section 6: the preview/confirm screen reads the AI-generated draft —
@@ -261,7 +253,7 @@ function recognizedStoreOf(receipt: RecognizedStoreColumns): StoreChoice | null 
   if (receipt.recognized_chain_en == null) {
     return null;
   }
-  return storeChoiceOfNames({
+  return storeChoiceFromNames({
     chain_name_en: receipt.recognized_chain_en,
     chain_name_zh: receipt.recognized_chain_zh,
     branch_name_en: receipt.recognized_branch_en,
@@ -269,20 +261,20 @@ function recognizedStoreOf(receipt: RecognizedStoreColumns): StoreChoice | null 
   });
 }
 
-// The Store the store picker starts a receipt on (StorePicker's
+// The Store the store picker starts a receipt on (storePick.ts's
 // initialStorePick): the receipt's own Store if it has one, else storeAsRead.
 function startingStore(
   receipt: RecognizedStoreColumns &
-    Pick<Database["public"]["Tables"]["receipts"]["Row"], "store_name_en" | "store_name_zh"> & {
+    Pick<Database["public"]["Tables"]["receipts"]["Row"], "store_name_en"> & {
       stores?: StoreNames | null;
     }
 ): StoreChoice {
   if (receipt.stores) {
-    return storeChoiceOfNames(receipt.stores);
+    return storeChoiceFromNames(receipt.stores);
   }
   return storeAsRead({
     recognizedStore: recognizedStoreOf(receipt),
-    receiptHeader: { en: receipt.store_name_en, zh: receipt.store_name_zh },
+    receiptHeader: { en: receipt.store_name_en },
   });
 }
 
@@ -368,9 +360,9 @@ async function writeConfirmation(
 
   // User story 3: correcting the Store the AI read is a Correction like any
   // other — but confirming the Store the AI's reading matched is not one.
-  const logs: ReceiptLog[] = sameStoreKey(readStore, storeChoiceOf(confirmedStore))
+  const logs: ReceiptLog[] = sameStoreKey(readStore, storeChoiceFromNames(confirmedStore))
     ? []
-    : [storeChangeLog(storeChoiceName(readStore), confirmedStore)];
+    : [storeChangeLog(nameOfStoreChoice(readStore), confirmedStore)];
   return updateReceiptWithLog(receiptId, { status: "confirmed", storeId: confirmedStore.id }, logs);
 }
 
@@ -381,7 +373,7 @@ type ReceiptLog = Database["public"]["Functions"]["update_receipt_with_log"]["Ar
 // The EditLog row for moving a receipt to another Store, both names in
 // English, the Source Text — on confirm and on edit alike.
 function storeChangeLog(oldName: BilingualName, newStore: Store): ReceiptLog {
-  return { field_name: "store", old_value: oldName.en, new_value: storeNameOf(newStore).en };
+  return { field_name: "store", old_value: oldName.en, new_value: storeName(newStore).en };
 }
 
 // What update_receipt_with_log changes on a receipt; an absent field is left

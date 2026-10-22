@@ -7,11 +7,17 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 // Supabase behavior is already covered by their own test files; this only
 // checks the page's UI behavior (loading the draft, editing a field,
 // confirming, the duplicate-check banner, navigating away).
+vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
+// listStores is the boundary for the picker's options, covered by
+// stores.test.ts; the rest of @/lib/stores is pure and runs for real.
+vi.mock("@/lib/stores", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/stores")>()),
+  listStores: vi.fn(),
+}));
 vi.mock("@/lib/receipts", () => ({
   fetchReceiptDraft: vi.fn(),
   confirmReceipt: vi.fn(),
   deleteReceipt: vi.fn(),
-  fetchStores: vi.fn(),
   // Pure field strip, not a Supabase call — stubbed with the real behavior so
   // the page's save payload stays meaningful. The strip itself is pinned down
   // in receipts.test.ts.
@@ -21,7 +27,8 @@ vi.mock("@/lib/duplicateCheck", () => ({
   findDuplicateReceipt: vi.fn(),
 }));
 
-import { fetchReceiptDraft, confirmReceipt, deleteReceipt, fetchStores } from "@/lib/receipts";
+import { fetchReceiptDraft, confirmReceipt, deleteReceipt } from "@/lib/receipts";
+import { listStores } from "@/lib/stores";
 import { findDuplicateReceipt } from "@/lib/duplicateCheck";
 import ReceiptReview from "@/pages/ReceiptReview";
 
@@ -55,32 +62,33 @@ const SAMPLE_DRAFT = {
 };
 
 // SAMPLE_DRAFT predates the AI's chain/branch split, so the picker starts on
-// its printed header as the chain, with the branch unknown.
+// its printed header as the chain, with the branch unknown — the header's
+// Source Text only, since a Store's names are English only.
 const HEADER_AS_CHAIN = {
-  chain: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
+  chain: { en: "Countdown Newmarket", zh: null },
   branch: null,
 };
 
 const HORNBY_STORE = {
   id: "store-hornby",
-  chainNameEn: "Woolworths",
-  chainNameZh: "沃尔沃斯",
-  branchNameEn: "Hornby",
-  branchNameZh: "霍恩比",
+  chain_name_en: "Woolworths",
+  chain_name_zh: "沃尔沃斯",
+  branch_name_en: "Hornby",
+  branch_name_zh: "霍恩比",
 };
 const RICCARTON_STORE = {
   id: "store-riccarton",
-  chainNameEn: "Woolworths",
-  chainNameZh: "沃尔沃斯",
-  branchNameEn: "Riccarton",
-  branchNameZh: "里卡顿",
+  chain_name_en: "Woolworths",
+  chain_name_zh: "沃尔沃斯",
+  branch_name_en: "Riccarton",
+  branch_name_zh: "里卡顿",
 };
 const ALBANY_STORE = {
   id: "store-albany",
-  chainNameEn: "PAK'nSAVE",
-  chainNameZh: "派克储蓄",
-  branchNameEn: "Albany",
-  branchNameZh: "奥尔巴尼",
+  chain_name_en: "PAK'nSAVE",
+  chain_name_zh: "派克储蓄",
+  branch_name_en: "Albany",
+  branch_name_zh: "奥尔巴尼",
 };
 
 function renderReviewPage() {
@@ -98,7 +106,7 @@ describe("ReceiptReview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(findDuplicateReceipt).mockResolvedValue(null);
-    vi.mocked(fetchStores).mockResolvedValue([]);
+    vi.mocked(listStores).mockResolvedValue([]);
   });
 
   it("loads and displays the draft's items", async () => {
@@ -231,7 +239,7 @@ describe("ReceiptReview", () => {
         branch: { en: "Albany", zh: "阿尔巴尼" },
       },
     });
-    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, ALBANY_STORE]);
+    vi.mocked(listStores).mockResolvedValue([HORNBY_STORE, ALBANY_STORE]);
     vi.mocked(confirmReceipt).mockResolvedValue(undefined);
 
     renderReviewPage();
@@ -255,7 +263,7 @@ describe("ReceiptReview", () => {
         branch: { en: "Albany", zh: "阿尔巴尼" },
       },
     });
-    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, ALBANY_STORE]);
+    vi.mocked(listStores).mockResolvedValue([HORNBY_STORE, ALBANY_STORE]);
     vi.mocked(confirmReceipt).mockResolvedValue(undefined);
 
     renderReviewPage();
@@ -271,13 +279,13 @@ describe("ReceiptReview", () => {
 
   it("labels an existing Store with no branch as branch unknown", async () => {
     vi.mocked(fetchReceiptDraft).mockResolvedValue(SAMPLE_DRAFT);
-    vi.mocked(fetchStores).mockResolvedValue([
+    vi.mocked(listStores).mockResolvedValue([
       {
         id: "store-costco",
-        chainNameEn: "Costco",
-        chainNameZh: "好市多",
-        branchNameEn: null,
-        branchNameZh: null,
+        chain_name_en: "Costco",
+        chain_name_zh: "好市多",
+        branch_name_en: null,
+        branch_name_zh: null,
       },
     ]);
 
@@ -324,7 +332,7 @@ describe("ReceiptReview", () => {
         branch: { en: "Hornbv", zh: "霍恩比" },
       },
     });
-    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE, ALBANY_STORE]);
+    vi.mocked(listStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE, ALBANY_STORE]);
 
     renderReviewPage();
 
@@ -345,7 +353,7 @@ describe("ReceiptReview", () => {
         branch: { en: "Hornbv", zh: "霍恩比" },
       },
     });
-    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE, ALBANY_STORE]);
+    vi.mocked(listStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE, ALBANY_STORE]);
     vi.mocked(confirmReceipt).mockResolvedValue(undefined);
 
     renderReviewPage();
@@ -368,7 +376,7 @@ describe("ReceiptReview", () => {
         branch: { en: "Hornby", zh: "霍恩比" },
       },
     });
-    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE, ALBANY_STORE]);
+    vi.mocked(listStores).mockResolvedValue([HORNBY_STORE, RICCARTON_STORE, ALBANY_STORE]);
 
     renderReviewPage();
 
@@ -386,7 +394,7 @@ describe("ReceiptReview", () => {
         branch: null,
       },
     });
-    vi.mocked(fetchStores).mockResolvedValue([HORNBY_STORE]);
+    vi.mocked(listStores).mockResolvedValue([HORNBY_STORE]);
 
     renderReviewPage();
 

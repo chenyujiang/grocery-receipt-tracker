@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import type { BilingualName } from "@/lib/bilingualName";
-import { isKnownBranch, storeName, type StoreNames } from "@/lib/storeName";
+import { isKnownBranch, storeName, STORE_NAME_COLUMNS, type StoreNames } from "@/lib/storeName";
 import { chainKey, storeKey } from "@/lib/storeKey";
 
 // A name on its way in, not read back: zh is null when there's no
@@ -21,59 +21,32 @@ export interface StoreChoice {
 }
 
 // A receipt's Store as read off it: what the AI read; else — a draft saved
-// before the chain/branch split — its header as the chain, branch unknown,
-// the same Store the backfill gives an old receipt. Where the store picker's
-// fields start, and, behind a receipt's own Store, where the picker starts.
+// before the chain/branch split — its Receipt Header as the chain, branch
+// unknown, the same Store the backfill gives an old receipt. Where the store
+// picker's fields start, and, behind a receipt's own Store, where the picker
+// starts. Only the header's Source Text is taken: a Store's names are English
+// only, so its Translation would never be stored (resolveStore) or compared.
 export function storeAsRead(receipt: {
   recognizedStore: StoreChoice | null;
-  receiptHeader: BilingualText;
+  receiptHeader: { en: string };
 }): StoreChoice {
-  return receipt.recognizedStore ?? { chain: receipt.receiptHeader, branch: null };
+  return receipt.recognizedStore ?? { chain: { en: receipt.receiptHeader.en, zh: null }, branch: null };
 }
 
-// A Store as the app sees it: one branch of one chain, in one Circle.
-export interface Store {
-  id: string;
-  chainNameEn: string;
-  chainNameZh: string | null;
-  branchNameEn: string | null;
-  branchNameZh: string | null;
-}
-
-// A Store as the chain/branch names resolveStore takes — what a page passes
-// to confirm or edit a receipt at that Store.
-export function storeChoiceOf(store: Store): StoreChoice {
-  return {
-    chain: { en: store.chainNameEn, zh: store.chainNameZh },
-    branch: isKnownBranch(store.branchNameEn)
-      ? { en: store.branchNameEn, zh: store.branchNameZh }
-      : null,
-  };
-}
+// A Store as the app sees it: one branch of one chain, in one Circle — its
+// id and its four name columns, as stored, so it is itself a StoreNames.
+export type Store = Pick<Database["public"]["Tables"]["stores"]["Row"], "id"> & StoreNames;
 
 // A chain/branch pair from its four name columns — a Store's, or what the AI
-// read — with an unknown branch (isKnownBranch) as null.
-export function storeChoiceOfNames(names: StoreNames): StoreChoice {
+// read — with an unknown branch (isKnownBranch) as null. What a page passes
+// to confirm or edit a receipt at a Store.
+export function storeChoiceFromNames(names: StoreNames): StoreChoice {
   return {
     chain: { en: names.chain_name_en, zh: names.chain_name_zh },
     branch: isKnownBranch(names.branch_name_en)
       ? { en: names.branch_name_en, zh: names.branch_name_zh }
       : null,
   };
-}
-
-function storeNamesOf(store: Store): StoreNames {
-  return {
-    chain_name_en: store.chainNameEn,
-    chain_name_zh: store.chainNameZh,
-    branch_name_en: store.branchNameEn,
-    branch_name_zh: store.branchNameZh,
-  };
-}
-
-// A Store's name as one line — chain, then branch if it has one.
-export function storeNameOf(store: Store): BilingualName {
-  return storeName(storeNamesOf(store));
 }
 
 // Whether a chain/branch pair names a chain at all — a Store with no chain
@@ -90,10 +63,10 @@ export function sameStoreKey(a: StoreChoice, b: StoreChoice): boolean {
   return aKey.chainKey === bKey.chainKey && aKey.branchKey === bKey.branchKey;
 }
 
-// A chain/branch pair's name as one line, the way storeNameOf names a Store —
+// A chain/branch pair's name as one line, the way storeName names a Store —
 // trimmed, since what the AI read can carry OCR's stray spaces. Whether it
 // names a branch at all is storeName's to decide (isKnownBranch).
-export function storeChoiceName({ chain, branch }: StoreChoice): BilingualName {
+export function nameOfStoreChoice({ chain, branch }: StoreChoice): BilingualName {
   return storeName({
     chain_name_en: chain.en.trim(),
     chain_name_zh: chain.zh,
@@ -104,7 +77,7 @@ export function storeChoiceName({ chain, branch }: StoreChoice): BilingualName {
 
 // The existing Store a chain/branch pair names.
 export function matchingStore(stores: Store[], choice: StoreChoice): Store | undefined {
-  return stores.find((store) => sameStoreKey(storeChoiceOf(store), choice));
+  return stores.find((store) => sameStoreKey(storeChoiceFromNames(store), choice));
 }
 
 // The candidates for a near-miss: every Store of the same chain, for the
@@ -113,25 +86,10 @@ export function matchingStore(stores: Store[], choice: StoreChoice): Store | und
 // load-bearing).
 export function nearMissStores(stores: Store[], { chain }: StoreChoice): Store[] {
   const key = chainKey(chain.en);
-  return stores.filter((store) => chainKey(store.chainNameEn) === key);
+  return stores.filter((store) => chainKey(store.chain_name_en) === key);
 }
 
-const STORE_SELECT = "id, chain_name_en, chain_name_zh, branch_name_en, branch_name_zh";
-
-function toStore(
-  row: Pick<
-    Database["public"]["Tables"]["stores"]["Row"],
-    "id" | "chain_name_en" | "chain_name_zh" | "branch_name_en" | "branch_name_zh"
-  >
-): Store {
-  return {
-    id: row.id,
-    chainNameEn: row.chain_name_en,
-    chainNameZh: row.chain_name_zh,
-    branchNameEn: row.branch_name_en,
-    branchNameZh: row.branch_name_zh,
-  };
-}
+const STORE_SELECT = `id, ${STORE_NAME_COLUMNS}` as const;
 
 // Finds the Circle's Store for a chain/branch pair, matching on the
 // normalized keys rather than the printed text, and creates it if the Circle
@@ -162,7 +120,7 @@ export async function resolveStore(
     throw lookupError;
   }
   if (existing) {
-    return { store: toStore(existing), created: false };
+    return { store: existing, created: false };
   }
 
   // Known limitation: two members confirming the same new branch at the same
@@ -194,7 +152,7 @@ export async function resolveStore(
   if (insertError) {
     throw insertError;
   }
-  return { store: toStore(created), created: true };
+  return { store: created, created: true };
 }
 
 // Deletes a Store no receipt points at; RLS refuses one with any history.
@@ -223,5 +181,5 @@ export async function listStores(client: SupabaseClient<Database>): Promise<Stor
         (a.branch_key === null ? 1 : 0) - (b.branch_key === null ? 1 : 0) ||
         (a.branch_key ?? "").localeCompare(b.branch_key ?? "")
     )
-    .map(toStore);
+    .map(({ chain_key: _chainKey, branch_key: _branchKey, ...store }) => store);
 }
