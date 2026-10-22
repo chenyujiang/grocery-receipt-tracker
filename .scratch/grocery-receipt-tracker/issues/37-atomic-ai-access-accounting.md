@@ -22,7 +22,7 @@ Do both the check and the increment in the database, atomically. One Postgres fu
 
 ## Answer
 
-Done as proposed, with three Postgres functions instead of one, in `supabase/migrations/20261022000001_atomic_ai_access.sql`:
+Done as proposed, with three Postgres functions instead of one, in `supabase/migrations/20261022000003_atomic_ai_access.sql`:
 
 - `reserve_ai_call(p_user_id uuid, p_free_trial_limit integer)` returns one row `(allowed, mode, free_trial_calls_used, cap_usd, spent_usd)`. It first makes sure the user has a row (`insert … on conflict do nothing`, so a brand-new user's row exists to lock). In trial mode it reserves the call with `update … set free_trial_calls_used = free_trial_calls_used + 1 where cap_usd is null and free_trial_calls_used < p_free_trial_limit`. In dollar-cap mode it only checks `spent_usd < cap_usd`. The limit is passed in from `FREE_TRIAL_LIMIT`, so it still has one source of truth.
 - `release_ai_call(p_user_id uuid)` hands a trial reservation back (`- 1`, only while `cap_usd is null` and the count is above 0).
@@ -62,7 +62,7 @@ All three are SECURITY DEFINER with `set search_path = ''`, and execute is grant
 
 ## 答案
 
-按上面的方案做完了，只是拆成了三个 Postgres 函数而不是一个，放在 `supabase/migrations/20261022000001_atomic_ai_access.sql`：
+按上面的方案做完了，只是拆成了三个 Postgres 函数而不是一个，放在 `supabase/migrations/20261022000003_atomic_ai_access.sql`：
 
 - `reserve_ai_call(p_user_id uuid, p_free_trial_limit integer)` 返回一行 `(allowed, mode, free_trial_calls_used, cap_usd, spent_usd)`。它先确保这个用户有一行（`insert … on conflict do nothing`，这样全新用户也有一行可以加锁）。试用模式下用 `update … set free_trial_calls_used = free_trial_calls_used + 1 where cap_usd is null and free_trial_calls_used < p_free_trial_limit` 预占这一次。美元额度模式下只检查 `spent_usd < cap_usd`。上限由 `FREE_TRIAL_LIMIT` 传进来，所以仍然只有一个出处。
 - `release_ai_call(p_user_id uuid)` 归还一次试用预占（`- 1`，只在 `cap_usd is null` 且次数大于 0 时生效）。

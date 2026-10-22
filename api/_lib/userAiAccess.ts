@@ -7,7 +7,7 @@ import { supabaseAdmin } from "./supabaseAdmin.js";
 // is set (by an admin grant), the user is in dollar-cap mode.
 //
 // Ticket 37: every check and every increment happens inside a Postgres
-// function (supabase/migrations/20261022000001_atomic_ai_access.sql), each a
+// function (supabase/migrations/20261022000003_atomic_ai_access.sql), each a
 // single row-locking UPDATE, so concurrent uploads from one user can't all
 // pass the last free call and concurrent successes can't lose an increment.
 // The route's lifecycle is: reserveCall before Claude, then exactly one of
