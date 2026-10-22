@@ -5,7 +5,7 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 import { supabase } from "@/lib/supabaseClient";
-import { installFakeSupabase } from "@/test/fakeSupabase";
+import { installFakeSupabase, sessionFor } from "@/test/fakeSupabase";
 import { AuthProvider } from "@/lib/AuthProvider";
 import RequireAuth from "@/components/RequireAuth";
 
@@ -39,9 +39,7 @@ describe("RequireAuth", () => {
   });
 
   it("renders the protected content when a session exists", async () => {
-    installFakeSupabase(supabase, {
-      auth: { getSession: { data: { session: { user: { id: "user-1" }, access_token: "tok-1" } } } },
-    });
+    installFakeSupabase(supabase, { auth: { getSession: sessionFor("user-1") } });
 
     renderProtectedRoute();
 

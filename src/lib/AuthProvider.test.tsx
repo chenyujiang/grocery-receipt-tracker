@@ -4,7 +4,7 @@ import { render, screen, act } from "@testing-library/react";
 vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 import { supabase } from "@/lib/supabaseClient";
-import { installFakeSupabase } from "@/test/fakeSupabase";
+import { installFakeSupabase, sessionFor } from "@/test/fakeSupabase";
 import { AuthProvider, useAuth } from "@/lib/AuthProvider";
 
 function TestConsumer() {
@@ -13,9 +13,7 @@ function TestConsumer() {
   return <p>{session ? `Signed in as ${session.userId}` : "Signed out"}</p>;
 }
 
-const SIGNED_IN = {
-  getSession: { data: { session: { user: { id: "user-1" }, access_token: "tok-1" } } },
-};
+const SIGNED_IN = { getSession: sessionFor("user-1") };
 
 describe("AuthProvider / useAuth", () => {
   it("shows the existing session once it resolves", async () => {
