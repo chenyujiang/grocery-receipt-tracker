@@ -43,7 +43,41 @@ export interface PurchaseHistory {
 // `as const` keeps the interpolated string a literal type, which is what
 // supabase-js parses to type the rows; a plain template widens to `string`.
 const PURCHASE_SELECT =
-  `product_id, receipt_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
+  `id, product_id, receipt_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
+
+// PostgREST caps every response at its max-rows setting (Supabase default:
+// 1000) and drops the rest without an error, so a history is read a page at a
+// time until a short page says there's nothing left. PAGE_SIZE must not
+// exceed max-rows, or a full page would look short and end the read early.
+const PAGE_SIZE = 1000;
+
+// 100 UUIDs keep the `in.(...)` filter under ~4KB of URL.
+const ID_BATCH_SIZE = 100;
+
+async function fetchAllPages(client: SupabaseClient<Database>, productIds: string[]) {
+  const rows = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await client
+      .from("receipt_items")
+      .select(PURCHASE_SELECT)
+      .in("product_id", productIds)
+      .eq("receipts.status", "confirmed")
+      // .range() pages are only consistent over a total order of the
+      // receipt_items rows themselves — ordering by the embedded receipt's
+      // date orders the embed, not these rows — so page by the unique id.
+      // The oldest-first contract is applied per product afterwards.
+      .order("id", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw error;
+    }
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) {
+      return rows;
+    }
+  }
+}
 
 // Sections 10-13: price change, price trend, store comparison, consumption
 // rate, price-spike alerts and low-stock alerts all start from the same
@@ -68,20 +102,20 @@ export async function fetchPurchaseHistories(
     return [];
   }
 
-  const { data, error } = await client
-    .from("receipt_items")
-    .select(PURCHASE_SELECT)
-    .in("product_id", uniqueIds)
-    .eq("receipts.status", "confirmed")
-    // Ordering is re-applied per product below; asking Postgres for it too
-    // means same-date rows keep a stable, database-defined order through the
-    // (stable) sort rather than depending on however PostgREST returned them.
-    .order("purchase_date", { foreignTable: "receipts", ascending: true });
-  if (error) {
-    throw error;
+  // Every id is encoded into the request URL; a few hundred UUIDs at once
+  // (~37 bytes each) can overrun the gateway's URL length limit. Batches run
+  // one after another, so a sweep of every circle stays a gentle read.
+  const rows = [];
+  for (let start = 0; start < uniqueIds.length; start += ID_BATCH_SIZE) {
+    rows.push(...(await fetchAllPages(client, uniqueIds.slice(start, start + ID_BATCH_SIZE))));
   }
 
-  const rows = data ?? [];
+  // Oldest first, with same-date rows broken by the row's own unique id: a
+  // total order, so the result can't depend on how pages or batches arrived.
+  rows.sort(
+    (a, b) =>
+      a.receipts.purchase_date.localeCompare(b.receipts.purchase_date) || a.id.localeCompare(b.id)
+  );
 
   const byProduct = new Map<string, Purchase[]>(uniqueIds.map((id) => [id, []]));
   for (const row of rows) {
@@ -109,8 +143,6 @@ export async function fetchPurchaseHistories(
 
   return uniqueIds.map((productId) => ({
     productId,
-    purchases: (byProduct.get(productId) ?? []).sort((a, b) =>
-      a.purchaseDate.localeCompare(b.purchaseDate)
-    ),
+    purchases: byProduct.get(productId) ?? [],
   }));
 }
