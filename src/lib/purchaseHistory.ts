@@ -5,6 +5,7 @@ import type { Database } from "@/types/database.types";
 // a bundler concern the serverless build should not have to resolve.
 import type { BilingualName } from "./bilingualName.js";
 import { receiptStoreName, STORE_NAMES_EMBED, storeShortName } from "./storeName.js";
+import { POSTGREST_PAGE_SIZE } from "./postgrestPaging.js";
 
 // One confirmed ReceiptItem, flattened together with its Receipt's date and
 // store — the shared shape every price/consumption feature reads from.
@@ -45,18 +46,14 @@ export interface PurchaseHistory {
 const PURCHASE_SELECT =
   `id, product_id, receipt_id, unit_price, quantity, unit_spec_value, unit_spec_unit, is_promotion, receipts!inner(purchase_date, store_id, store_name_en, store_name_zh, status, ${STORE_NAMES_EMBED})` as const;
 
-// PostgREST caps every response at its max-rows setting (Supabase default:
-// 1000) and drops the rest without an error, so a history is read a page at a
-// time until a short page says there's nothing left. PAGE_SIZE must not
-// exceed max-rows, or a full page would look short and end the read early.
-const PAGE_SIZE = 1000;
-
 // 100 UUIDs keep the `in.(...)` filter under ~4KB of URL.
 const ID_BATCH_SIZE = 100;
 
+// One id batch's rows, read a page at a time so PostgREST's max-rows can't
+// silently truncate them (see postgrestPaging.ts).
 async function fetchAllPages(client: SupabaseClient<Database>, productIds: string[]) {
   const rows = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
+  for (let from = 0; ; from += POSTGREST_PAGE_SIZE) {
     const { data, error } = await client
       .from("receipt_items")
       .select(PURCHASE_SELECT)
@@ -67,13 +64,13 @@ async function fetchAllPages(client: SupabaseClient<Database>, productIds: strin
       // date orders the embed, not these rows — so page by the unique id.
       // The oldest-first contract is applied per product afterwards.
       .order("id", { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
+      .range(from, from + POSTGREST_PAGE_SIZE - 1);
     if (error) {
       throw error;
     }
     const page = data ?? [];
     rows.push(...page);
-    if (page.length < PAGE_SIZE) {
+    if (page.length < POSTGREST_PAGE_SIZE) {
       return rows;
     }
   }
