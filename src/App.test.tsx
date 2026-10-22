@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import type { FakeSupabaseOptions } from "@/test/fakeSupabase";
+import { sessionFor, type FakeSupabaseOptions } from "@/test/fakeSupabase";
 import { ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
 
 // Ticket 32: AdminDashboard is code-split behind React.lazy. These check the
@@ -45,10 +45,6 @@ async function renderAppAt(path: string, fake: FakeSupabaseOptions) {
       </AuthProvider>
     </MemoryRouter>
   );
-}
-
-function sessionFor(userId: string) {
-  return { data: { session: { user: { id: userId }, access_token: "tok-1" } } };
 }
 
 // Transform App's whole import graph (dashboard included) once up front:

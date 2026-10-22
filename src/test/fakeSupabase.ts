@@ -261,3 +261,8 @@ export function installFakeSupabase(
   Object.assign(client, fake.client);
   return fake;
 }
+
+/** A signed-in session for `userId`, as `auth.getSession` resolves it — prepare it under `auth: { getSession: ... }`. */
+export function sessionFor(userId: string) {
+  return { data: { session: { user: { id: userId }, access_token: "tok-1" } } };
+}
