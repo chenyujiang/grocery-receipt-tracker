@@ -2,7 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import type { Language } from "@/lib/bilingual";
 import { translate, type TranslationKey } from "@/lib/i18n";
 
-const STORAGE_KEY = "language";
+export const STORAGE_KEY = "language";
 const DEFAULT_LANGUAGE: Language = "en";
 
 interface LanguageContextValue {
