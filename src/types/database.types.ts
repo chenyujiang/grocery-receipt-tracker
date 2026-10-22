@@ -423,6 +423,26 @@ export interface Database {
         Args: Record<string, never>;
         Returns: string;
       };
+      // Ticket 37: atomic per-user AI access accounting (service_role only).
+      // `mode` is a text column the function only ever sets to these two.
+      reserve_ai_call: {
+        Args: { p_user_id: string; p_free_trial_limit: number };
+        Returns: {
+          allowed: boolean;
+          mode: "trial" | "cap";
+          free_trial_calls_used: number;
+          cap_usd: number | null;
+          spent_usd: number;
+        }[];
+      };
+      release_ai_call: {
+        Args: { p_user_id: string };
+        Returns: undefined;
+      };
+      record_ai_spend: {
+        Args: { p_user_id: string; p_cost_usd: number };
+        Returns: undefined;
+      };
     };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;
