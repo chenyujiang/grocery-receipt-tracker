@@ -16,9 +16,8 @@ import RequireGlobalAdmin from "@/components/RequireGlobalAdmin";
 import { ADMIN_DASHBOARD_PATH } from "@/lib/adminApi";
 
 // Issue 32: its own chunk, fetched only once RequireGlobalAdmin has passed,
-// so non-admins never download the dashboard's code. ADMIN_DASHBOARD_PATH
-// itself stays in the main bundle (routing + post-login redirect need it);
-// see the ticket's Answer for why that's acceptable.
+// so non-admins never download the dashboard's code. Why ADMIN_DASHBOARD_PATH
+// stays in the main bundle: see ticket 32's Answer.
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
 
 // Everything except /auth requires a signed-in session and shows the bottom
