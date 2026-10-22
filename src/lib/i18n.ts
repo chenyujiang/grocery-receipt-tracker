@@ -144,8 +144,8 @@ export const translations = {
     "settings.languageEn": "English",
     "settings.languageZh": "中文",
     "settings.members": "Members",
-    "settings.roleOwner": "owner",
-    "settings.roleMember": "member",
+    "role.owner": "owner",
+    "role.member": "member",
     "settings.removing": "Removing…",
     "settings.remove": "Remove",
     "settings.dissolveTitle": "Dissolve circle",
@@ -342,8 +342,8 @@ export const translations = {
     "settings.languageEn": "English",
     "settings.languageZh": "中文",
     "settings.members": "成员",
-    "settings.roleOwner": "拥有者",
-    "settings.roleMember": "成员",
+    "role.owner": "拥有者",
+    "role.member": "成员",
     "settings.removing": "移除中…",
     "settings.remove": "移除",
     "settings.dissolveTitle": "解散圈子",
@@ -422,8 +422,8 @@ export function translate(
 }
 
 const ROLE_LABEL_KEYS: Record<Role, TranslationKey> = {
-  owner: "settings.roleOwner",
-  member: "settings.roleMember",
+  owner: "role.owner",
+  member: "role.member",
 };
 
 // Shared by Circle Settings' member list and the admin dashboard's user
