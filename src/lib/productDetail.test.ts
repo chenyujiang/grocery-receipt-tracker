@@ -31,6 +31,7 @@ function historyRow(overrides: Record<string, unknown> = {}) {
     is_promotion: false,
     receipts: {
       purchase_date: "2026-07-01",
+      store_id: "store-countdown",
       store_name_en: "Countdown",
       store_name_zh: "城内城外",
     },
@@ -50,6 +51,7 @@ describe("fetchProductDetail", () => {
               unit_price: 4.0,
               receipts: {
                 purchase_date: "2026-07-10",
+                store_id: "store-paknsave",
                 store_name_en: "Pak'nSave",
                 store_name_zh: "帕克超市",
               },
@@ -67,12 +69,10 @@ describe("fetchProductDetail", () => {
     expect(detail.canonicalNameZh).toBe("安科蓝带牛奶");
     expect(detail.category).toBe("Food - Dairy & Bakery");
 
-    // baseline 2026-07-01 (100/100g) -> current 2026-07-10 (80/100g): -20%
-    expect(detail.priceChange).toEqual({
-      changePercent: -20,
-      baseline: { basis: "per_100g", value: 1 },
-      current: { basis: "per_100g", value: 0.8 },
-    });
+    // The two purchases are at two Stores, and the latest Store has only one,
+    // so there is no Same-Store Price Change to headline — the -20% between
+    // them is a Store Comparison, not a price change.
+    expect(detail.priceChange).toBeNull();
 
     expect(detail.priceTrend).toHaveLength(2);
     expect(detail.storeComparison).toHaveLength(2);
@@ -84,8 +84,10 @@ describe("fetchProductDetail", () => {
     expect(detail.purchaseHistory).toEqual([
       {
         purchaseDate: "2026-07-01",
+        storeId: "store-countdown",
         storeNameEn: "Countdown",
         storeNameZh: "城内城外",
+        storeShortNameEn: "Countdown", storeShortNameZh: "城内城外",
         unitPrice: 5.0,
         quantity: 1,
         specValue: 500,
@@ -94,8 +96,10 @@ describe("fetchProductDetail", () => {
       },
       {
         purchaseDate: "2026-07-10",
+        storeId: "store-paknsave",
         storeNameEn: "Pak'nSave",
         storeNameZh: "帕克超市",
+        storeShortNameEn: "Pak'nSave", storeShortNameZh: "帕克超市",
         unitPrice: 4.0,
         quantity: 1,
         specValue: 500,
@@ -103,6 +107,44 @@ describe("fetchProductDetail", () => {
         isPromotion: false,
       },
     ]);
+  });
+
+  // Issue 29: the headline is the Same-Store Price Change at the Store of the
+  // most recent Purchase, carrying that Store so the page can say where.
+  // Across Stores this history would read Riccarton $5.00 -> Hornby $4.40,
+  // a -12% "drop" that is really two branches' different prices.
+  it("headlines the Same-Store Price Change at the latest purchase's Store, naming it", async () => {
+    const at = (storeId: string, en: string, zh: string, purchase_date: string) => ({
+      purchase_date,
+      store_id: storeId,
+      store_name_en: en,
+      store_name_zh: zh,
+    });
+    installFakeSupabase(supabase, {
+      tables: {
+        products: { data: PRODUCT, error: null },
+        receipt_items: {
+          data: [
+            historyRow({ unit_price: 4.0, receipts: at("store-hornby", "Woolworths Hornby", "沃尔沃斯 霍恩比", "2026-07-01") }),
+            historyRow({ unit_price: 5.0, receipts: at("store-riccarton", "Woolworths Riccarton", "沃尔沃斯 里卡顿", "2026-07-05") }),
+            historyRow({ unit_price: 4.4, receipts: at("store-hornby", "Woolworths Hornby", "沃尔沃斯 霍恩比", "2026-07-10") }),
+          ],
+          error: null,
+        },
+      },
+    });
+
+    const detail = await fetchProductDetail("product-1", TODAY);
+
+    // Hornby: 80/100g -> 88/100g, +10%.
+    expect(detail.priceChange).toEqual({
+      changePercent: 10,
+      baseline: { basis: "per_100g", value: 0.8 },
+      current: { basis: "per_100g", value: 0.88 },
+      storeId: "store-hornby",
+      storeNameEn: "Woolworths Hornby",
+      storeNameZh: "沃尔沃斯 霍恩比",
+    });
   });
 
   it("throws when the product isn't found", async () => {

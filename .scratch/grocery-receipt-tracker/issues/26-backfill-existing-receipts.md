@@ -1,5 +1,5 @@
 Type: task
-Status: open
+Status: resolved
 GitHub: #30
 Blocked by: 24
 
@@ -16,6 +16,14 @@ This is manual work that a decision waits on: ticket 27's comparison rules can't
 - Whatever runs must be a migration in `supabase/migrations/` with a local copy, applied through the Supabase MCP tools.
 
 Record in the answer what was actually run and the resulting counts — ticket 27 depends on those numbers.
+
+## Answer
+
+Answered by [spec 29](29-branch-level-store-identity.md) (its **[assumption → 26]** decision), implemented in PR #43.
+
+- The spec's automatic rule was one Store per distinct raw store name per Circle, branch unknown.
+- **Amended during implementation**: the count came back small (19 confirmed receipts, 11 distinct store names, one Circle), so the user confirmed a hand mapping instead — merging spellings of one shop and assigning branches the user knew. The mapping is pinned to that Circle; a confirmed receipt elsewhere stops the migration.
+- `supabase/migrations/20261010000002_backfill_stores.sql`, applied to the live project: all 19 receipts point at one of 8 Stores.
 
 ---
 
@@ -34,3 +42,11 @@ Record in the answer what was actually run and the resulting counts — ticket 2
 - 无论跑什么，都必须是 `supabase/migrations/` 里的一支迁移、本地留底、通过 Supabase MCP 工具应用。
 
 在答案里记下实际执行了什么以及结果行数——ticket 27 要用这些数字。
+
+## 答案
+
+由 [spec 29](29-branch-level-store-identity.md) 回答（其中标为 **[assumption → 26]** 的决定），已在 PR #43 实现。
+
+- spec 原定的自动规则：每个 Circle 每个不同的原始店名建一条 Store，分店未知。
+- **实现中修订**：统计结果很小（19 张已确认小票、11 个不同店名、只有一个 Circle），所以改由用户手工确认映射——合并同一家店的不同拼写，并填上用户知道的分店。映射固定在那一个 Circle 上；别的 Circle 出现已确认小票时迁移会中止。
+- `supabase/migrations/20261010000002_backfill_stores.sql`，已应用到线上项目：19 张小票都指向 8 个 Store 之一。

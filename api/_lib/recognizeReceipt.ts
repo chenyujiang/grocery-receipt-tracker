@@ -24,8 +24,14 @@ export interface RecognizedItem {
 }
 
 export interface RecognizedReceipt {
+  // The header text as printed, kept as evidence (issue 29).
   storeNameEn: string;
   storeNameZh: string;
+  // The same header split into the chain and its branch.
+  chainNameEn: string;
+  chainNameZh: string;
+  branchNameEn: string;
+  branchNameZh: string;
   purchaseDate: string;
   totalAmount: number;
   items: RecognizedItem[];
@@ -81,11 +87,25 @@ const RECEIPT_SCHEMA = {
   properties: {
     store_name_en: { type: "string" },
     store_name_zh: { type: "string" },
+    chain_name_en: { type: "string" },
+    chain_name_zh: { type: "string" },
+    branch_name_en: { type: "string" },
+    branch_name_zh: { type: "string" },
     purchase_date: { type: "string" },
     total_amount: { type: "number" },
     items: { type: "array", items: ITEM_SCHEMA },
   },
-  required: ["store_name_en", "store_name_zh", "purchase_date", "total_amount", "items"],
+  required: [
+    "store_name_en",
+    "store_name_zh",
+    "chain_name_en",
+    "chain_name_zh",
+    "branch_name_en",
+    "branch_name_zh",
+    "purchase_date",
+    "total_amount",
+    "items",
+  ],
   additionalProperties: false,
 };
 
@@ -106,6 +126,10 @@ interface ParsedItem {
 interface ParsedReceipt {
   store_name_en: string;
   store_name_zh: string;
+  chain_name_en: string;
+  chain_name_zh: string;
+  branch_name_en: string;
+  branch_name_zh: string;
   purchase_date: string;
   total_amount: number;
   items: ParsedItem[];
@@ -119,7 +143,11 @@ function buildPrompt(existingProducts: ExistingProduct[]): string {
   return (
     "This is a grocery receipt from a New Zealand supermarket. Extract the store name, " +
     "purchase date, total amount, and each line item.\n" +
-    "Translate the store name and each item's name into Chinese.\n" +
+    "Also split the store header into the supermarket chain and its branch (e.g. chain " +
+    "'Woolworths', branch 'Hornby'). The chain is the brand customers know, not the " +
+    "operating company or legal entity printed alongside it. If the header names no branch, " +
+    "leave both branch fields empty — never guess a branch from anything else on the receipt.\n" +
+    "Translate the store name, chain, branch and each item's name into Chinese.\n" +
     "For each item, pick the single best-matching category from this fixed list " +
     "(never invent a new category): " +
     CATEGORY_NAMES.join(", ") +
@@ -161,7 +189,16 @@ export async function recognizeReceipt(
     throw new Error("Claude did not return a text block with the structured receipt data");
   }
 
-  const parsed = JSON.parse(textBlock.text) as ParsedReceipt;
+  // A response cut off at max_tokens (a very long receipt) isn't valid JSON;
+  // surface that as something the user can act on, not a raw SyntaxError.
+  let parsed: ParsedReceipt;
+  try {
+    parsed = JSON.parse(textBlock.text) as ParsedReceipt;
+  } catch {
+    throw new Error(
+      "Couldn't read this as a grocery receipt — the recognition result came back incomplete. Try again, or photograph a shorter section of the receipt."
+    );
+  }
 
   // Claude's JSON schema constrains shape, not content — an unreadable or
   // non-receipt photo can still satisfy it with an empty/garbage
@@ -178,6 +215,10 @@ export async function recognizeReceipt(
     receipt: {
       storeNameEn: parsed.store_name_en,
       storeNameZh: parsed.store_name_zh,
+      chainNameEn: parsed.chain_name_en,
+      chainNameZh: parsed.chain_name_zh,
+      branchNameEn: parsed.branch_name_en,
+      branchNameZh: parsed.branch_name_zh,
       purchaseDate: parsed.purchase_date,
       totalAmount: parsed.total_amount,
       items: parsed.items.map((item) => ({

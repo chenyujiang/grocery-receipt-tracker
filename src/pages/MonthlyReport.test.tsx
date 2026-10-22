@@ -33,7 +33,15 @@ const SAMPLE_REPORT = {
     },
   ],
   priceChangeLeaderboard: [
-    { productId: "product-1", nameEn: "Anchor Blue Milk", nameZh: "安科蓝带牛奶", changePercent: 25 },
+    {
+      productId: "product-1",
+      nameEn: "Anchor Blue Milk",
+      nameZh: "安科蓝带牛奶",
+      storeId: "store-hornby",
+      storeNameEn: "Woolworths Hornby",
+      storeNameZh: "沃尔沃斯 霍恩比店",
+      changePercent: 25,
+    },
   ],
   alertCount: 3,
   spendByUploader: [{ userId: "user-1", displayName: "eason", total: 120.5 }],
@@ -55,6 +63,18 @@ describe("MonthlyReport", () => {
     expect(screen.getByText(/Food - Fruits/)).toBeInTheDocument();
     expect(screen.getByText(/Anchor Blue Milk/)).toBeInTheDocument();
     expect(screen.getByText(/3 alerts triggered/)).toBeInTheDocument();
+  });
+
+  // Issue 29: a leaderboard row is one Store's Same-Store Price Change, so it
+  // names the branch the price rose at.
+  it("names the Store each leaderboard row's price rose at", async () => {
+    vi.mocked(fetchMonthlyReport).mockResolvedValue(SAMPLE_REPORT);
+
+    render(<MonthlyReport />);
+
+    const heading = await screen.findByRole("heading", { name: /price increase/i });
+    const leaderboard = heading.closest("section")!;
+    expect(within(leaderboard).getByText(/Woolworths Hornby/)).toBeInTheDocument();
   });
 
   it("expands a category to reveal its product breakdown, and collapses again", async () => {

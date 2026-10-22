@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-import { calculatePriceChange, type PriceChange } from "@/lib/priceChange";
+import { priceChangeAtStore, type PriceChange } from "@/lib/priceChange";
 import { buildPriceTrend, type PriceTrendPoint } from "@/lib/priceTrend";
 import { compareStores, type StoreComparisonEntry } from "@/lib/storeComparison";
 import { calculateConsumption, type ConsumptionEstimate } from "@/lib/consumptionRate";
@@ -9,16 +9,43 @@ import { bilingualName } from "@/lib/bilingualName";
 // The detail page's history table renders a Purchase directly.
 export type PurchaseHistoryEntry = Purchase;
 
+// The headline figure: the Same-Store Price Change at the Store of the most
+// recent Purchase, with that Store, so the page can say where (issue 29).
+export interface HeadlinePriceChange extends PriceChange {
+  storeId: string;
+  storeNameEn: string;
+  storeNameZh: string;
+}
+
 export interface ProductDetail {
   id: string;
   canonicalNameEn: string;
   canonicalNameZh: string;
   category: string;
-  priceChange: PriceChange | null;
+  priceChange: HeadlinePriceChange | null;
   priceTrend: PriceTrendPoint[];
   storeComparison: StoreComparisonEntry[];
   consumption: ConsumptionEstimate | null;
   purchaseHistory: PurchaseHistoryEntry[];
+}
+
+// Null when the latest Purchase has no Store, or its Store has too few
+// normal-price Purchases to compare — never a comparison across Stores.
+function headlinePriceChange(purchases: Purchase[]): HeadlinePriceChange | null {
+  const latest = purchases[purchases.length - 1];
+  if (!latest || latest.storeId === null) {
+    return null;
+  }
+  const atStore = priceChangeAtStore(purchases, latest.storeId);
+  if (!atStore) {
+    return null;
+  }
+  return {
+    ...atStore.change,
+    storeId: latest.storeId,
+    storeNameEn: latest.storeNameEn,
+    storeNameZh: latest.storeNameZh,
+  };
 }
 
 // Section 15, page 4: product detail — price trend (S10), multi-store
@@ -41,7 +68,7 @@ export async function fetchProductDetail(
   const [history] = await fetchPurchaseHistories(supabase, [productId]);
   const purchaseHistory = history.purchases;
 
-  const priceChange = calculatePriceChange(purchaseHistory);
+  const priceChange = headlinePriceChange(purchaseHistory);
 
   const priceTrend = buildPriceTrend(purchaseHistory);
 

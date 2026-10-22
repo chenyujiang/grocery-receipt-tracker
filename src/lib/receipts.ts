@@ -1,9 +1,21 @@
 import { supabase } from "@/lib/supabaseClient";
-import { detectPriceSpikes } from "@/lib/priceSpikeAlerts";
+import { detectPriceSpikes, type SpikeCheckReceipt } from "@/lib/priceSpikeAlerts";
+import {
+  deleteUnusedStore,
+  nameOfStoreChoice,
+  resolveStore,
+  sameStoreKey,
+  storeAsRead,
+  storeChoiceFromNames,
+  type Store,
+  type StoreChoice,
+} from "@/lib/stores";
 import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
-import { bilingualName } from "@/lib/bilingualName";
+import { bilingualName, type BilingualName } from "@/lib/bilingualName";
+import { receiptStoreName, storeName, STORE_NAMES_EMBED, type StoreNames } from "@/lib/storeName";
+import type { Database } from "@/types/database.types";
 
 export interface UploadReceiptResult {
   receiptId: string;
@@ -67,8 +79,18 @@ export function toItemUpdate(item: DraftItem): ConfirmReceiptItemUpdate {
 export interface ReceiptDraft {
   id: string;
   uploadedBy: string;
-  storeNameEn: string;
-  storeNameZh: string;
+  // The Receipt Header: the store name exactly as this receipt printed it.
+  receiptHeader: BilingualName;
+  // What to call the receipt: its Store's own chain and branch, or the
+  // printed header while it has no Store (issue 29).
+  storeDisplayName: BilingualName;
+  // The chain/branch split the AI read off the header, in the shape
+  // confirmReceipt takes its Store in. Null for a draft recognized before
+  // the split existed (issue 29).
+  recognizedStore: StoreChoice | null;
+  // The Store a confirmed receipt points at; null for a draft, which gets
+  // its Store only on confirm.
+  storeId: string | null;
   purchaseDate: string;
   totalAmount: number;
   status: string;
@@ -84,7 +106,7 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
   const { data: receiptRow, error: receiptError } = await supabase
     .from("receipts")
     .select(
-      "id, uploaded_by, store_name_en, store_name_zh, purchase_date, total_amount, status, original_image_url"
+      `id, uploaded_by, store_id, store_name_en, store_name_zh, recognized_chain_en, recognized_chain_zh, recognized_branch_en, recognized_branch_zh, purchase_date, total_amount, status, original_image_url, ${STORE_NAMES_EMBED}`
     )
     .eq("id", receiptId)
     .single();
@@ -104,13 +126,15 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
 
   const items = itemRows ?? [];
 
-  const storeName = bilingualName(receiptRow.store_name_en, receiptRow.store_name_zh);
+  const header = bilingualName(receiptRow.store_name_en, receiptRow.store_name_zh);
 
   return {
     id: receiptRow.id,
     uploadedBy: receiptRow.uploaded_by,
-    storeNameEn: storeName.en,
-    storeNameZh: storeName.zh,
+    receiptHeader: header,
+    storeDisplayName: receiptStoreName(receiptRow),
+    recognizedStore: recognizedStoreOf(receiptRow),
+    storeId: receiptRow.store_id,
     purchaseDate: receiptRow.purchase_date,
     totalAmount: receiptRow.total_amount,
     status: receiptRow.status,
@@ -217,12 +241,56 @@ async function updateReceiptItemsWithLog(
   }
 }
 
+// The four columns a draft keeps what the AI read in.
+type RecognizedStoreColumns = Pick<
+  Database["public"]["Tables"]["receipts"]["Row"],
+  "recognized_chain_en" | "recognized_chain_zh" | "recognized_branch_en" | "recognized_branch_zh"
+>;
+
+// The chain/branch the AI read off a receipt; null on a draft saved before
+// the split existed.
+function recognizedStoreOf(receipt: RecognizedStoreColumns): StoreChoice | null {
+  if (receipt.recognized_chain_en == null) {
+    return null;
+  }
+  return storeChoiceFromNames({
+    chain_name_en: receipt.recognized_chain_en,
+    chain_name_zh: receipt.recognized_chain_zh,
+    branch_name_en: receipt.recognized_branch_en,
+    branch_name_zh: receipt.recognized_branch_zh,
+  });
+}
+
+// The Store the store picker starts a receipt on (storePick.ts's
+// initialStorePick): the receipt's own Store if it has one, else storeAsRead.
+function startingStore(
+  receipt: RecognizedStoreColumns &
+    Pick<Database["public"]["Tables"]["receipts"]["Row"], "store_name_en"> & {
+      stores?: StoreNames | null;
+    }
+): StoreChoice {
+  if (receipt.stores) {
+    return storeChoiceFromNames(receipt.stores);
+  }
+  return storeAsRead({
+    recognizedStore: recognizedStoreOf(receipt),
+    receiptHeader: { en: receipt.store_name_en },
+  });
+}
+
 // Section 6: user reviews/corrects each field, then confirms. Every changed
 // field is logged to EditLog (Section 5.4) before the update is applied,
 // diffed against whatever Supabase currently holds for that item.
+//
+// Issue 29: `store` is the chain/branch the user confirmed on the preview
+// screen — an existing Store picked from the list resolves back to itself.
+// The Store row is created here, on confirm, never on draft save, and is
+// written in the same update as the status so a confirmed receipt never
+// lacks one.
 export async function confirmReceipt(
   receiptId: string,
-  items: ConfirmReceiptItemUpdate[]
+  items: ConfirmReceiptItemUpdate[],
+  store: StoreChoice
 ): Promise<void> {
   const {
     data: { user },
@@ -232,19 +300,106 @@ export async function confirmReceipt(
     throw userError ?? new Error("Not signed in");
   }
 
-  await updateReceiptItemsWithLog(items, user.id);
-
-  const { data: receiptRow, error: statusError } = await supabase
+  const { data: existingReceipt, error: fetchError } = await supabase
     .from("receipts")
-    .update({ status: "confirmed" })
+    .select(
+      "circle_id, store_name_en, store_name_zh, recognized_chain_en, recognized_chain_zh, recognized_branch_en, recognized_branch_zh"
+    )
     .eq("id", receiptId)
-    .select("circle_id")
     .single();
-  if (statusError || !receiptRow) {
-    throw statusError ?? new Error("Failed to confirm receipt");
+  if (fetchError || !existingReceipt) {
+    throw fetchError ?? new Error("Receipt not found");
   }
 
-  await recordPriceSpikeAlerts(receiptRow.circle_id, receiptId, items);
+  // Resolved before anything is written, so a failure here leaves the draft
+  // as it was instead of saving its items while it stays a draft.
+  const { store: confirmedStore, created } = await resolveStore(supabase, existingReceipt.circle_id, store);
+  const storeId = confirmedStore.id;
+
+  const purchaseDate = await takeBackStoreOnFailure(created ? storeId : null, () =>
+    writeConfirmation(receiptId, items, user.id, startingStore(existingReceipt), confirmedStore)
+  );
+
+  await recordPriceSpikeAlerts(
+    existingReceipt.circle_id,
+    receiptId,
+    { id: receiptId, storeId, purchaseDate },
+    items
+  );
+}
+
+// Runs the writes that follow resolving a Store. If they fail and the Store
+// was created for them, it's taken back, so an abandoned receipt leaves no
+// Store in the picker. Best effort: if the delete fails too, the Store stays,
+// and the user still sees why the writes failed.
+async function takeBackStoreOnFailure<T>(createdStoreId: string | null, write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (err) {
+    if (createdStoreId !== null) {
+      await deleteUnusedStore(supabase, createdStoreId).catch(() => undefined);
+    }
+    throw err;
+  }
+}
+
+// confirmReceipt's writes once its Store is resolved: the items, the Store
+// correction if there was one, then the status. Returns the purchase date.
+// The status and Store correction share one transaction; the items are a
+// separate write before it, so if that transaction fails the item edits —
+// and their EditLog rows — stay saved, and the receipt stays a draft. A
+// retry diffs against the saved values, so it logs them only once.
+async function writeConfirmation(
+  receiptId: string,
+  items: ConfirmReceiptItemUpdate[],
+  userId: string,
+  readStore: StoreChoice,
+  confirmedStore: Store
+): Promise<string> {
+  await updateReceiptItemsWithLog(items, userId);
+
+  // User story 3: correcting the Store the AI read is a Correction like any
+  // other — but confirming the Store the AI's reading matched is not one.
+  const logs: ReceiptLog[] = sameStoreKey(readStore, storeChoiceFromNames(confirmedStore))
+    ? []
+    : [storeChangeLog(nameOfStoreChoice(readStore), confirmedStore)];
+  return updateReceiptWithLog(receiptId, { status: "confirmed", storeId: confirmedStore.id }, logs);
+}
+
+// A receipt-level EditLog row — the Store or the purchase date — as
+// update_receipt_with_log takes it.
+type ReceiptLog = Database["public"]["Functions"]["update_receipt_with_log"]["Args"]["p_logs"][number];
+
+// The EditLog row for moving a receipt to another Store, both names in
+// English, the Source Text — on confirm and on edit alike.
+function storeChangeLog(oldName: BilingualName, newStore: Store): ReceiptLog {
+  return { field_name: "store", old_value: oldName.en, new_value: storeName(newStore).en };
+}
+
+// What update_receipt_with_log changes on a receipt; an absent field is left
+// as it is.
+type ReceiptChanges = { status?: "confirmed"; storeId?: string; purchaseDate?: string };
+
+// Changes the receipt and writes its EditLog rows in one transaction
+// (update_receipt_with_log): EditLog is append-only, so a row logged for a
+// change that then failed could never be taken back, and a retry would log it
+// again. Returns the receipt's purchase date.
+async function updateReceiptWithLog(
+  receiptId: string,
+  changes: ReceiptChanges,
+  logs: ReceiptLog[]
+): Promise<string> {
+  const { data: purchaseDate, error } = await supabase.rpc("update_receipt_with_log", {
+    p_receipt_id: receiptId,
+    p_status: changes.status ?? null,
+    p_store_id: changes.storeId ?? null,
+    p_purchase_date: changes.purchaseDate ?? null,
+    p_logs: logs,
+  });
+  if (error) {
+    throw error;
+  }
+  return purchaseDate;
 }
 
 // Issue 16: fixing a mistake on an already-confirmed receipt — the uploader
@@ -256,7 +411,8 @@ export async function confirmReceipt(
 export async function editConfirmedReceipt(
   receiptId: string,
   purchaseDate: string,
-  items: ConfirmReceiptItemUpdate[]
+  items: ConfirmReceiptItemUpdate[],
+  store: StoreChoice
 ): Promise<void> {
   const {
     data: { user },
@@ -266,47 +422,70 @@ export async function editConfirmedReceipt(
     throw userError ?? new Error("Not signed in");
   }
 
-  await updateReceiptItemsWithLog(items, user.id);
-
   const { data: existingReceipt, error: fetchError } = await supabase
     .from("receipts")
-    .select("purchase_date")
+    .select(
+      `purchase_date, circle_id, store_id, store_name_en, store_name_zh, recognized_chain_en, recognized_chain_zh, recognized_branch_en, recognized_branch_zh, ${STORE_NAMES_EMBED}`
+    )
     .eq("id", receiptId)
     .single();
   if (fetchError || !existingReceipt) {
     throw fetchError ?? new Error("Receipt not found");
   }
 
-  if (existingReceipt.purchase_date === purchaseDate) {
-    return;
+  const changes: Omit<ReceiptChanges, "status"> = {};
+  const logs: ReceiptLog[] = [];
+  let createdStoreId: string | null = null;
+  // Issue 29: moving a receipt to another Store is logged by the Stores'
+  // names, so the log reads on its own, and — like every edit — neither
+  // re-raises nor withdraws alerts. Only a choice naming another Store than
+  // the picker started on is resolved, so saving just a new date never
+  // moves a receipt or logs a Store change. A receipt with no Store yet is
+  // the exception: saving it attaches the Store the picker shows, so it
+  // stops being left out of the price trend and store comparison — logged
+  // only if the user changed it, as on confirm.
+  const storeChanged = !sameStoreKey(startingStore(existingReceipt), store);
+  if (storeChanged || existingReceipt.store_id === null) {
+    const { store: newStore, created } = await resolveStore(supabase, existingReceipt.circle_id, store);
+    if (created) {
+      createdStoreId = newStore.id;
+    }
+    if (existingReceipt.store_id !== newStore.id) {
+      changes.storeId = newStore.id;
+      if (storeChanged) {
+        logs.push(storeChangeLog(receiptStoreName(existingReceipt), newStore));
+      }
+    }
   }
-
-  const { error: logError } = await supabase.from("edit_logs").insert({
-    receipt_id: receiptId,
-    field_name: "purchase_date",
-    old_value: existingReceipt.purchase_date,
-    new_value: purchaseDate,
-    edited_by: user.id,
+  if (existingReceipt.purchase_date !== purchaseDate) {
+    changes.purchaseDate = purchaseDate;
+    logs.push({
+      field_name: "purchase_date",
+      old_value: existingReceipt.purchase_date,
+      new_value: purchaseDate,
+    });
+  }
+  // As on confirm, nothing is written until the Store is resolved, so a
+  // failure there leaves the receipt as it was instead of saving only its
+  // items. Past that point the items are their own write, ahead of the
+  // Store and date's one transaction: if that transaction fails, the item
+  // edits stay saved and logged, and only the Store and date change is lost.
+  await takeBackStoreOnFailure(createdStoreId, async () => {
+    await updateReceiptItemsWithLog(items, user.id);
+    if (logs.length > 0 || changes.storeId !== undefined) {
+      await updateReceiptWithLog(receiptId, changes, logs);
+    }
   });
-  if (logError) {
-    throw logError;
-  }
-
-  const { error: updateError } = await supabase
-    .from("receipts")
-    .update({ purchase_date: purchaseDate })
-    .eq("id", receiptId);
-  if (updateError) {
-    throw updateError;
-  }
 }
 
 // Section 13: after confirming, check each item's product for a >15% price
 // spike against its recent normal-price history (now including this
-// receipt, since it just flipped to confirmed) and log an alert.
+// receipt, since it just flipped to confirmed) and log an alert. Only the
+// receipt's own Store's history counts (issue 29).
 async function recordPriceSpikeAlerts(
   circleId: string,
   receiptId: string,
+  receipt: SpikeCheckReceipt,
   items: ConfirmReceiptItemUpdate[]
 ): Promise<void> {
   const productIds = [
@@ -322,7 +501,7 @@ async function recordPriceSpikeAlerts(
 
   const histories = await fetchPurchaseHistories(supabase, productIds);
 
-  const spikes = detectPriceSpikes(histories);
+  const spikes = detectPriceSpikes(histories, receipt);
   if (spikes.length === 0) {
     return;
   }

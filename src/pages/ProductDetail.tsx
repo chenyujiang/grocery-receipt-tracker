@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { fetchProductDetail, type ProductDetail as ProductDetailData } from "@/lib/productDetail";
-import type { PriceTrendPoint } from "@/lib/priceTrend";
+import { trendLegend, type PriceTrendPoint } from "@/lib/priceTrend";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import { errorMessage } from "@/lib/errorMessage";
@@ -18,20 +18,21 @@ const QUANTITY_BASIS_LABEL: Record<string, string> = {
   each: "items",
 };
 
+// How many --series-N colour tokens index.css defines; a fifth Store reuses
+// the first colour. ProductDetail.test.tsx checks index.css against this, so
+// adding a colour there without changing it here fails the tests.
+export const SERIES_COLOURS = 4;
+
 // Small hand-rolled sparkline — the data is a handful of points per product,
 // not worth pulling in a charting library for. Promotional points render
 // hollow (Section 10's "distinct style" requirement for promo records).
-function PriceTrendChart({ points }: { points: PriceTrendPoint[] }) {
-  const { t } = useLanguage();
+// Issue 29: one line per Store, each in its own series colour; a purchase
+// with no Store belongs to no line, so it isn't drawn.
+function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
+  const { language, t } = useLanguage();
+  const points = allPoints.filter((point) => point.storeId !== null);
   if (points.length === 0) {
     return <p>{t("product.notEnoughData")}</p>;
-  }
-  if (points.length === 1) {
-    return (
-      <p>
-        ${points[0].value.toFixed(2)} {PRICE_BASIS_LABEL[points[0].basis]} ({points[0].purchaseDate})
-      </p>
-    );
   }
 
   const width = 300;
@@ -42,29 +43,61 @@ function PriceTrendChart({ points }: { points: PriceTrendPoint[] }) {
   const max = Math.max(...values);
   const span = max - min || 1;
 
+  const legendEntries = trendLegend(points, language);
+  const storeIds = legendEntries.map((entry) => entry.storeId);
+  const colourOf = (storeId: string | null) =>
+    `var(--series-${(storeIds.indexOf(storeId ?? "") % SERIES_COLOURS) + 1})`;
+
+  // x is the purchase's place in the whole history, shared by every line.
   const coords = points.map((point, index) => {
-    const x = padding + (index / (points.length - 1)) * (width - padding * 2);
+    // A lone purchase sits in the middle rather than dividing by zero.
+    const x =
+      points.length === 1 ? width / 2 : padding + (index / (points.length - 1)) * (width - padding * 2);
     const y = height - padding - ((point.value - min) / span) * (height - padding * 2);
     return { x, y, point };
   });
 
-  const linePath = coords.map((c) => `${c.x},${c.y}`).join(" ");
-
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="price-trend-chart" role="img" aria-label="Price trend over time">
-      <polyline points={linePath} fill="none" stroke="var(--primary)" strokeWidth="2" />
-      {coords.map((c, index) => (
-        <circle
-          key={index}
-          cx={c.x}
-          cy={c.y}
-          r={4}
-          fill={c.point.isPromotion ? "var(--surface)" : "var(--primary)"}
-          stroke="var(--primary)"
-          strokeWidth="2"
-        />
-      ))}
-    </svg>
+    <>
+      <svg viewBox={`0 0 ${width} ${height}`} className="price-trend-chart" role="img" aria-label="Price trend over time">
+        {storeIds.map((storeId) => {
+          const line = coords.filter((c) => c.point.storeId === storeId);
+          // A Store bought from once is just its point — a one-point line would
+          // be invisible anyway.
+          if (line.length < 2) return null;
+          return (
+            <polyline
+              key={storeId}
+              points={line.map((c) => `${c.x},${c.y}`).join(" ")}
+              fill="none"
+              stroke={colourOf(storeId)}
+              strokeWidth="2"
+            />
+          );
+        })}
+        {coords.map((c, index) => (
+          <circle
+            key={index}
+            cx={c.x}
+            cy={c.y}
+            r={4}
+            fill={c.point.isPromotion ? "var(--surface)" : colourOf(c.point.storeId)}
+            stroke={colourOf(c.point.storeId)}
+            strokeWidth="2"
+          />
+        ))}
+      </svg>
+      <ul className="price-trend-legend" aria-label={t("product.trendLegend")}>
+        {legendEntries.map(({ storeId, label }) => (
+          <li key={storeId}>
+            <svg width="10" height="10" aria-hidden="true">
+              <circle cx="5" cy="5" r="5" fill={colourOf(storeId)} />
+            </svg>
+            {label}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -108,7 +141,8 @@ export default function ProductDetail() {
               >
                 {detail.priceChange.changePercent > 0 ? "+" : ""}
                 {detail.priceChange.changePercent}% — now ${detail.priceChange.current.value.toFixed(2)}
-                {PRICE_BASIS_LABEL[detail.priceChange.current.basis]}
+                {PRICE_BASIS_LABEL[detail.priceChange.current.basis]} ·{" "}
+                {pickText(detail.priceChange.storeNameEn, detail.priceChange.storeNameZh, language)}
               </p>
             )}
           </section>
@@ -125,7 +159,7 @@ export default function ProductDetail() {
             ) : (
               <ul>
                 {detail.storeComparison.map((entry) => (
-                  <li key={entry.storeNameEn}>
+                  <li key={entry.storeId}>
                     {pickText(entry.storeNameEn, entry.storeNameZh, language)} — $
                     {entry.value.toFixed(2)}
                     {PRICE_BASIS_LABEL[entry.basis]} ({entry.purchaseDate})

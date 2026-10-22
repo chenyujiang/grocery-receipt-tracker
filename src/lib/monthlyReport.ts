@@ -187,11 +187,23 @@ export async function fetchMonthlyReport(month: Date): Promise<MonthlyReport> {
     const histories = await fetchPurchaseHistories(supabase, [...productIds]);
     const leaderboardInput: LeaderboardInput[] = histories.map((history) => {
       const names = productNames.get(history.productId);
+      // This month's increases (issue 29): only the Stores the Product was
+      // bought at this month at normal price, so a rise at a Store last
+      // visited a year ago can't take the row — nor can one whose only
+      // purchase this month was a promotion, which is never compared.
+      const storesThisMonth = new Set(
+        history.purchases
+          .filter(
+            ({ purchaseDate, isPromotion }) =>
+              !isPromotion && purchaseDate >= start && purchaseDate <= end
+          )
+          .map(({ storeId }) => storeId)
+      );
       return {
         productId: history.productId,
         nameEn: names?.en ?? "",
         nameZh: names?.zh ?? "",
-        purchases: history.purchases,
+        purchases: history.purchases.filter(({ storeId }) => storesThisMonth.has(storeId)),
       };
     });
     priceChangeLeaderboard = buildPriceChangeLeaderboard(leaderboardInput);

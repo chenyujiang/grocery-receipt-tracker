@@ -167,6 +167,7 @@ There's no separate "low confidence" flag — the review/confirm step itself is 
 ## 7. Bilingual Content Strategy
 
 - **Scope**: dynamic data content (product names, store names, category labels) is bilingual by design. **Amended from the original English-only-chrome decision**: fixed UI chrome (menus, buttons, labels) is fully translated too, via a hand-written EN/ZH string dictionary (`src/lib/i18n.ts`) rather than a full i18n framework — an English-only shell felt inconsistent once real screens showed translated data next to it.
+  - **Amended (issue 29): a Store's chain and branch names are the exception, shown in English in both languages.** Their `_zh` columns are left null and read back as the Source Text, because the AI's renderings of supermarket brands ("羊毛超市" for Woolworths) read worse than the brand itself. A receipt's own printed store name (`receipts.store_name_zh`) keeps its translation.
 - **Direction**: receipt text is originally English; `_en` fields hold the authentic OCR source text, while `_zh` fields hold the Chinese translation produced by that same Claude API call.
 - **Storage**: bilingual fields are split into two columns (e.g. `name_zh` / `name_en`), not packed into a JSON field.
 - **Corrections**: OCR errors in `_en` go through the standard preview/EditLog flow; if a user finds the `_zh` translation inaccurate, they can edit it manually, likewise recorded in EditLog.
@@ -539,6 +540,7 @@ Mode is derived from `cap_usd`, not a separate enum: `null` → free-trial mode 
 ## 7. 双语内容策略
 
 - **范围**：动态数据内容（商品名、店铺名、分类标签）本来就双语化。**相对最初"界面文案只做英文"的决定有修订**：界面固定文案（菜单、按钮、标签）现在也全部翻译了，用手写的中英文字典（`src/lib/i18n.ts`）实现，没引入完整的 i18n 框架——原因是页面上数据内容已经双语了，界面文案还是纯英文会显得不一致。
+  - **修订（issue 29）：Store 的连锁名和分店名是例外，两种语言下都显示英文。** 它们的 `_zh` 列留空，读取时回退到 Source Text，因为 AI 给超市品牌起的译名（Woolworths 译成"羊毛超市"）还不如品牌原名好认。小票自己印的店名（`receipts.store_name_zh`）仍保留译文。
 - **方向**：小票原文是英文，`_en` 字段是 OCR 识别的原始真实文本，`_zh` 字段是同一次 Claude API 调用顺带产出的中文翻译。
 - **存储**：双语字段拆成两列（如 `name_zh` / `name_en`），不用 JSON 字段。
 - **修正**：`_en` 的识别错误走标准的预览确认/EditLog 流程；用户发现 `_zh` 翻译不准时可以手动修改，同样记入 EditLog。
