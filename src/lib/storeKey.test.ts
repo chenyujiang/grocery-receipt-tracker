@@ -33,6 +33,29 @@ describe("storeKey", () => {
     expect(storeKey("New World", "Lincoln Dr")).toEqual(storeKey("New World", "Lincoln Drive"));
   });
 
+  it("spells out the rest of New Zealand's common street-type abbreviations", () => {
+    for (const [short, long] of [
+      ["Pl", "Place"],
+      ["Cres", "Crescent"],
+      ["Hwy", "Highway"],
+      ["Tce", "Terrace"],
+      ["Ln", "Lane"],
+      ["Pde", "Parade"],
+      ["Sq", "Square"],
+      ["Ct", "Court"],
+      ["Cl", "Close"],
+      ["Blvd", "Boulevard"],
+    ]) {
+      expect(storeKey("New World", `Marine ${short}.`)).toEqual(storeKey("New World", `Marine ${long}`));
+    }
+  });
+
+  // "Mt" is Mount in a suburb's name ("Mt Albert", "Mt Roskill"), not a
+  // street type; the list stays street types only.
+  it("leaves Mt alone, since it's part of a place name rather than a street type", () => {
+    expect(storeKey("Woolworths", "Mt Albert").branchKey).toBe("mt albert");
+  });
+
   it("drops full stops, so an initialism printed D.H. keys the same as DH", () => {
     expect(storeKey("D.H. Supermarket", "")).toEqual(storeKey("DH Supermarket", ""));
     expect(storeKey("Woolworths", "St. Lukes")).toEqual(storeKey("Woolworths", "St Lukes"));
