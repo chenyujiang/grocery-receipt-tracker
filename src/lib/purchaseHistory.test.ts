@@ -9,8 +9,12 @@ function fakeClient(result: { data: unknown; error: unknown }) {
   return createFakeSupabase({ tables: { receipt_items: result } });
 }
 
+let nextRowId = 0;
+
 function row(overrides: Record<string, unknown> = {}) {
+  nextRowId += 1;
   return {
+    id: `item-${String(nextRowId).padStart(6, "0")}`,
     product_id: "p1",
     receipt_id: "receipt-1",
     unit_price: 5,
@@ -328,4 +332,94 @@ describe("fetchPurchaseHistories", () => {
     expect(history.purchases[0].storeNameZh).toBe("Four Square");
   });
 
+
+  describe("beyond one PostgREST response", () => {
+    // PostgREST silently caps a response at max-rows (Supabase default 1000),
+    // so a history longer than that must come back across several pages.
+    it("returns every matching row even when there are more than 1000 of them", async () => {
+      const firstPage = Array.from({ length: 1000 }, () => row());
+      const secondPage = Array.from({ length: 5 }, () => row());
+      const mock = createFakeSupabase({
+        tables: {
+          receipt_items: [
+            { data: firstPage, error: null },
+            { data: secondPage, error: null },
+          ],
+        },
+      });
+
+      const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
+
+      expect(history.purchases).toHaveLength(1005);
+      const queries = mock.queriesFor("receipt_items");
+      expect(queries).toHaveLength(2);
+      expect(queries[0]).toContainEqual(["range", 0, 999]);
+      expect(queries[1]).toContainEqual(["range", 1000, 1999]);
+      // Paging is only sound over a total order of the receipt_items rows
+      // themselves, not of the embedded receipt.
+      expect(queries[0]).toContainEqual(["order", "id", { ascending: true }]);
+    });
+
+    // Every id is encoded into the request URL, so a few hundred of them in
+    // one request can overrun the gateway's URL length limit.
+    it("splits a long id list into URL-safe batches, still answering in request order", async () => {
+      const ids = Array.from({ length: 250 }, (_, index) => `p${index}`);
+      const mock = createFakeSupabase({
+        tables: {
+          receipt_items: [
+            { data: [row({ product_id: "p0" })], error: null },
+            { data: [row({ product_id: "p100" })], error: null },
+            { data: [row({ product_id: "p249" })], error: null },
+          ],
+        },
+      });
+
+      const histories = await fetchPurchaseHistories(mock.client, ids);
+
+      expect(histories.map((history) => history.productId)).toEqual(ids);
+      expect(histories[0].purchases).toHaveLength(1);
+      expect(histories[100].purchases).toHaveLength(1);
+      expect(histories[249].purchases).toHaveLength(1);
+      const queries = mock.queriesFor("receipt_items");
+      expect(queries).toHaveLength(3);
+      expect(queries[0]).toContainEqual(["in", "product_id", ids.slice(0, 100)]);
+      expect(queries[1]).toContainEqual(["in", "product_id", ids.slice(100, 200)]);
+      expect(queries[2]).toContainEqual(["in", "product_id", ids.slice(200)]);
+    });
+
+    it("keeps same-date purchases in one stable order across page boundaries", async () => {
+      const sameDay = { purchase_date: "2026-08-01", store_name_en: "A", store_name_zh: "A" };
+      const filler = Array.from({ length: 999 }, () => row({ product_id: "p2" }));
+      const mock = createFakeSupabase({
+        tables: {
+          receipt_items: [
+            {
+              data: [...filler, row({ id: "item-c", product_id: "p1", receipt_id: "r-c", receipts: sameDay })],
+              error: null,
+            },
+            {
+              data: [
+                row({ id: "item-a", product_id: "p1", receipt_id: "r-a", receipts: sameDay }),
+                row({
+                  id: "item-b",
+                  product_id: "p1",
+                  receipt_id: "r-older",
+                  receipts: { ...sameDay, purchase_date: "2026-07-01" },
+                }),
+              ],
+              error: null,
+            },
+          ],
+        },
+      });
+
+      const [history] = await fetchPurchaseHistories(mock.client, ["p1", "p2"]);
+
+      expect(history.purchases.map((purchase) => purchase.receiptId)).toEqual([
+        "r-older",
+        "r-a",
+        "r-c",
+      ]);
+    });
+  });
 });
