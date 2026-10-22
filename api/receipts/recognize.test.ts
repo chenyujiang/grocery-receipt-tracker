@@ -1,14 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({ supabaseAdmin: {} }));
 
-// getAccessStatus/recordSuccess are stubbed, but FREE_TRIAL_LIMIT stays real —
-// the refusal copy is built from it, and a fake limit would make the 402
-// assertions vacuous.
+// reserveCall is stubbed (it hands back a fake Reservation, see reserve()),
+// but FREE_TRIAL_LIMIT stays real — the refusal copy is built from it, and a
+// fake limit would make the 402 assertions vacuous.
 vi.mock("../_lib/userAiAccess.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../_lib/userAiAccess.js")>()),
-  getAccessStatus: vi.fn(),
-  recordSuccess: vi.fn(),
+  reserveCall: vi.fn(),
 }));
 vi.mock("../_lib/haikuCost.js", () => ({ calculateHaikuCost: vi.fn() }));
 vi.mock("../_lib/recognizeReceipt.js", () => ({ recognizeReceipt: vi.fn() }));
@@ -16,7 +15,12 @@ vi.mock("../_lib/saveDraftReceipt.js", () => ({ saveDraftReceipt: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
-import { getAccessStatus, recordSuccess, FREE_TRIAL_LIMIT } from "../_lib/userAiAccess.js";
+import {
+  reserveCall,
+  FREE_TRIAL_LIMIT,
+  type AccessMode,
+  type AccessStatus,
+} from "../_lib/userAiAccess.js";
 import { aiAccessRefusalMessage, SUPPORT_EMAIL } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt } from "../_lib/recognizeReceipt.js";
@@ -56,25 +60,34 @@ function recognizeRequest(overrides: Record<string, unknown> = {}) {
   });
 }
 
-/** An AccessStatus in the shape getAccessStatus returns for a blocked user. */
-function blocked(mode: "trial" | "cap", extra: Record<string, unknown> = {}) {
+/** The AccessStatus reserveCall reports for a blocked user. */
+function blocked(mode: AccessMode, extra: Partial<AccessStatus> = {}): AccessStatus {
   return {
     allowed: false,
     mode,
     spentUsd: mode === "cap" ? 1 : 0,
     capUsd: mode === "cap" ? 1 : null,
-    freeTrialCallsUsed: mode === "trial" ? FREE_TRIAL_LIMIT : 0,
+    freeTrialCallsUsed: FREE_TRIAL_LIMIT,
     ...extra,
   };
 }
 
-const ALLOWED = { allowed: true, mode: "trial" as const, spentUsd: 0, capUsd: null, freeTrialCallsUsed: 0 };
+const ALLOWED: AccessStatus = { allowed: true, mode: "trial", spentUsd: 0, capUsd: null, freeTrialCallsUsed: 0 };
+
+/** The fake Reservation the next reserveCall resolves to. */
+let reservation: { status: AccessStatus; release: Mock; recordSpend: Mock };
+
+function reserve(status: AccessStatus) {
+  reservation = { status, release: vi.fn(), recordSpend: vi.fn() };
+  vi.mocked(reserveCall).mockResolvedValue(reservation as never);
+  return reservation;
+}
 
 describe("POST /api/receipts/recognize", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     installFakeSupabase(supabaseAdmin);
-    vi.mocked(getAccessStatus).mockResolvedValue(ALLOWED as never);
+    reserve(ALLOWED);
     vi.mocked(recognizeReceipt).mockResolvedValue(RECOGNIZED as never);
     vi.mocked(calculateHaikuCost).mockReturnValue(0.0042);
     vi.mocked(saveDraftReceipt).mockResolvedValue({ receiptId: "receipt-1" } as never);
@@ -124,7 +137,7 @@ describe("POST /api/receipts/recognize", () => {
 
       expect(res.statusCode).toBe(403);
       expect(res.body).toEqual({ error: "No circle found for this account" });
-      expect(getAccessStatus).not.toHaveBeenCalled();
+      expect(reserveCall).not.toHaveBeenCalled();
     });
   });
 
@@ -171,7 +184,7 @@ describe("POST /api/receipts/recognize", () => {
     it("validates the body before spending a Claude call on it", async () => {
       await handler(recognizeRequest({ imageBase64: "" }), makeRes().res);
 
-      expect(getAccessStatus).not.toHaveBeenCalled();
+      expect(reserveCall).not.toHaveBeenCalled();
       expect(recognizeReceipt).not.toHaveBeenCalled();
     });
   });
@@ -184,13 +197,13 @@ describe("POST /api/receipts/recognize", () => {
 
     it("402s when the Free Trial is used up, naming the call count", async () => {
       const status = blocked("trial");
-      vi.mocked(getAccessStatus).mockResolvedValue(status as never);
+      reserve(status);
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
 
       expect(res.statusCode).toBe(402);
-      expect(res.body).toEqual({ error: aiAccessRefusalMessage(status as never) });
+      expect(res.body).toEqual({ error: aiAccessRefusalMessage(status) });
       expect(res.body).toMatchObject({
         error: expect.stringContaining(`all ${FREE_TRIAL_LIMIT} of your free AI recognitions`),
       });
@@ -198,20 +211,20 @@ describe("POST /api/receipts/recognize", () => {
 
     it("402s when granted AI Credit is used up, naming spend against the cap", async () => {
       const status = blocked("cap", { spentUsd: 0.97, capUsd: 1 });
-      vi.mocked(getAccessStatus).mockResolvedValue(status as never);
+      reserve(status);
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
 
       expect(res.statusCode).toBe(402);
-      expect(res.body).toEqual({ error: aiAccessRefusalMessage(status as never) });
+      expect(res.body).toEqual({ error: aiAccessRefusalMessage(status) });
       expect(res.body).toMatchObject({ error: expect.stringContaining("($0.97 of $1.00)") });
     });
 
     // Nothing lifts a block automatically — no auto-reset, no auto-raise — so
     // a refusal that didn't say who to ask would be a dead end for the user.
     it.each(["trial", "cap"] as const)("tells a blocked %s user how to get unblocked", async (mode) => {
-      vi.mocked(getAccessStatus).mockResolvedValue(blocked(mode) as never);
+      reserve(blocked(mode));
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
@@ -220,23 +233,32 @@ describe("POST /api/receipts/recognize", () => {
     });
 
     it("checks access for the authenticated caller, not the Circle", async () => {
-      vi.mocked(getAccessStatus).mockResolvedValue(blocked("trial") as never);
+      reserve(blocked("trial"));
 
       await handler(recognizeRequest(), makeRes().res);
 
-      expect(getAccessStatus).toHaveBeenCalledWith(USER.id);
+      expect(reserveCall).toHaveBeenCalledWith(USER.id);
     });
 
     it("spends nothing: no Claude call, no upload, no draft", async () => {
       const { upload } = installSupabase();
-      vi.mocked(getAccessStatus).mockResolvedValue(blocked("trial") as never);
+      reserve(blocked("trial"));
 
       await handler(recognizeRequest(), makeRes().res);
 
       expect(recognizeReceipt).not.toHaveBeenCalled();
       expect(upload).not.toHaveBeenCalled();
-      expect(recordSuccess).not.toHaveBeenCalled();
+      expect(reservation.recordSpend).not.toHaveBeenCalled();
       expect(saveDraftReceipt).not.toHaveBeenCalled();
+    });
+
+    // A refusal reserved nothing, so there's nothing to hand back.
+    it("releases nothing", async () => {
+      reserve(blocked("trial"));
+
+      await handler(recognizeRequest(), makeRes().res);
+
+      expect(reservation.release).not.toHaveBeenCalled();
     });
   });
 
@@ -286,7 +308,16 @@ describe("POST /api/receipts/recognize", () => {
       await handler(recognizeRequest(), makeRes().res);
 
       expect(calculateHaikuCost).toHaveBeenCalledWith({ input_tokens: 900, output_tokens: 300 });
-      expect(recordSuccess).toHaveBeenCalledWith(USER.id, 0.0042);
+      expect(reserveCall).toHaveBeenCalledWith(USER.id);
+      expect(reservation.recordSpend).toHaveBeenCalledWith(0.0042);
+    });
+
+    it("keeps the reservation on success", async () => {
+      installSupabase();
+
+      await handler(recognizeRequest(), makeRes().res);
+
+      expect(reservation.release).not.toHaveBeenCalled();
     });
 
     // receipts.uploaded_by is a uuid FK to auth.users, compared against
@@ -370,7 +401,7 @@ describe("POST /api/receipts/recognize", () => {
       expect(res.body).toEqual({ error: "Failed to recognize receipt" });
     });
 
-    // A user whose call died after recordSuccess still gets charged for it;
+    // A user whose call died after recordSpend still gets charged for it;
     // one that died before doesn't. Pinned because it decides who pays.
     it("does not charge the caller when the Claude call itself fails", async () => {
       installSupabase();
@@ -378,7 +409,62 @@ describe("POST /api/receipts/recognize", () => {
 
       await handler(recognizeRequest(), makeRes().res);
 
-      expect(recordSuccess).not.toHaveBeenCalled();
+      expect(reservation.recordSpend).not.toHaveBeenCalled();
+    });
+
+    // Issue 15: the Free Trial counts successful calls only, so every exit
+    // that didn't get a recognized receipt back hands the reservation back.
+    // The hand-back must finish *before* the response is written: once it's
+    // sent, Vercel may freeze the function and a pending release never runs.
+    // The fake release only settles after a macrotask, so a handler that
+    // didn't await it would already have responded by then.
+    it.each([
+      ["the image can't be stored", { uploadError: { message: "bucket not found" } }, null],
+      ["the products lookup fails", { products: { data: null, error: { message: "denied" } } }, null],
+      ["the Claude call or its parse fails", {}, new Error("overloaded_error")],
+    ])("releases the reservation, before responding, when %s", async (_label, wiring, claudeError) => {
+      installSupabase(wiring);
+      if (claudeError) {
+        vi.mocked(recognizeReceipt).mockRejectedValue(claudeError);
+      }
+      const res = makeRes();
+      let statusWhenReleased: number | undefined = -1;
+      reservation.release.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        statusWhenReleased = res.statusCode;
+      });
+
+      await handler(recognizeRequest(), res.res);
+
+      expect(reservation.release).toHaveBeenCalledTimes(1);
+      expect(statusWhenReleased).toBeUndefined();
+      expect(res.statusCode).toBe(500);
+    });
+
+    // Claude answered, so the call was spent — a later failure saving the
+    // Draft doesn't refund it (same line recordSpend draws).
+    it("keeps the reservation when only saving the Draft fails", async () => {
+      installSupabase();
+      vi.mocked(saveDraftReceipt).mockRejectedValue({ message: "insert failed" });
+
+      await handler(recognizeRequest(), makeRes().res);
+
+      expect(reservation.recordSpend).toHaveBeenCalled();
+      expect(reservation.release).not.toHaveBeenCalled();
+    });
+
+    // A failed hand-back must not replace the user's real error or crash the
+    // function. It's logged instead.
+    it("still returns the original error when the release itself fails", async () => {
+      installSupabase();
+      vi.mocked(recognizeReceipt).mockRejectedValue(new Error("overloaded_error"));
+      reservation.release.mockRejectedValue({ message: "db down" });
+      const res = makeRes();
+
+      await handler(recognizeRequest(), res.res);
+
+      expect(res.statusCode).toBe(500);
+      expect(res.body).toEqual({ error: "overloaded_error" });
     });
   });
 });
