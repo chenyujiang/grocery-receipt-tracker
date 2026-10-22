@@ -947,10 +947,11 @@ describe("editConfirmedReceipt", () => {
   });
 
   // A receipt the backfill never reached has no Store, so the picker starts
-  // it on its header as the chain, branch unknown. Saving only a new date
-  // leaves that as it is: no Store created, no Store change logged.
-  it("leaves a receipt with no Store alone when only its date changed", async () => {
-    // No `stores` prepared: looking a Store up at all would throw.
+  // it on its header as the chain, branch unknown. Saving it — even with only
+  // a new date — gives it that Store, so it stops being left out of the
+  // price trend and the store comparison. Not logged as a Store change: the
+  // user didn't change the Store, as on confirm when they keep what was read.
+  it("gives a receipt with no Store the one the picker started on, even when only its date changed", async () => {
     const db = installFakeSupabase(supabase, {
       auth: SIGNED_IN,
       tables: {
@@ -970,19 +971,62 @@ describe("editConfirmedReceipt", () => {
             error: null,
           },
         ],
+        // Not found by its key, so created.
+        stores: [
+          { data: null, error: null },
+          {
+            data: {
+              id: "store-countdown-newmarket",
+              chain_name_en: "Countdown Newmarket",
+              chain_name_zh: null,
+              branch_name_en: null,
+              branch_name_zh: null,
+            },
+            error: null,
+          },
+        ],
       },
       rpc: { update_receipt_with_log: { data: "2026-08-05", error: null } },
     });
 
     await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], {
-      chain: { en: "Countdown Newmarket", zh: "倒数超市 Newmarket 店" },
+      chain: { en: "Countdown Newmarket", zh: null },
       branch: null,
     });
 
-    expect(db.rpc).toHaveBeenCalledWith(
-      "update_receipt_with_log",
-      expect.objectContaining({ p_store_id: null, p_logs: [{ field_name: "purchase_date", old_value: "2026-06-05", new_value: "2026-08-05" }] })
-    );
+    expect(db.rpc).toHaveBeenCalledWith("update_receipt_with_log", {
+      p_receipt_id: "receipt-1",
+      p_status: null,
+      p_store_id: "store-countdown-newmarket",
+      p_purchase_date: "2026-08-05",
+      p_logs: [{ field_name: "purchase_date", old_value: "2026-06-05", new_value: "2026-08-05" }],
+    });
+  });
+
+  it("attaches a Store to a receipt with none even when nothing else changed, with nothing to log", async () => {
+    const db = installFakeSupabase(supabase, {
+      auth: SIGNED_IN,
+      tables: {
+        receipt_items: [EXISTING_ITEM, ITEM_UPDATED],
+        receipts: [{ data: { purchase_date: "2026-08-05", ...AT_HORNBY_RECEIPT, store_id: null, stores: null }, error: null }],
+        stores: [{ data: null, error: null }, HORNBY_FOUND],
+        edit_logs: WROTE_OK,
+      },
+      rpc: { update_receipt_with_log: { data: "2026-08-05", error: null } },
+    });
+
+    await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], {
+      chain: { en: "WOOLWORTHS HORNBY", zh: null },
+      branch: null,
+    });
+
+    expect(db.rpc).toHaveBeenCalledWith("update_receipt_with_log", {
+      p_receipt_id: "receipt-1",
+      p_status: null,
+      p_store_id: "store-hornby",
+      p_purchase_date: null,
+      p_logs: [],
+    });
   });
 
   // Issue 29: a Store change is a Correction like any other — and, as with

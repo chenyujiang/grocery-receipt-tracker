@@ -440,15 +440,21 @@ export async function editConfirmedReceipt(
   // names, so the log reads on its own, and — like every edit — neither
   // re-raises nor withdraws alerts. Only a choice naming another Store than
   // the picker started on is resolved, so saving just a new date never
-  // creates a Store or logs a Store change.
-  if (!sameStoreKey(startingStore(existingReceipt), store)) {
+  // moves a receipt or logs a Store change. A receipt with no Store yet is
+  // the exception: saving it attaches the Store the picker shows, so it
+  // stops being left out of the price trend and store comparison — logged
+  // only if the user changed it, as on confirm.
+  const storeChanged = !sameStoreKey(startingStore(existingReceipt), store);
+  if (storeChanged || existingReceipt.store_id === null) {
     const { store: newStore, created } = await resolveStore(supabase, existingReceipt.circle_id, store);
     if (created) {
       createdStoreId = newStore.id;
     }
     if (existingReceipt.store_id !== newStore.id) {
       changes.storeId = newStore.id;
-      logs.push(storeChangeLog(receiptStoreName(existingReceipt), newStore));
+      if (storeChanged) {
+        logs.push(storeChangeLog(receiptStoreName(existingReceipt), newStore));
+      }
     }
   }
   if (existingReceipt.purchase_date !== purchaseDate) {
@@ -466,7 +472,7 @@ export async function editConfirmedReceipt(
   // edits stay saved and logged, and only the Store and date change is lost.
   await takeBackStoreOnFailure(createdStoreId, async () => {
     await updateReceiptItemsWithLog(items, user.id);
-    if (logs.length > 0) {
+    if (logs.length > 0 || changes.storeId !== undefined) {
       await updateReceiptWithLog(receiptId, changes, logs);
     }
   });
