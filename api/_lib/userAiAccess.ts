@@ -11,7 +11,8 @@ import { supabaseAdmin } from "./supabaseAdmin.js";
 // single row-locking UPDATE, so concurrent uploads from one user can't all
 // pass the last free call and concurrent successes can't lose an increment.
 // The route's lifecycle is: reserveCall before Claude, then exactly one of
-// recordSuccess (the call succeeded) or releaseReservation (it didn't).
+// the returned Reservation's recordSpend (Claude answered) or release (it
+// didn't).
 export const FREE_TRIAL_LIMIT = 5;
 
 export type AccessMode = "trial" | "cap";
@@ -21,15 +22,35 @@ export interface AccessStatus {
   mode: AccessMode;
   spentUsd: number;
   capUsd: number | null;
+  /** The real count in both modes (it stays frozen once a cap is granted). */
   freeTrialCallsUsed: number;
 }
 
+/**
+ * One reserved (or refused) call. It carries the user id and mode it was
+ * reserved under, so the route can't pair a release or a charge with the
+ * wrong user or mode.
+ */
+export interface Reservation {
+  status: AccessStatus;
+  /**
+   * Hands back a call that didn't get an answer from Claude (issue 15: the
+   * Free Trial counts successful calls only). Dollar-cap mode reserves
+   * nothing up front, so there it does nothing.
+   */
+  release(): Promise<void>;
+  /**
+   * Charges an answered call. A trial call was already counted at
+   * reservation, so only a dollar-cap call has anything left to record.
+   */
+  recordSpend(costUsd: number): Promise<void>;
+}
+
 // Check-and-reserve in one atomic database call, made before the Claude
-// call. When the result is `allowed` in trial mode, the call has already
-// been counted and must be handed back with releaseReservation if it doesn't
-// succeed. Dollar-cap mode only checks spent_usd < cap_usd here — the cost
-// isn't known until Claude answers, so it's added afterwards by recordSuccess.
-export async function reserveCall(userId: string): Promise<AccessStatus> {
+// call. When the status is `allowed` in trial mode, the call has already
+// been counted. Dollar-cap mode only checks spent_usd < cap_usd here — the
+// cost isn't known until Claude answers, so recordSpend adds it afterwards.
+export async function reserveCall(userId: string): Promise<Reservation> {
   const { data, error } = await supabaseAdmin.rpc("reserve_ai_call", {
     p_user_id: userId,
     p_free_trial_limit: FREE_TRIAL_LIMIT,
@@ -38,39 +59,36 @@ export async function reserveCall(userId: string): Promise<AccessStatus> {
     throw error;
   }
   const row = data[0];
-  return {
+  const status: AccessStatus = {
     allowed: row.allowed,
     mode: row.mode,
     spentUsd: row.spent_usd,
     capUsd: row.cap_usd,
     freeTrialCallsUsed: row.free_trial_calls_used,
   };
-}
 
-// Hands back a reservation whose call didn't succeed (issue 15: the Free
-// Trial counts successful calls only). Dollar-cap mode reserves nothing up
-// front, so there's nothing to hand back.
-export async function releaseReservation(userId: string, mode: AccessMode): Promise<void> {
-  if (mode !== "trial") {
-    return;
-  }
-  const { error } = await supabaseAdmin.rpc("release_ai_call", { p_user_id: userId });
-  if (error) {
-    throw error;
-  }
-}
-
-// `mode` is the one reserveCall returned. A trial call was already counted
-// at reservation, so only a dollar-cap call has anything left to record.
-export async function recordSuccess(userId: string, mode: AccessMode, costUsd: number): Promise<void> {
-  if (mode !== "cap") {
-    return;
-  }
-  const { error } = await supabaseAdmin.rpc("record_ai_spend", {
-    p_user_id: userId,
-    p_cost_usd: costUsd,
-  });
-  if (error) {
-    throw error;
-  }
+  return {
+    status,
+    async release() {
+      if (!status.allowed || status.mode !== "trial") {
+        return;
+      }
+      const { error: releaseError } = await supabaseAdmin.rpc("release_ai_call", { p_user_id: userId });
+      if (releaseError) {
+        throw releaseError;
+      }
+    },
+    async recordSpend(costUsd: number) {
+      if (!status.allowed || status.mode !== "cap") {
+        return;
+      }
+      const { error: spendError } = await supabaseAdmin.rpc("record_ai_spend", {
+        p_user_id: userId,
+        p_cost_usd: costUsd,
+      });
+      if (spendError) {
+        throw spendError;
+      }
+    },
+  };
 }

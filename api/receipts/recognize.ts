@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { parseBearerToken } from "../_lib/bearerToken.js";
-import { recordSuccess, releaseReservation, reserveCall } from "../_lib/userAiAccess.js";
+import { reserveCall } from "../_lib/userAiAccess.js";
 import { aiAccessRefusalMessage } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt.js";
@@ -95,14 +95,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Ticket 37: the check also reserves the call atomically, so concurrent
   // uploads can't all slip through on the last free call.
   const reservation = await reserveCall(user.id);
-  if (!reservation.allowed) {
-    res.status(402).json({ error: aiAccessRefusalMessage(reservation) });
+  if (!reservation.status.allowed) {
+    res.status(402).json({ error: aiAccessRefusalMessage(reservation.status) });
     return;
   }
   // Set once Claude has answered: from then on the call counts as spent, even
   // if saving the Draft fails afterwards. Until then, any exit hands the
   // reservation back (the Free Trial counts successful calls only).
-  let callSucceeded = false;
+  let claudeAnswered = false;
+
+  // Every failure response goes through here, so the hand-back is awaited
+  // *before* the response is written — once it's sent, Vercel may freeze the
+  // function and the release would never run. A failed hand-back is logged,
+  // never allowed to replace the original error; worst case the user loses
+  // one trial call.
+  async function fail(status: number, error: string) {
+    if (!claudeAnswered) {
+      try {
+        await reservation.release();
+      } catch (releaseErr) {
+        console.error("[api/receipts/recognize] failed to release reservation:", releaseErr);
+      }
+    }
+    res.status(status).json({ error });
+  }
 
   // Everything past this point can throw (a bad/oversized image, a Claude
   // API error, an unexpected Supabase failure) — without this, an uncaught
@@ -115,7 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from("receipts")
       .upload(storagePath, Buffer.from(imageBase64, "base64"), { contentType: mediaType });
     if (uploadError) {
-      res.status(500).json({ error: "Failed to store the receipt image" });
+      await fail(500, "Failed to store the receipt image");
       return;
     }
 
@@ -124,7 +140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select("id, canonical_name_en")
       .eq("circle_id", circleId);
     if (productsError) {
-      res.status(500).json({ error: "Failed to load this circle's existing products" });
+      await fail(500, "Failed to load this circle's existing products");
       return;
     }
     const existingProducts: ExistingProduct[] = (existingProductRows ?? []).map((row) => ({
@@ -133,13 +149,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }));
 
     const { receipt, usage } = await recognizeReceipt({ imageBase64, mediaType, existingProducts });
-    callSucceeded = true;
+    claudeAnswered = true;
 
     const cost = calculateHaikuCost({
       input_tokens: usage.inputTokens,
       output_tokens: usage.outputTokens,
     });
-    await recordSuccess(user.id, reservation.mode, cost);
+    await reservation.recordSpend(cost);
 
     const { receiptId } = await saveDraftReceipt({
       circleId,
@@ -153,16 +169,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({ receiptId });
   } catch (err) {
     console.error("[api/receipts/recognize] failed:", err);
-    res.status(500).json({ error: extractErrorMessage(err) });
-  } finally {
-    if (!callSucceeded) {
-      // The response is already sent; a failed hand-back is logged, never
-      // allowed to replace it. Worst case the user loses one trial call.
-      try {
-        await releaseReservation(user.id, reservation.mode);
-      } catch (releaseErr) {
-        console.error("[api/receipts/recognize] failed to release reservation:", releaseErr);
-      }
-    }
+    await fail(500, extractErrorMessage(err));
   }
 }
