@@ -43,6 +43,7 @@ as $$
 #variable_conflict use_column
 declare
   v_row public.user_ai_access%rowtype;
+  v_allowed boolean;
 begin
   -- A brand-new user has no row yet; create a default (trial, 0 used) one so
   -- the UPDATE below has a row to lock. Equivalent to "no row" everywhere
@@ -58,25 +59,24 @@ begin
     and a.cap_usd is null
     and a.free_trial_calls_used < p_free_trial_limit
   returning a.* into v_row;
+  v_allowed := found;
 
-  if found then
-    return query select true, 'trial'::text, v_row.free_trial_calls_used,
-      v_row.cap_usd, v_row.spent_usd;
-    return;
+  -- Not reserved: either the trial is used up or the user is in dollar-cap
+  -- mode. Read the row to say which, and whether the cap still has room.
+  if not v_allowed then
+    select a.* into v_row
+    from public.user_ai_access a
+    where a.user_id = p_user_id;
+
+    v_allowed := v_row.cap_usd is not null and v_row.spent_usd < v_row.cap_usd;
   end if;
 
-  select a.* into v_row
-  from public.user_ai_access a
-  where a.user_id = p_user_id;
-
-  if v_row.cap_usd is null then
-    return query select false, 'trial'::text, v_row.free_trial_calls_used,
-      v_row.cap_usd, v_row.spent_usd;
-    return;
-  end if;
-
-  return query select v_row.spent_usd < v_row.cap_usd, 'cap'::text,
-    v_row.free_trial_calls_used, v_row.cap_usd, v_row.spent_usd;
+  return query select
+    v_allowed,
+    case when v_row.cap_usd is null then 'trial' else 'cap' end::text,
+    v_row.free_trial_calls_used,
+    v_row.cap_usd,
+    v_row.spent_usd;
 end;
 $$;
 
