@@ -22,7 +22,7 @@ const ALICE = {
   displayName: "Alice Chen",
   email: "alice@example.com",
   circleName: "Chen Family",
-  role: "owner",
+  role: "owner" as const,
   joinedAt: "2026-01-05T00:00:00Z",
   banned: false,
   credit: { mode: "trial" as const, callsUsed: 0 },
@@ -33,7 +33,7 @@ const BEN_BLOCKED = {
   displayName: "Ben Wu",
   email: "ben@example.com",
   circleName: "Chen Family",
-  role: "member",
+  role: "member" as const,
   joinedAt: "2026-02-10T00:00:00Z",
   banned: false,
   credit: { mode: "trial" as const, callsUsed: 5 },
@@ -44,7 +44,7 @@ const CARL = {
   displayName: "Carl Wu",
   email: "carl@example.com",
   circleName: "Chen Family",
-  role: "member",
+  role: "member" as const,
   joinedAt: "2026-03-01T00:00:00Z",
   banned: false,
   credit: { mode: "trial" as const, callsUsed: 0 },
@@ -77,6 +77,17 @@ describe("AdminDashboard", () => {
     expect(await screen.findByText("Needs attention (1)")).toBeInTheDocument();
     expect(screen.getByText("Ben Wu")).toBeInTheDocument();
     expect(screen.getByText(/Chen Family \(2\)/)).toBeInTheDocument();
+  });
+
+  it("keeps users with no circle apart from a circle that happens to share that label", async () => {
+    vi.mocked(fetchAdminUsers).mockResolvedValue([
+      { ...ALICE, circleName: null },
+      { ...CARL, circleName: "(no circle)" },
+    ]);
+
+    renderPage();
+
+    expect(await screen.findAllByRole("button", { name: /\(no circle\) \(1\)/ })).toHaveLength(2);
   });
 
   it("shows a reassuring message when nobody is blocked", async () => {

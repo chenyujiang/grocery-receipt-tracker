@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/AuthProvider";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { roleLabel } from "@/lib/i18n";
 import { signOut } from "@/lib/auth";
 import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
 import { updateOwnDisplayName, removeMember, dissolveCircle } from "@/lib/circleActions";
@@ -224,7 +225,7 @@ export default function CircleSettings() {
               {members.map((member) => (
                 <li key={member.userId}>
                   {member.displayName} (
-                  {member.role === "owner" ? t("settings.roleOwner") : t("settings.roleMember")})
+                  {roleLabel(member.role, t)})
                   {isOwner && member.userId !== session?.userId && (
                     <>
                       {" "}

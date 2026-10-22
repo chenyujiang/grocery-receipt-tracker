@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { errorMessage } from "@/lib/errorMessage";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { roleLabel } from "@/lib/i18n";
 import { useLatestRequest } from "@/lib/useLatestRequest";
 import {
   fetchAdminUsers,
@@ -24,6 +25,12 @@ function needsAttention(user: AdminUserRow): boolean {
   return user.credit.spentUsd >= user.credit.capUsd;
 }
 
+// Groups the circle-less users in the roster. Not the translated "(no
+// circle)" label: that would merge them with a real circle of that name, and
+// a language switch would change the key and drop the group's expanded
+// state. Postgres text can't hold a NUL, so no circle name can equal this.
+const NO_CIRCLE_KEY = "\u0000no-circle";
+
 interface UserCardProps {
   user: AdminUserRow;
   onChange: () => void;
@@ -39,12 +46,6 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
   const [busy, setBusy] = useState(false);
   const { t } = useLanguage();
   const flagged = needsAttention(user);
-  const roleLabel =
-    user.role === "owner"
-      ? t("settings.roleOwner")
-      : user.role === "member"
-        ? t("settings.roleMember")
-        : user.role;
 
   // Issue 22: every action here is consequential — a grant is a reset, not a
   // top-up (issue 15 decision 4) — so a failure must never look like a dead
@@ -95,7 +96,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
 
       <div className="receipt-card-row">
         <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-          {user.circleName ?? t("admin.noCircle")} · {roleLabel} ·{" "}
+          {user.circleName ?? t("admin.noCircle")} · {roleLabel(user.role, t)} ·{" "}
           {t("admin.joined", { date: user.joinedAt.slice(0, 10) })}
         </span>
       </div>
@@ -262,7 +263,7 @@ export default function AdminDashboard() {
 
   const byCircle = new Map<string, AdminUserRow[]>();
   for (const user of users ?? []) {
-    const key = user.circleName ?? t("admin.noCircle");
+    const key = user.circleName ?? NO_CIRCLE_KEY;
     const list = byCircle.get(key) ?? [];
     list.push(user);
     byCircle.set(key, list);
@@ -333,15 +334,16 @@ export default function AdminDashboard() {
 
           <section>
             <h2>{t("admin.allUsersByCircle")}</h2>
-            {[...byCircle.entries()].map(([circleName, members]) => {
-              const isOpen = expandedCircles.has(circleName);
+            {[...byCircle.entries()].map(([circleKey, members]) => {
+              const isOpen = expandedCircles.has(circleKey);
+              const circleName = circleKey === NO_CIRCLE_KEY ? t("admin.noCircle") : circleKey;
               return (
-                <div key={circleName} style={{ marginBottom: 10 }}>
+                <div key={circleKey} style={{ marginBottom: 10 }}>
                   <button
                     type="button"
                     className="btn-secondary btn-block"
                     style={{ textAlign: "left", marginTop: 0 }}
-                    onClick={() => toggleCircle(circleName)}
+                    onClick={() => toggleCircle(circleKey)}
                   >
                     {isOpen ? "▾" : "▸"} {circleName} ({members.length})
                   </button>

@@ -1,4 +1,5 @@
 import type { Language } from "@/lib/bilingual";
+import type { Role } from "@/types";
 
 // Full UI-chrome translation, keyed by page/component. Distinct from
 // bilingual.ts's pickText/categoryLabel, which pick between the _en/_zh
@@ -418,4 +419,16 @@ export function translate(
     (result, [name, value]) => result.split(`{${name}}`).join(String(value)),
     template as string
   );
+}
+
+const ROLE_LABEL_KEYS: Record<Role, TranslationKey> = {
+  owner: "settings.roleOwner",
+  member: "settings.roleMember",
+};
+
+// Shared by Circle Settings' member list and the admin dashboard's user
+// cards. Takes the caller's `t` rather than a language, so it follows
+// whatever LanguageProvider is in scope.
+export function roleLabel(role: Role, t: (key: TranslationKey) => string): string {
+  return t(ROLE_LABEL_KEYS[role]);
 }

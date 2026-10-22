@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import type { Role } from "@/types";
 
 // Issue 15 decision 2: a non-obvious, unguessable path — not a substitute
 // for the real is-admin check (isGlobalAdmin/RequireGlobalAdmin), just an
@@ -34,7 +35,7 @@ export interface AdminUserRow {
   displayName: string;
   email: string;
   circleName: string | null;
-  role: string;
+  role: Role;
   joinedAt: string;
   banned: boolean;
   credit: AdminUserCredit;
