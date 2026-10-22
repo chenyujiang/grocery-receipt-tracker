@@ -59,7 +59,7 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
   // Store on the chart has a branch of the same name, when chain and branch
   // tell the two lines apart.
   const shortLabels = storeLines.map(([, point]) =>
-    pickText(point.storeShortName.en, point.storeShortName.zh, language)
+    pickText(point.storeShortNameEn, point.storeShortNameZh, language)
   );
   const legendEntries = storeLines.map(([storeId, point], index) => {
     const label = shortLabels[index];

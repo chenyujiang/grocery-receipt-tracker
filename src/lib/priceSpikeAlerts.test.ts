@@ -16,7 +16,7 @@ function purchase(
     storeId: "hornby",
     storeNameEn: "Woolworths Hornby",
     storeNameZh: "Woolworths Hornby",
-    storeShortName: { en: "Hornby", zh: "Hornby" },
+    storeShortNameEn: "Hornby", storeShortNameZh: "Hornby",
     quantity: 1,
     ...fields,
   };

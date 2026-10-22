@@ -1,11 +1,11 @@
-import type { BilingualName } from "@/lib/bilingualName";
 import { normalizeUnitPrice, type UnitBasis } from "@/lib/units";
 
 export interface PriceTrendRecord {
   storeId: string | null;
   storeNameEn: string;
   storeNameZh: string;
-  storeShortName: BilingualName;
+  storeShortNameEn: string;
+  storeShortNameZh: string;
   purchaseDate: string;
   unitPrice: number;
   specValue: number;
@@ -19,7 +19,8 @@ export interface PriceTrendPoint {
   storeNameEn: string;
   storeNameZh: string;
   // The legend labels each line with this, to stay short on a phone.
-  storeShortName: BilingualName;
+  storeShortNameEn: string;
+  storeShortNameZh: string;
   purchaseDate: string;
   basis: UnitBasis;
   value: number;
@@ -36,7 +37,8 @@ export function buildPriceTrend(records: PriceTrendRecord[]): PriceTrendPoint[] 
       storeId: record.storeId,
       storeNameEn: record.storeNameEn,
       storeNameZh: record.storeNameZh,
-      storeShortName: record.storeShortName,
+      storeShortNameEn: record.storeShortNameEn,
+      storeShortNameZh: record.storeShortNameZh,
       purchaseDate: record.purchaseDate,
       basis: normalized.basis,
       value: normalized.value,

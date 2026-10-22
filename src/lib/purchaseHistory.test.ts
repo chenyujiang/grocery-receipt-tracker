@@ -111,7 +111,7 @@ describe("fetchPurchaseHistories", () => {
       storeId: "store-countdown-newmarket",
       storeNameEn: "Countdown",
       storeNameZh: "倒数超市",
-      storeShortName: { en: "Countdown", zh: "倒数超市" },
+      storeShortNameEn: "Countdown", storeShortNameZh: "倒数超市",
       unitPrice: 5,
       quantity: 2,
       specValue: 500,
@@ -197,7 +197,7 @@ describe("fetchPurchaseHistories", () => {
 
     const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
 
-    expect(history.purchases[0].storeShortName).toEqual({ en: "Albany", zh: "奥尔巴尼" });
+    expect(history.purchases[0]).toMatchObject({ storeShortNameEn: "Albany", storeShortNameZh: "奥尔巴尼" });
   });
 
   it("falls back to the chain for the short label when the Store's branch is unknown", async () => {
@@ -218,7 +218,7 @@ describe("fetchPurchaseHistories", () => {
 
     const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
 
-    expect(history.purchases[0].storeShortName).toEqual({ en: "Costco", zh: "好市多" });
+    expect(history.purchases[0]).toMatchObject({ storeShortNameEn: "Costco", storeShortNameZh: "好市多" });
   });
 
   it("falls back to the receipt header for the short label when there's no Store", async () => {
@@ -233,7 +233,7 @@ describe("fetchPurchaseHistories", () => {
 
     const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
 
-    expect(history.purchases[0].storeShortName).toEqual({ en: "Four Square", zh: "四方超市" });
+    expect(history.purchases[0]).toMatchObject({ storeShortNameEn: "Four Square", storeShortNameZh: "四方超市" });
   });
 
   it("reads a branch with no Chinese translation back as its English source text in the short label", async () => {
@@ -254,7 +254,7 @@ describe("fetchPurchaseHistories", () => {
 
     const [history] = await fetchPurchaseHistories(mock.client, ["p1"]);
 
-    expect(history.purchases[0].storeShortName).toEqual({ en: "Hornby", zh: "Hornby" });
+    expect(history.purchases[0]).toMatchObject({ storeShortNameEn: "Hornby", storeShortNameZh: "Hornby" });
   });
 
   // A price-spike alert belongs to one Receipt, so it has to find that

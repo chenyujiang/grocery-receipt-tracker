@@ -43,8 +43,8 @@ const SAMPLE_DETAIL = {
     storeNameZh: "帕克超市",
   },
   priceTrend: [
-    { storeId: "store-countdown", storeNameEn: "Countdown", storeNameZh: "城内城外", storeShortName: { en: "Countdown", zh: "城内城外" }, purchaseDate: "2026-07-01", basis: "per_100g" as const, value: 1, isPromotion: false },
-    { storeId: "store-paknsave", storeNameEn: "Pak'nSave", storeNameZh: "帕克超市", storeShortName: { en: "Pak'nSave", zh: "帕克超市" }, purchaseDate: "2026-07-10", basis: "per_100g" as const, value: 0.8, isPromotion: false },
+    { storeId: "store-countdown", storeNameEn: "Countdown", storeNameZh: "城内城外", storeShortNameEn: "Countdown", storeShortNameZh: "城内城外", purchaseDate: "2026-07-01", basis: "per_100g" as const, value: 1, isPromotion: false },
+    { storeId: "store-paknsave", storeNameEn: "Pak'nSave", storeNameZh: "帕克超市", storeShortNameEn: "Pak'nSave", storeShortNameZh: "帕克超市", purchaseDate: "2026-07-10", basis: "per_100g" as const, value: 0.8, isPromotion: false },
   ],
   storeComparison: [
     {
@@ -72,7 +72,7 @@ const SAMPLE_DETAIL = {
       storeId: "store-countdown",
       storeNameEn: "Countdown",
       storeNameZh: "城内城外",
-      storeShortName: { en: "Countdown", zh: "城内城外" },
+      storeShortNameEn: "Countdown", storeShortNameZh: "城内城外",
       unitPrice: 5.0,
       quantity: 1,
       specValue: 500,
@@ -86,31 +86,31 @@ const HORNBY = {
   storeId: "store-hornby",
   storeNameEn: "Woolworths Hornby",
   storeNameZh: "沃尔沃斯 霍恩比店",
-  storeShortName: { en: "Hornby", zh: "霍恩比店" },
+  storeShortNameEn: "Hornby", storeShortNameZh: "霍恩比店",
 };
 const RICCARTON = {
   storeId: "store-riccarton",
   storeNameEn: "Woolworths Riccarton",
   storeNameZh: "沃尔沃斯 里卡顿店",
-  storeShortName: { en: "Riccarton", zh: "里卡顿店" },
+  storeShortNameEn: "Riccarton", storeShortNameZh: "里卡顿店",
 };
 const ALBANY = {
   storeId: "store-albany",
   storeNameEn: "PAK'nSAVE Albany",
   storeNameZh: "派克储蓄 奥尔巴尼店",
-  storeShortName: { en: "Albany", zh: "奥尔巴尼店" },
+  storeShortNameEn: "Albany", storeShortNameZh: "奥尔巴尼店",
 };
 const WOOLWORTHS_UNKNOWN_BRANCH = {
   storeId: "store-woolworths",
   storeNameEn: "Woolworths",
   storeNameZh: "沃尔沃斯",
-  storeShortName: { en: "Woolworths", zh: "沃尔沃斯" },
+  storeShortNameEn: "Woolworths", storeShortNameZh: "沃尔沃斯",
 };
 const NO_STORE = {
   storeId: null,
   storeNameEn: "Some Supermarket",
   storeNameZh: "某超市",
-  storeShortName: { en: "Some Supermarket", zh: "某超市" },
+  storeShortNameEn: "Some Supermarket", storeShortNameZh: "某超市",
 };
 
 function trendPoint(store: typeof NO_STORE | typeof HORNBY, purchaseDate: string, value: number) {
@@ -247,7 +247,7 @@ describe("ProductDetail", () => {
       storeId: "store-new-world-albany",
       storeNameEn: "New World Albany",
       storeNameZh: "新世界 奥尔巴尼店",
-      storeShortName: { en: "Albany", zh: "奥尔巴尼店" },
+      storeShortNameEn: "Albany", storeShortNameZh: "奥尔巴尼店",
     };
     vi.mocked(fetchProductDetail).mockResolvedValue({
       ...SAMPLE_DETAIL,

@@ -5,13 +5,13 @@ const AT_HORNBY = {
   storeId: "hornby",
   storeNameEn: "Woolworths Hornby",
   storeNameZh: "沃尔沃斯 霍恩比店",
-  storeShortName: { en: "Hornby", zh: "霍恩比店" },
+  storeShortNameEn: "Hornby", storeShortNameZh: "霍恩比店",
 };
 const AT_RICCARTON = {
   storeId: "riccarton",
   storeNameEn: "Woolworths Riccarton",
   storeNameZh: "沃尔沃斯 里卡顿店",
-  storeShortName: { en: "Riccarton", zh: "里卡顿店" },
+  storeShortNameEn: "Riccarton", storeShortNameZh: "里卡顿店",
 };
 
 describe("buildPriceTrend", () => {
@@ -55,7 +55,7 @@ describe("buildPriceTrend", () => {
     expect(point).toMatchObject({
       storeNameEn: "Woolworths Hornby",
       storeNameZh: "沃尔沃斯 霍恩比店",
-      storeShortName: { en: "Hornby", zh: "霍恩比店" },
+      storeShortNameEn: "Hornby", storeShortNameZh: "霍恩比店",
     });
   });
 
