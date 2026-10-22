@@ -3,9 +3,9 @@ import { describe, it, expect, vi } from "vitest";
 // Supabase is the external system boundary — mock it here, not the
 // behavior we're testing (Sections 3.2, 5.2, 5.3, 8, 9: writing the
 // pending_review draft, and creating a new Product when nothing matched).
-vi.mock("./supabaseAdmin", () => ({ supabaseAdmin: {} }));
+vi.mock("./supabaseAdmin.js", () => ({ supabaseAdmin: {} }));
 
-import { supabaseAdmin } from "./supabaseAdmin";
+import { supabaseAdmin } from "./supabaseAdmin.js";
 import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
 import { saveDraftReceipt } from "./saveDraftReceipt";
 import type { RecognizedItem, RecognizedReceipt } from "./recognizeReceipt";

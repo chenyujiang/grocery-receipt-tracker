@@ -15,7 +15,8 @@
 --                 circle.
 -- p_items:        the receipt_items rows. Each sets either product_id (an
 --                 existing Product) or new_product_index (a 0-based index
---                 into p_new_products).
+--                 into p_new_products). An item with neither raises an
+--                 exception, so nothing is written.
 --
 -- Returns the new receipt's id.
 create or replace function public.save_draft_receipt(
@@ -33,6 +34,24 @@ declare
   v_receipt_id uuid;
   v_new_product_ids uuid[];
 begin
+  -- An item that names neither an existing Product nor a new one would be
+  -- written with product_id = null: a line with no Product, invisible to
+  -- every price/consumption feature. That's a caller bug, so refuse the whole
+  -- draft rather than save it silently unlinked.
+  if exists (
+    select 1
+    from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) as entry(item)
+    where item->>'product_id' is null
+      and (
+        item->>'new_product_index' is null
+        or (item->>'new_product_index')::integer < 0
+        or (item->>'new_product_index')::integer
+          >= jsonb_array_length(coalesce(p_new_products, '[]'::jsonb))
+      )
+  ) then
+    raise exception 'save_draft_receipt: every item needs a product_id or an in-range new_product_index';
+  end if;
+
   insert into receipts (
     circle_id,
     uploaded_by,

@@ -33,7 +33,10 @@ function newProductKey(item: RecognizedItem): string {
   return item.rawNameEn.trim().toLowerCase();
 }
 
-function planNewProducts(items: RecognizedItem[]): {
+// Turns the recognized items into both row sets save_draft_receipt takes: the
+// deduped Products to create, and one receipt_items row per line, pointing at
+// either an existing Product or its new one's index.
+function planDraftRows(items: RecognizedItem[]): {
   newProducts: NewProductRow[];
   itemRows: ItemRow[];
 } {
@@ -79,7 +82,7 @@ function planNewProducts(items: RecognizedItem[]): {
 export async function saveDraftReceipt(
   params: SaveDraftReceiptParams
 ): Promise<SaveDraftReceiptResult> {
-  const { newProducts, itemRows } = planNewProducts(params.receipt.items);
+  const { newProducts, itemRows } = planDraftRows(params.receipt.items);
 
   const { data: receiptId, error } = await supabaseAdmin.rpc("save_draft_receipt", {
     p_receipt: {
