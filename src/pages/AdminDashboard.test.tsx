@@ -152,9 +152,9 @@ describe("AdminDashboard", () => {
 
     expect(await screen.findByRole("heading", { name: "管理后台 — 用户" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "需要处理（1）" })).toBeInTheDocument();
-    expect(screen.getByText("待充值")).toBeInTheDocument();
-    expect(screen.getByText("免费试用已用完，等待充值")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "充值 $1" })).toBeInTheDocument();
+    expect(screen.getByText("待分配额度")).toBeInTheDocument();
+    expect(screen.getByText("免费试用已用完，等待分配额度")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "额度重置为 $1" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "封禁账号" })).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "选择 Ben Wu" })).toBeInTheDocument();
   });

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "./supabaseAdmin.js";
 import { FREE_TRIAL_LIMIT } from "./userAiAccess.js";
+import type { Role } from "../../src/types/index.js";
 
 // Issue 15: the three operations the admin dashboard needs — list every
 // user across every circle, grant a user real dollar credit, and ban/unban
@@ -15,7 +16,7 @@ export interface AdminUserRow {
   displayName: string;
   email: string;
   circleName: string | null;
-  role: string;
+  role: Role;
   joinedAt: string;
   banned: boolean;
   credit: AdminUserCredit;
