@@ -1,5 +1,5 @@
 Type: grilling
-Status: open
+Status: resolved
 GitHub: #31
 Blocked by: 24, 26
 
@@ -20,6 +20,16 @@ Open within that:
 - Price Spike alerts are raised per Receipt, so the branch is unambiguous there — confirm that, and confirm existing unresolved alerts raised under the old cross-store rule are left standing rather than retro-corrected (ticket 16 set that precedent for edits).
 - `compareStores()` in `src/lib/storeComparison.ts` keys on `storeNameEn`; it moves to `store_id`, which is mostly mechanical but changes what "fewer than 2 entries" means.
 - The `CONTEXT.md` entries for Same-Store Price Change and Store Comparison get finalized here, alongside the code that finally matches them.
+
+## Answer
+
+Answered by [spec 29](29-branch-level-store-identity.md) (its **[assumption → 27]** decisions), implemented in PR #43.
+
+- **Where the grouping lives**: one function groups a Purchase History by Store; `calculatePriceChange` itself is unchanged and runs per Store. `fetchPurchaseHistories` stays one query.
+- **Product detail headline**: the Same-Store Price Change at the Store of the most recent Purchase, labelled with that Store (same-day ties broken by upload time, then receipt id).
+- **Monthly leaderboard**: one row per Product, ranked by its largest increase across its Stores, naming the responsible Store.
+- **Price Spike alerts**: compare only against strictly earlier Purchases at the receipt's own Store; the 15% threshold is unchanged, and a baseline older than about six months (183 days) raises no alert.
+- **Consumption rate**: stays cross-branch on purpose, locked by a test.
 
 ---
 
@@ -42,3 +52,13 @@ Open within that:
 - 价格异常提醒是按小票触发的，所以那里的分店是明确的——确认这一点；并确认在旧的跨店规则下已发出的未读提醒**保持原样**，不做追溯修正（ticket 16 在编辑场景已经立下了这个先例）。
 - `src/lib/storeComparison.ts` 的 `compareStores()` 目前按 `storeNameEn` 归组，改成按 `store_id`；这基本是机械改动，但"少于 2 条就不比"的含义会随之变化。
 - `CONTEXT.md` 里 Same-Store Price Change 与 Store Comparison 两条词条在这里定稿，和终于与之相符的代码一起。
+
+## 答案
+
+由 [spec 29](29-branch-level-store-identity.md) 回答（其中标为 **[assumption → 27]** 的决定），已在 PR #43 实现。
+
+- **分组放在哪**：由一个函数把 Purchase History 按 Store 分组；`calculatePriceChange` 本身不变，按 Store 分别计算。`fetchPurchaseHistories` 仍是一次查询。
+- **商品详情页标题涨幅**：取最近一次 Purchase 所在 Store 的同店涨幅，并标出该 Store（同一天的并列按上传时间、再按小票 id 排序）。
+- **月度涨幅榜**：每个商品一行，按它在各 Store 中的最大涨幅排名，并标出是哪个 Store。
+- **价格异常提醒**：只和本小票所在 Store 严格更早的 Purchase 比较；15% 阈值不变，基准超过约六个月（183 天）则不提醒。
+- **消耗速度**：有意保持跨分店计算，有测试锁定。

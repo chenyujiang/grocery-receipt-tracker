@@ -1,5 +1,5 @@
 Type: grilling
-Status: open
+Status: resolved
 GitHub: #28
 
 ## Question
@@ -19,6 +19,18 @@ Open within that:
 - The `CONTEXT.md` rewrite of **Store**, and whether **Branch** earns its own glossary entry or stays a part of Store.
 
 This is the ticket every other one in this map hangs off.
+
+## Answer
+
+Answered by [spec 29](29-branch-level-store-identity.md) (its **[assumption → 24]** decisions), implemented in PR #43 (`feat/branch-level-stores`).
+
+- **Shape**: a Circle-scoped `stores` table — `chain_name_en/_zh`, `branch_name_en/_zh`, plus the normalized match keys `chain_key`/`branch_key` (computed by `src/lib/storeKey.ts`). The chain is a column on the Store, not a table of its own.
+- **Same Store**: `unique nulls not distinct (circle_id, chain_key, branch_key)` — one row per branch per Circle, matched on normalized keys rather than printed text.
+- **Unknown branch**: a null branch, as its own Store row; it is never compared against a named branch.
+- **`receipts.store_name_en/_zh`**: kept as the raw header text read off that receipt, beside the new `receipts.store_id` (a composite FK, so a receipt can only point at a Store in its own Circle).
+- **Migration**: `supabase/migrations/20261010000001_stores.sql`, with `src/types/database.types.ts` updated in the same change.
+- **Glossary**: `CONTEXT.md`'s **Store** is rewritten, and **Chain** and **Branch** have their own entries.
+- **Amended after implementation**: a Store's names are shown in English only; the `_zh` columns stay but are left null (`20261010000003_clear_store_chinese_names.sql`).
 
 ---
 
@@ -41,3 +53,15 @@ This is the ticket every other one in this map hangs off.
 - 改写 `CONTEXT.md` 里的 **Store** 词条；以及 **Branch（分店）** 是否值得单列一个词条，还是留在 Store 里面讲。
 
 这是本地图里其他所有 ticket 都挂在上面的那一张。
+
+## 答案
+
+由 [spec 29](29-branch-level-store-identity.md) 回答（其中标为 **[assumption → 24]** 的决定），已在 PR #43（`feat/branch-level-stores`）实现。
+
+- **形状**：按 Circle 隔离的 `stores` 表——`chain_name_en/_zh`、`branch_name_en/_zh`，加上规范化匹配键 `chain_key`/`branch_key`（由 `src/lib/storeKey.ts` 计算）。连锁是 Store 上的一列，不单独建表。
+- **同一家 Store**：`unique nulls not distinct (circle_id, chain_key, branch_key)`——每个 Circle 每个分店一行，按规范化后的键匹配，而不是按印出来的文字。
+- **未知分店**：分店为 null，自成一条 Store 行；永远不与具名分店比较。
+- **`receipts.store_name_en/_zh`**：保留，存这张小票上读到的原始店名，旁边是新的 `receipts.store_id`（复合外键，保证小票只能指向本 Circle 的 Store）。
+- **迁移**：`supabase/migrations/20261010000001_stores.sql`，`src/types/database.types.ts` 在同一次改动里更新。
+- **词汇表**：`CONTEXT.md` 改写了 **Store**，并新增 **Chain**、**Branch** 词条。
+- **实现后修订**：Store 名称只显示英文；`_zh` 列保留但留空（`20261010000003_clear_store_chinese_names.sql`）。

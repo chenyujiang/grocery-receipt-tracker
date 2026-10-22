@@ -1,5 +1,5 @@
 Type: spec
-Status: ready-for-agent
+Status: resolved
 GitHub: #33
 Covers: 24, 25, 26, 27, 28
 
