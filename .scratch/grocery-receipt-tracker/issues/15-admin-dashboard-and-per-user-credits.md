@@ -116,7 +116,7 @@ from profiles
 on conflict (user_id) do nothing;
 ```
 
-**Backend logic sketch** (replaces `api/_lib/spendLimit.ts`'s `getSpendStatus`/`recordSpend`, called from `recognizeReceipt.ts` with the caller's `user_id`):
+**Backend logic sketch** (`api/_lib/userAiAccess.ts`'s `reserveCall`, called from `api/receipts/recognize.ts` with the caller's `user_id`):
 
 - Before calling Claude, `reserveCall(userId)` (RPC `reserve_ai_call`, service-role client, bypasses RLS) reserves one call and returns a `Reservation`. It creates a default row for a brand-new user, then decides in one row-locking `UPDATE`:
   - `cap_usd is null`: free-trial mode. Increments `free_trial_calls_used` only while it is below `FREE_TRIAL_LIMIT` (5), so the trial call is counted up front. Already at the limit: refuse (point the user at the `mailto:` admin-contact flow, decision 7).
@@ -265,7 +265,7 @@ from profiles
 on conflict (user_id) do nothing;
 ```
 
-**后端逻辑草图**（取代 `api/_lib/spendLimit.ts` 里的 `getSpendStatus`/`recordSpend`，从 `recognizeReceipt.ts` 里用调用者的 `user_id` 调用）：
+**后端逻辑草图**（`api/_lib/userAiAccess.ts` 里的 `reserveCall`，从 `api/receipts/recognize.ts` 里用调用者的 `user_id` 调用）：
 
 - 调用 Claude 之前，`reserveCall(userId)`（RPC `reserve_ai_call`，用 service-role 客户端，绕过 RLS）先预占一次调用，返回一个 `Reservation`。全新用户还没有行时先建一条默认行，然后用一条加行锁的 `UPDATE` 判定：
   - `cap_usd` 为 null：免费试用模式。只有在 `free_trial_calls_used` 低于 `FREE_TRIAL_LIMIT`（5）时才加 1，也就是试用次数在调用前就先记上。已经到上限就拒绝（引导用户走决定7的 `mailto:` 联系管理员流程）。
