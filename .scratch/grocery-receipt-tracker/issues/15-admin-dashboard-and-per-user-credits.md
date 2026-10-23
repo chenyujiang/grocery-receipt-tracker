@@ -102,8 +102,9 @@ alter table user_ai_access enable row level security;
 
 -- Read-only for the row's own owner, so the frontend can show "4 of
 -- FREE_TRIAL_LIMIT (5) free uploads left" / "$0.32 of $1.00 used". No write policy for
--- authenticated at all — only the service-role key writes (recognize
--- flow on first successful call, or the admin grant-credit route).
+-- authenticated at all — only the service-role key writes (the recognize
+-- flow's reserve_ai_call when it reserves a call, before Claude is
+-- called — issue 37 — or the admin grant-credit route).
 create policy "a user can view their own AI access status"
 on user_ai_access for select to authenticated
 using (user_id = (select auth.uid()));
@@ -253,8 +254,8 @@ alter table user_ai_access enable row level security;
 
 -- 只对这行的主人本人只读，这样前端可以显示"FREE_TRIAL_LIMIT（5 次）免费上传还剩 4 次"/
 -- "已用 $0.32，共 $1.00"。完全不给 authenticated 设写入策略——
--- 只有 service-role key 能写（识别流程在第一次成功调用之后写，
--- 或者管理员的"给额度"接口写）。
+-- 只有 service-role key 能写（识别流程的 reserve_ai_call 在调用 Claude
+-- 之前预占调用时就写——issue 37——或者管理员的"给额度"接口写）。
 create policy "a user can view their own AI access status"
 on user_ai_access for select to authenticated
 using (user_id = (select auth.uid()));
