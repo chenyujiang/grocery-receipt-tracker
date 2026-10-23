@@ -42,7 +42,7 @@ The user is based in New Zealand, so receipts are originally in English (from su
 ### 3.1 Security & cost control
 
 - AI calls must be proxied through a backend Serverless Function; the Claude API key lives only in backend environment variables and never appears in frontend code or browser network requests.
-- **Call quota is per-user, not a single global cap** (**amended, see Section 16**): each user has their own dollar cap and spend counter, accumulated from each call's `usage.input_tokens`/`usage.output_tokens` × Haiku 4.5 pricing; once a user's cap is reached, their recognition requests are refused outright, with no effect on any other user. There is no overarching global ceiling. New, never-reviewed users get a one-time free trial capped by *count* (one successful call), not by dollar amount — see Section 16 for the full admin/credit model.
+- **Call quota is per-user, not a single global cap** (**amended, see Section 16**): each user has their own dollar cap and spend counter, accumulated from each call's `usage.input_tokens`/`usage.output_tokens` × Haiku 4.5 pricing; once a user's cap is reached, their recognition requests are refused outright, with no effect on any other user. There is no overarching global ceiling. New, never-reviewed users get a one-time free trial capped by *count* (`FREE_TRIAL_LIMIT` (5) successful calls), not by dollar amount — see Section 16 for the full admin/credit model.
 - Original receipt images are stored in a private Supabase Storage bucket with no public URL; when the frontend needs to display an image, the backend generates a short-lived signed URL, obtainable only by circle members.
 
 ### 3.2 End-to-end data flow
@@ -415,7 +415,7 @@ Mode is derived from `cap_usd`, not a separate enum: `null` → free-trial mode 
 ### 3.1 安全与成本控制
 
 - AI 调用必须经后端 Serverless Function 中转，Claude API Key 只存在后端环境变量里，绝不出现在前端代码或浏览器网络请求中。
-- **调用限额是按用户分配的，不是单一全局上限**（**已修订，详见第 16 节**）：每个用户有自己独立的美元上限和花费计数，按每次调用实际的 `usage.input_tokens`/`usage.output_tokens` × Haiku 4.5 单价累计花费，一旦某个用户的上限被打满就直接拒绝他的新识别请求，不影响其他任何人。不再有叠加在上面的全局总上限。全新的、还没被审核过的用户拿到的是按**次数**（1次成功调用）计算的一次性免费额度，不是按金额算的——完整的管理员/额度模型见第 16 节。
+- **调用限额是按用户分配的，不是单一全局上限**（**已修订，详见第 16 节**）：每个用户有自己独立的美元上限和花费计数，按每次调用实际的 `usage.input_tokens`/`usage.output_tokens` × Haiku 4.5 单价累计花费，一旦某个用户的上限被打满就直接拒绝他的新识别请求，不影响其他任何人。不再有叠加在上面的全局总上限。全新的、还没被审核过的用户拿到的是按**次数**（`FREE_TRIAL_LIMIT`（5 次）成功调用）计算的一次性免费额度，不是按金额算的——完整的管理员/额度模型见第 16 节。
 - 小票原图存储在 Supabase Storage 的私有 bucket，不开放公开 URL；前端需要显示原图时，由后端生成一个有效期较短的签名 URL，仅圈子成员可获取。
 
 ### 3.2 端到端数据流
