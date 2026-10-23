@@ -33,13 +33,13 @@ Needs deciding:
 
 **5. Disable/enable via Supabase Auth's own ban mechanism**: implemented with `auth.admin.updateUserById(..., { ban_duration })` (enable = clear the ban) rather than an app-level `is_active` column. A disabled user is rejected at the authentication layer itself (including on session/token refresh) — there's no separate flag to remember to check in every route or API handler.
 
-**6. Brand-new users get a hard one-time free trial, not a dollar allowance**: on signup, a new user gets exactly **one free successful recognition call** — tracked as a count, not a dollar amount, since a single Haiku 4.5 call costs a small fraction of $1 and a dollar-based allowance wouldn't actually limit them to one use. Only a *successful* recognition consumes it — a failed/errored attempt does not. Once that one free use is consumed, every subsequent recognition attempt is refused until an admin grants them a real (dollar-based) credit per decision 4. This is a separate mechanism from the per-user dollar cap — new users start in "1 free use" mode and graduate to "dollar cap" mode the first time an admin grants them credit.
+**6. Brand-new users get a hard one-time free trial, not a dollar allowance**: on signup, a new user gets exactly **`FREE_TRIAL_LIMIT` (5) free successful recognition calls** — tracked as a count, not a dollar amount, since a single Haiku 4.5 call costs a small fraction of $1 and a dollar-based allowance wouldn't actually limit them to that many uses. Only a *successful* recognition consumes one — a failed/errored attempt does not. Once all of them are consumed, every subsequent recognition attempt is refused until an admin grants them a real (dollar-based) credit per decision 4. This is a separate mechanism from the per-user dollar cap — new users start in "free trial" mode and graduate to "dollar cap" mode the first time an admin grants them credit.
 
 **7. Blocked users are told to email the admin — a plain `mailto:` link, no backend email sending**: when a user is refused (free trial used up, or dollar cap hit), the UI shows a message and a `mailto:nz.eason.chen@gmail.com` link/button that opens the user's own email client with a pre-filled draft. The user decides whether/what to send. No transactional email service is introduced — the stack has none today (Vercel Serverless + Supabase only), and adding one is out of scope for this ticket.
 
 **8. Admin dashboard placement — hidden from normal navigation, reached via a one-time post-login redirect**: the dashboard never appears in the bottom tab bar or any menu a normal user can see. It isn't wrapped in the existing `AppShell`/bottom-nav chrome — it's its own standalone console-style page. When a global admin logs in, they land on the admin dashboard first (a one-time redirect right after login, not an every-page interception); from there, a visible "go to my account" control lets the admin switch into the normal app UI and navigate freely without being pulled back.
 
-**9. Existing users are grandfathered, not dropped into the free-trial flow**: at migration time, every user who already exists gets an initial dollar-based cap directly (defaulting to $1, or set per-user by the admin) — they skip the "1 free use" restriction from decision 6 entirely, since they've already been using the app under the old global-cap trust model.
+**9. Existing users are grandfathered, not dropped into the free-trial flow**: at migration time, every user who already exists gets an initial dollar-based cap directly (defaulting to $1, or set per-user by the admin) — they skip the free-trial restriction from decision 6 entirely, since they've already been using the app under the old global-cap trust model.
 
 ## UI Prototype
 
@@ -180,13 +180,13 @@ on conflict (user_id) do update
 
 **5. 禁用/启用用 Supabase Auth 自带的封禁机制实现**：用 `auth.admin.updateUserById(..., { ban_duration })` 实现（启用＝清除封禁），而不是应用层加一个 `is_active` 字段。被禁用的用户在认证层本身就会被拒绝（包括 session/token 刷新的时候）——不需要在每个路由或 API 处理函数里都记得单独检查一个状态字段。
 
-**6. 全新用户拿到的是硬性"1次免费试用"，不是按金额算的额度**：新用户注册后，只有**恰好 1 次成功的识别调用**是免费的——这是按次数计算的，不是按金额，因为 Haiku 4.5 单次调用的成本远低于 $1 的零头，按金额算的额度根本卡不住"只能用1次"这个目标。只有**成功**的识别才会消耗这次免费额度，失败/报错的尝试不算。这 1 次免费额度用完之后，后续所有识别请求都会被拒绝，直到管理员按**决定4**给他分配一份真正的（按金额算的）额度。这是一套跟"每用户按金额算的额度"完全独立的机制——新用户一开始处于"1次免费"模式，第一次被管理员分配额度之后，才切换进入"按金额算"模式。
+**6. 全新用户拿到的是硬性的"`FREE_TRIAL_LIMIT`（5 次）免费试用"，不是按金额算的额度**：新用户注册后，只有**恰好 `FREE_TRIAL_LIMIT`（5 次）成功的识别调用**是免费的——这是按次数计算的，不是按金额，因为 Haiku 4.5 单次调用的成本远低于 $1 的零头，按金额算的额度根本卡不住"只能用这么多次"这个目标。只有**成功**的识别才会消耗一次免费额度，失败/报错的尝试不算。这些免费次数全部用完之后，后续所有识别请求都会被拒绝，直到管理员按**决定4**给他分配一份真正的（按金额算的）额度。这是一套跟"每用户按金额算的额度"完全独立的机制——新用户一开始处于"免费试用"模式，第一次被管理员分配额度之后，才切换进入"按金额算"模式。
 
 **7. 被卡住的用户会被引导去邮件联系管理员——纯 `mailto:` 链接，后端不发邮件**：当一个用户被拒绝时（免费试用用完，或者按金额算的额度用完），界面上会显示提示信息和一个 `mailto:nz.eason.chen@gmail.com` 的链接/按钮，点击后会用用户自己的邮件客户端打开一封预填好的邮件草稿。发不发、写什么由用户自己决定。不引入任何自动发信的服务——现在的技术栈（Vercel Serverless + Supabase）完全没有这块基础设施，这次也不打算新增，超出这张票的范围。
 
 **8. 管理后台的位置——对普通导航完全隐藏，登录后一次性自动跳转过去**：这个后台永远不会出现在底部导航栏或任何普通用户能看到的菜单里。它不套用现有的 `AppShell`/底部导航那套外壳——是一个独立的、控制台风格的页面。全局管理员登录时，会先落地到管理后台（只在登录那一刻跳一次，不是每个页面都拦截）；从那里，一个显眼的"进入我的账户"入口可以让管理员切换回普通 app 界面，之后正常导航，不会被强制拉回管理后台。
 
-**9. 老用户直接迁移，不走"1次免费"流程**：迁移时，所有已经存在的用户都直接拿到一份按金额算的初始额度（默认 $1，或者管理员逐个手动设置）——完全跳过决定6里"1次免费"的限制，因为他们已经在旧的全局信任模式下用过这个 app 了。
+**9. 老用户直接迁移，不走免费试用流程**：迁移时，所有已经存在的用户都直接拿到一份按金额算的初始额度（默认 $1，或者管理员逐个手动设置）——完全跳过决定6里免费试用的限制，因为他们已经在旧的全局信任模式下用过这个 app 了。
 
 ## UI 原型
 
