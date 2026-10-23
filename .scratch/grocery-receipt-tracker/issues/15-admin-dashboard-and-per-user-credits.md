@@ -119,7 +119,7 @@ on conflict (user_id) do nothing;
 **Backend logic sketch** (replaces `api/_lib/spendLimit.ts`'s `getSpendStatus`/`recordSpend`, called from `recognizeReceipt.ts` with the caller's `user_id`):
 
 - Look up the caller's `user_ai_access` row (service-role client, bypasses RLS).
-- No row, or `cap_usd is null`: free-trial mode. If `free_trial_used`, refuse (point the user at the `mailto:` admin-contact flow, decision 7). Otherwise allow the call; on success, upsert `{ free_trial_used: true }`.
+- No row, or `cap_usd is null`: free-trial mode. If `free_trial_calls_used >= FREE_TRIAL_LIMIT` (5), refuse (point the user at the `mailto:` admin-contact flow, decision 7). Otherwise allow the call; on success, increment `free_trial_calls_used` by 1 (upserting the row with `1` if there was none).
 - `cap_usd is not null`: dollar-cap mode. If `spent_usd >= cap_usd`, refuse (same `mailto:` flow). Otherwise allow; on success, `spent_usd += actualCostUsd` (same read-then-write pattern `recordSpend` already uses — fine at this scale, per its own comment).
 
 **Admin grant-credit operation** (upsert, always resets `spent_usd` to 0 and marks the trial as used, per decision 4's "reset to a fresh allowance" semantics — `$capUsd` defaults to `1.00` for the one-click "Reset credit to $1" action, or any admin-entered custom amount):
@@ -264,7 +264,7 @@ on conflict (user_id) do nothing;
 **后端逻辑草图**（取代 `api/_lib/spendLimit.ts` 里的 `getSpendStatus`/`recordSpend`，从 `recognizeReceipt.ts` 里用调用者的 `user_id` 调用）：
 
 - 查询调用者的 `user_ai_access` 行（用 service-role 客户端，绕过 RLS）。
-- 没有这行，或者 `cap_usd` 为 null：免费试用模式。如果 `free_trial_used` 为真就拒绝（引导用户走决定7的 `mailto:` 联系管理员流程）。否则放行；调用成功后 upsert `{ free_trial_used: true }`。
+- 没有这行，或者 `cap_usd` 为 null：免费试用模式。如果 `free_trial_calls_used >= FREE_TRIAL_LIMIT`（5）就拒绝（引导用户走决定7的 `mailto:` 联系管理员流程）。否则放行；调用成功后把 `free_trial_calls_used` 加 1（没有这行就 upsert 一行，值为 `1`）。
 - `cap_usd` 不为 null：按金额算模式。如果 `spent_usd >= cap_usd` 就拒绝（同样走 `mailto:` 流程）。否则放行；调用成功后 `spent_usd += 实际花费`（跟 `recordSpend` 现在一样，先读后写，按它自己注释里说的，这个规模下够用）。
 
 **管理员"给额度"操作**（upsert，永远把 `spent_usd` 清零并把免费试用标记为已用，对应决定4"重置成一份新额度"的语义——一键"额度重置为 $1"时 `$capUsd` 默认 `1.00`，也可以是管理员输入的任意自定义金额）：
