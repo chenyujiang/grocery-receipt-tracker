@@ -170,6 +170,32 @@ describe("uploadReceipt", () => {
     expect(err).toBeInstanceOf(AiAccessRefusedError);
     expect((err as AiAccessRefusedError).refusal).toEqual(refusal);
   });
+
+  // The page formats spentUsd/capUsd with toFixed, so a 402 body that isn't a
+  // well-formed refusal (a proxy's, or a future server's) must not reach it
+  // as one: it falls back to the generic upload failure instead.
+  it.each([
+    ["an unknown code", { code: "ai_something_else" }],
+    ["a credit refusal missing its amounts", { code: "ai_credit_exhausted" }],
+  ])("treats a 402 with %s as a plain upload failure", async (_label, body) => {
+    installFakeSupabase(supabase, {
+      auth: { getSession: { data: { session: { access_token: "tok-1" } }, error: null } },
+    });
+    vi.mocked(resizeImageForUpload).mockResolvedValue({
+      base64: "resized-base64-bytes",
+      mediaType: "image/jpeg",
+    });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 402,
+      json: () => Promise.resolve(body),
+    } as never);
+
+    const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
+
+    expect(err).not.toBeInstanceOf(AiAccessRefusedError);
+    expect(errorMessage(err, "上传失败")).toBe("上传失败");
+  });
 });
 
 describe("fetchReceiptDraft", () => {
