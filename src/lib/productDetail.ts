@@ -5,6 +5,7 @@ import { compareStores, type StoreComparisonEntry } from "@/lib/storeComparison"
 import { calculateConsumption, type ConsumptionEstimate } from "@/lib/consumptionRate";
 import { fetchPurchaseHistories, type Purchase } from "@/lib/purchaseHistory";
 import { bilingualName } from "@/lib/bilingualName";
+import { UnexplainedError } from "@/lib/errorMessage";
 
 // The detail page's history table renders a Purchase directly.
 export type PurchaseHistoryEntry = Purchase;
@@ -62,7 +63,7 @@ export async function fetchProductDetail(
     .eq("id", productId)
     .single();
   if (productError || !productRow) {
-    throw productError ?? new Error("Product not found");
+    throw productError ?? new UnexplainedError("Product not found");
   }
 
   const [history] = await fetchPurchaseHistories(supabase, [productId]);

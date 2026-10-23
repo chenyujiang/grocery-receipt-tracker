@@ -420,12 +420,15 @@ describe("fetchReceiptDraft", () => {
     expect(draft.recognizedStore).toBeNull();
   });
 
-  it("throws when the receipt can't be found", async () => {
+  it("throws an UnexplainedError when the receipt can't be found", async () => {
     // `receipt_items` is left unprepared: reading items for a receipt that
     // isn't there would throw rather than pass quietly.
     installFakeSupabase(supabase, { tables: { receipts: { data: null, error: null } } });
 
-    await expect(fetchReceiptDraft("missing-receipt")).rejects.toThrow("Receipt not found");
+    const err = await fetchReceiptDraft("missing-receipt").catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UnexplainedError);
+    expect(err).toHaveProperty("message", "Receipt not found");
   });
 });
 

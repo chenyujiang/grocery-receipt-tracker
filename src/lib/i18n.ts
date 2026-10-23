@@ -197,6 +197,8 @@ export const translations = {
     "errors.confirmReceipt": "Failed to confirm receipt",
     "errors.saveChanges": "Failed to save changes",
     "errors.uploadFailed": "Upload failed",
+    "errors.unreadablePhoto":
+      "Couldn't read this photo. Try a different one, or set your camera to JPEG instead of HEIC (Settings > Camera > Formats on iPhone).",
     "errors.aiTrialExhausted":
       "You've already used all {limit} of your free AI recognitions. Email {email} to get credit assigned.",
     "errors.aiCreditExhausted":
@@ -402,6 +404,7 @@ export const translations = {
     "errors.confirmReceipt": "确认小票失败",
     "errors.saveChanges": "保存修改失败",
     "errors.uploadFailed": "上传失败",
+    "errors.unreadablePhoto": "无法读取这张照片。请换一张，或把相机格式从 HEIC 改为 JPEG（iPhone：设置 > 相机 > 格式）。",
     "errors.aiTrialExhausted": "你已用完全部 {limit} 次免费 AI 识别。请发邮件至 {email} 申请额度。",
     "errors.aiCreditExhausted": "AI 识别额度已用完（已用 ${spent} / ${cap}）。请发邮件至 {email} 申请额度。",
     "errors.loadProduct": "加载商品失败",

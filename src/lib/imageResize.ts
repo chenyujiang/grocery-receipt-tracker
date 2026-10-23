@@ -1,3 +1,5 @@
+import { UnexplainedError } from "@/lib/errorMessage";
+
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.85;
 
@@ -59,14 +61,21 @@ async function decodeImage(file: File): Promise<DecodedImage> {
 // cryptic error. Thin browser Image/Canvas wrapper — not unit-tested
 // directly (jsdom doesn't decode real images); uploadReceipt's tests mock
 // this module at the boundary instead.
+// A photo the browser can't decode. It's an UnexplainedError, so anywhere
+// but the upload page it shows the caller's fallback; the upload page words
+// it itself (errors.unreadablePhoto), since the fix is the user's to make.
+export class UnreadablePhotoError extends UnexplainedError {
+  constructor() {
+    super("Couldn't decode the photo");
+  }
+}
+
 export async function resizeImageForUpload(file: File): Promise<ResizedImage> {
   let decoded: DecodedImage;
   try {
     decoded = await decodeImage(file);
   } catch {
-    throw new Error(
-      "Couldn't read this photo — try a different one, or set your camera to JPEG instead of HEIC (Settings > Camera > Formats on iPhone)."
-    );
+    throw new UnreadablePhotoError();
   }
 
   try {
@@ -79,7 +88,7 @@ export async function resizeImageForUpload(file: File): Promise<ResizedImage> {
     canvas.height = height;
     const ctx = canvas.getContext("2d");
     if (!ctx || width === 0 || height === 0) {
-      throw new Error("Canvas 2D context unavailable");
+      throw new UnexplainedError("Canvas 2D context unavailable");
     }
     ctx.drawImage(decoded.source, 0, 0, width, height);
 

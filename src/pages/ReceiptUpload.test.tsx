@@ -17,6 +17,7 @@ import { uploadReceipt } from "@/lib/receipts";
 import { useAuth } from "@/lib/AuthProvider";
 import { AiAccessRefusedError, SUPPORT_EMAIL } from "@/lib/aiAccessRefusal";
 import { FREE_TRIAL_LIMIT } from "@/lib/aiAccessPolicy";
+import { UnreadablePhotoError } from "@/lib/imageResize";
 import { renderInZh } from "@/test/renderInZh";
 import { useLanguage } from "@/lib/LanguageProvider";
 import ReceiptUpload from "@/pages/ReceiptUpload";
@@ -100,6 +101,19 @@ describe("ReceiptUpload", () => {
     await userEvent.upload(input, makeFile());
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Invalid or expired session");
+  });
+
+  // Spec Section 7: what to do about a photo the browser can't decode is the
+  // app's own advice, so it's worded in the chosen language too.
+  it("tells the user how to fix a photo that can't be read, in the chosen language", async () => {
+    vi.mocked(uploadReceipt).mockRejectedValue(new UnreadablePhotoError());
+
+    renderInZh(<ReceiptUpload />);
+    await userEvent.upload(screen.getByLabelText(/拍照|选择图片/, { selector: "input" }), makeFile());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "无法读取这张照片。请换一张，或把相机格式从 HEIC 改为 JPEG（iPhone：设置 > 相机 > 格式）。"
+    );
   });
 
   // Spec Section 7: the refusal is the app's own copy, so it follows the

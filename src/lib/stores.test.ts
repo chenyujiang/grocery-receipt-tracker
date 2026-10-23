@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createFakeSupabase } from "@/test/fakeSupabase";
 import { listStores, resolveStore } from "@/lib/stores";
+import { UnexplainedError } from "@/lib/errorMessage";
 
 describe("resolveStore", () => {
   const hornbyRow = {
@@ -162,12 +163,18 @@ describe("resolveStore", () => {
   });
 
   // A Store with no chain would show up blank in every member's picker.
+  // The review and detail pages won't submit without a chain, so reaching
+  // this is a bug, not something to word for the user.
   it("refuses a chain that's blank, without looking up or creating a Store", async () => {
     const db = createFakeSupabase({ tables: {} });
 
-    await expect(
-      resolveStore(db.client, "circle-1", { chain: { en: " . ", zh: null }, branch: { en: "Hornby", zh: null } })
-    ).rejects.toThrow(/chain/i);
+    const err = await resolveStore(db.client, "circle-1", {
+      chain: { en: " . ", zh: null },
+      branch: { en: "Hornby", zh: null },
+    }).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UnexplainedError);
+    expect(err).toHaveProperty("message", expect.stringMatching(/chain/i));
     expect(db.callsFor("stores")).toEqual([]);
   });
 });

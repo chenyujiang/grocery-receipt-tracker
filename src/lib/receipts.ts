@@ -120,7 +120,7 @@ export async function fetchReceiptDraft(receiptId: string): Promise<ReceiptDraft
     .eq("id", receiptId)
     .single();
   if (receiptError || !receiptRow) {
-    throw receiptError ?? new Error("Receipt not found");
+    throw receiptError ?? new UnexplainedError("Receipt not found");
   }
 
   const { data: itemRows, error: itemsError } = await supabase
@@ -185,7 +185,7 @@ async function updateReceiptItemsWithLog(
       .eq("id", item.id)
       .single();
     if (fetchError || !existingRow) {
-      throw fetchError ?? new Error("Receipt item not found");
+      throw fetchError ?? new UnexplainedError("Receipt item not found");
     }
 
     const existingRawName = bilingualName(existingRow.raw_name_en, existingRow.raw_name_zh);
@@ -317,7 +317,7 @@ export async function confirmReceipt(
     .eq("id", receiptId)
     .single();
   if (fetchError || !existingReceipt) {
-    throw fetchError ?? new Error("Receipt not found");
+    throw fetchError ?? new UnexplainedError("Receipt not found");
   }
 
   // Resolved before anything is written, so a failure here leaves the draft
@@ -439,7 +439,7 @@ export async function editConfirmedReceipt(
     .eq("id", receiptId)
     .single();
   if (fetchError || !existingReceipt) {
-    throw fetchError ?? new Error("Receipt not found");
+    throw fetchError ?? new UnexplainedError("Receipt not found");
   }
 
   const changes: Omit<ReceiptChanges, "status"> = {};

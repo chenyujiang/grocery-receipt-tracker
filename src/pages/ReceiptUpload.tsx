@@ -9,6 +9,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { errorMessage } from "@/lib/errorMessage";
 import { AiAccessRefusedError, SUPPORT_EMAIL, type AiAccessRefusal } from "@/lib/aiAccessRefusal";
 import { FREE_TRIAL_LIMIT } from "@/lib/aiAccessPolicy";
+import { UnreadablePhotoError } from "@/lib/imageResize";
 
 // Spec Section 16: what a user blocked from AI recognition is told, and who
 // to ask, since nothing lifts the block automatically.
@@ -73,6 +74,7 @@ export default function ReceiptUpload() {
       navigate(`/receipts/${receiptId}/review`);
     } catch (err) {
       if (err instanceof AiAccessRefusedError) setRefusal(err.refusal);
+      else if (err instanceof UnreadablePhotoError) setError(t("errors.unreadablePhoto"));
       else setError(errorMessage(err, t("errors.uploadFailed")));
     } finally {
       setUploading(false);

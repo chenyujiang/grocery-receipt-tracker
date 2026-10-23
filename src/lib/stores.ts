@@ -3,6 +3,7 @@ import type { Database } from "@/types/database.types";
 import type { BilingualName } from "@/lib/bilingualName";
 import { isKnownBranch, storeName, STORE_NAME_COLUMNS, type StoreNames } from "@/lib/storeName";
 import { chainKey, storeKey } from "@/lib/storeKey";
+import { UnexplainedError } from "@/lib/errorMessage";
 
 // A name on its way in, not read back: zh is null when there's no
 // Translation, and is stored as null. Distinct from BilingualName, whose zh
@@ -100,8 +101,10 @@ export async function resolveStore(
   circleId: string,
   choice: StoreChoice
 ): Promise<{ store: Store; created: boolean }> {
+  // The pages won't submit without a chain (review.chainRequired), so this
+  // is a guard against a bug, not a message for the user.
   if (!hasChain(choice)) {
-    throw new Error("Enter the store's chain name");
+    throw new UnexplainedError("Store choice has no chain name");
   }
   const { chain, branch } = choice;
   const key = storeKey(chain.en, branch?.en ?? null);

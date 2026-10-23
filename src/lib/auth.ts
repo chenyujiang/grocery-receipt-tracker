@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { Role } from "@/types";
+import { UnexplainedError } from "@/lib/errorMessage";
 
 interface SignUpResult {
   userId: string;
@@ -35,7 +36,7 @@ export async function signUpWithEmail(
 ): Promise<SignUpResult> {
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
   if (signUpError || !signUpData.user) {
-    throw signUpError ?? new Error("Sign-up did not return a user");
+    throw signUpError ?? new UnexplainedError("Sign-up did not return a user");
   }
   const userId = signUpData.user.id;
   const circleId = crypto.randomUUID();
@@ -103,7 +104,7 @@ async function ensureProfile(userId: string, email: string): Promise<void> {
 export async function signInWithEmail(email: string, password: string): Promise<SignInResult> {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user || !data.session) {
-    throw error ?? new Error("Sign-in did not return a session");
+    throw error ?? new UnexplainedError("Sign-in did not return a session");
   }
   await ensureProfile(data.user.id, email);
   return { userId: data.user.id, accessToken: data.session.access_token };

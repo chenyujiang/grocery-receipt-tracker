@@ -9,6 +9,7 @@ vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 import { supabase } from "@/lib/supabaseClient";
 import { installFakeSupabase } from "@/test/fakeSupabase";
 import { fetchProductDetail } from "@/lib/productDetail";
+import { UnexplainedError } from "@/lib/errorMessage";
 
 const TODAY = new Date("2026-08-05");
 
@@ -147,12 +148,15 @@ describe("fetchProductDetail", () => {
     });
   });
 
-  it("throws when the product isn't found", async () => {
+  it("throws an UnexplainedError when the product isn't found", async () => {
     // No `receipt_items` prepared: if the history query ran anyway, the fake
     // would throw rather than quietly return nothing.
     installFakeSupabase(supabase, { tables: { products: { data: null, error: null } } });
 
-    await expect(fetchProductDetail("missing", TODAY)).rejects.toThrow("Product not found");
+    const err = await fetchProductDetail("missing", TODAY).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UnexplainedError);
+    expect(err).toHaveProperty("message", "Product not found");
   });
 
   it("throws when the purchase history query fails", async () => {

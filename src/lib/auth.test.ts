@@ -8,6 +8,7 @@ vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 import { supabase } from "@/lib/supabaseClient";
 import { installFakeSupabase } from "@/test/fakeSupabase";
 import { signUpWithEmail, signInWithEmail, signOut } from "@/lib/auth";
+import { UnexplainedError } from "@/lib/errorMessage";
 
 // The circle/profile inserts deliberately don't chain .select() (see auth.ts's
 // comment — RETURNING would hit a not-yet-satisfiable RLS SELECT policy for a
@@ -78,6 +79,16 @@ describe("signUpWithEmail", () => {
       "User already registered"
     );
   });
+
+  it("throws an UnexplainedError when sign-up returns no user and no error", async () => {
+    installFakeSupabase(supabase, {
+      auth: { signUp: { data: { user: null, session: null }, error: null } },
+    });
+
+    const err = await signUpWithEmail("new@example.com", "hunter2pass").catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UnexplainedError);
+  });
 });
 
 describe("signInWithEmail", () => {
@@ -110,6 +121,16 @@ describe("signInWithEmail", () => {
     await expect(signInWithEmail("returning@example.com", "wrongpass")).rejects.toThrow(
       "Invalid login credentials"
     );
+  });
+
+  it("throws an UnexplainedError when sign-in returns no session and no error", async () => {
+    installFakeSupabase(supabase, {
+      auth: { signInWithPassword: { data: { user: null, session: null }, error: null } },
+    });
+
+    const err = await signInWithEmail("returning@example.com", "hunter2pass").catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UnexplainedError);
   });
 
   it("creates a circle and an owner profile if the signed-in user doesn't have one yet", async () => {
