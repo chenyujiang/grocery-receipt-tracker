@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { errorMessage } from "@/lib/errorMessage";
 import { useLanguage } from "@/lib/LanguageProvider";
-import { roleLabel } from "@/lib/i18n";
+import { creditAmounts, roleLabel } from "@/lib/i18n";
 import { useLatestRequest } from "@/lib/useLatestRequest";
 import {
   fetchAdminUsers,
@@ -111,10 +111,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
           </span>
         ) : (
           <span style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
-            {t("admin.creditProgress", {
-              spent: user.credit.spentUsd.toFixed(2),
-              cap: user.credit.capUsd.toFixed(2),
-            })}
+            {t("admin.creditProgress", creditAmounts(user.credit))}
           </span>
         )}
       </div>

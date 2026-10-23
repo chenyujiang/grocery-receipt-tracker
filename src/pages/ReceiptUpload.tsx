@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { uploadReceipt } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { useAuth } from "@/lib/AuthProvider";
-import type { Translate } from "@/lib/i18n";
+import { creditAmounts, type Translate } from "@/lib/i18n";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { errorMessage } from "@/lib/errorMessage";
 import { AiAccessRefusedError, SUPPORT_EMAIL, type AiAccessRefusal } from "@/lib/aiAccessRefusal";
@@ -18,11 +18,7 @@ function refusalMessage(
   if (refusal.code === "ai_trial_exhausted") {
     return t("errors.aiTrialExhausted", { limit: FREE_TRIAL_LIMIT, email: SUPPORT_EMAIL });
   }
-  return t("errors.aiCreditExhausted", {
-    spent: refusal.spentUsd.toFixed(2),
-    cap: refusal.capUsd.toFixed(2),
-    email: SUPPORT_EMAIL,
-  });
+  return t("errors.aiCreditExhausted", { ...creditAmounts(refusal), email: SUPPORT_EMAIL });
 }
 
 // Spec Section 16: opens the user's own email client on a draft to the admin;
