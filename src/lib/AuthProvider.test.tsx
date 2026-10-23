@@ -29,6 +29,23 @@ describe("AuthProvider / useAuth", () => {
     expect(await screen.findByText("Signed in as user-1")).toBeInTheDocument();
   });
 
+  // Spec Section 16: a blocked user's credit-request draft names their account.
+  it("exposes the signed-in user's email", async () => {
+    installFakeSupabase(supabase, { auth: { getSession: sessionFor("user-1", "ann@example.com") } });
+
+    function EmailConsumer() {
+      const { session } = useAuth();
+      return <p>{session ? `Email: ${session.email}` : "Signed out"}</p>;
+    }
+    render(
+      <AuthProvider>
+        <EmailConsumer />
+      </AuthProvider>
+    );
+
+    expect(await screen.findByText("Email: ann@example.com")).toBeInTheDocument();
+  });
+
   it("shows signed out when there is no existing session", async () => {
     installFakeSupabase(supabase, { auth: { getSession: { data: { session: null } } } });
 

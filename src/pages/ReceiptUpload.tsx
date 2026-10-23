@@ -2,6 +2,7 @@ import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { uploadReceipt } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
+import { useAuth } from "@/lib/AuthProvider";
 import type { TranslationKey } from "@/lib/i18n";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { errorMessage } from "@/lib/errorMessage";
@@ -27,9 +28,14 @@ function refusalMessage(
 // Spec Section 16: opens the user's own email client on a draft to the admin;
 // the app sends nothing itself. encodeURIComponent, not URLSearchParams: mail
 // clients read a "+" in a mailto: query literally rather than as a space.
-function creditRequestDraft(t: (key: TranslationKey) => string): string {
+// The body names the account (email and user id), so the admin can find whom
+// to grant credit to without asking back.
+function creditRequestDraft(
+  account: { email: string; userId: string },
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+): string {
   const subject = encodeURIComponent(t("upload.creditRequestSubject"));
-  const body = encodeURIComponent(t("upload.creditRequestBody"));
+  const body = encodeURIComponent(t("upload.creditRequestBody", account));
   return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
 }
 
@@ -40,6 +46,7 @@ function creditRequestDraft(t: (key: TranslationKey) => string): string {
 // exactly what hides the "choose from gallery" option (Section 3, ticket 03).
 export default function ReceiptUpload() {
   const { t } = useLanguage();
+  const { session } = useAuth();
   const [error, setError] = useState<string | null>(null);
   // Held as the refusal, not its text, so it's worded at render: it carries a
   // link, and it follows a language switch made while it's on screen.
@@ -75,7 +82,12 @@ export default function ReceiptUpload() {
       {error && <p role="alert">{error}</p>}
       {refusal && (
         <p role="alert">
-          {refusalMessage(refusal, t)} <a href={creditRequestDraft(t)}>{t("upload.emailAdmin")}</a>
+          {refusalMessage(refusal, t)} <a
+            href={creditRequestDraft(
+              { email: session?.email ?? "", userId: session?.userId ?? "" },
+              t
+            )}
+          >{t("upload.emailAdmin")}</a>
         </p>
       )}
       {uploading && <LoadingOverlay message={t("upload.recognizing")} />}

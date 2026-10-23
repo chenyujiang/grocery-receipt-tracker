@@ -102,7 +102,7 @@ function renderDetailPage() {
 
 function mockSession(userId: string | null) {
   vi.mocked(useAuth).mockReturnValue({
-    session: userId ? { userId, accessToken: "tok" } : null,
+    session: userId ? { userId, email: null, accessToken: "tok" } : null,
     loading: false,
   } as never);
 }

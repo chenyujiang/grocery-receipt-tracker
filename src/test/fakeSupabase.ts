@@ -263,6 +263,6 @@ export function installFakeSupabase(
 }
 
 /** A signed-in session for `userId`, as `auth.getSession` resolves it — prepare it under `auth: { getSession: ... }`. */
-export function sessionFor(userId: string) {
-  return { data: { session: { user: { id: userId }, access_token: "tok-1" } } };
+export function sessionFor(userId: string, email?: string) {
+  return { data: { session: { user: { id: userId, email }, access_token: "tok-1" } } };
 }

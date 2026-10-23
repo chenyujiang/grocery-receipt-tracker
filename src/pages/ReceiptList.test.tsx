@@ -34,7 +34,7 @@ describe("ReceiptList", () => {
       { userId: "user-1", displayName: "eason", role: "owner", circleId: "circle-1" },
     ]);
     vi.mocked(useAuth).mockReturnValue({
-      session: { userId: "user-1", accessToken: "tok" },
+      session: { userId: "user-1", email: null, accessToken: "tok" },
       loading: false,
     });
   });

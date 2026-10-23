@@ -67,7 +67,7 @@ describe("CircleSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useAuth).mockReturnValue({
-      session: { userId: "user-1", accessToken: "tok" },
+      session: { userId: "user-1", email: null, accessToken: "tok" },
       loading: false,
     });
     mockLanguage("en");
@@ -187,7 +187,7 @@ describe("CircleSettings", () => {
 
   it("hides remove buttons and the dissolve section from a non-owner member", async () => {
     vi.mocked(useAuth).mockReturnValue({
-      session: { userId: "user-2", accessToken: "tok" },
+      session: { userId: "user-2", email: null, accessToken: "tok" },
       loading: false,
     });
     vi.mocked(fetchCircleMembers).mockResolvedValue([OWNER, MEMBER]);

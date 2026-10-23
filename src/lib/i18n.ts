@@ -50,7 +50,8 @@ export const translations = {
     "upload.prompt": "Take photo / choose image",
     "upload.emailAdmin": "Email to request credit",
     "upload.creditRequestSubject": "AI recognition credit request",
-    "upload.creditRequestBody": "Hi, I'd like AI recognition credit assigned to my account.",
+    "upload.creditRequestBody":
+      "Hi, I'd like AI recognition credit assigned to my account.\n\nEmail: {email}\nUser ID: {userId}",
 
     "review.title": "Confirm Receipt",
     "review.duplicateTitle": "Possible duplicate",
@@ -255,7 +256,7 @@ export const translations = {
     "upload.prompt": "拍照 / 选择图片",
     "upload.emailAdmin": "发邮件申请额度",
     "upload.creditRequestSubject": "申请 AI 识别额度",
-    "upload.creditRequestBody": "你好，我想为我的账号申请 AI 识别额度。",
+    "upload.creditRequestBody": "你好，我想为我的账号申请 AI 识别额度。\n\n邮箱：{email}\n用户 ID：{userId}",
 
     "review.title": "确认小票",
     "review.duplicateTitle": "可能重复",

@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 interface AuthSession {
   userId: string;
+  email: string | null;
   accessToken: string;
 }
 
@@ -14,13 +15,13 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({ session: null, loading: true });
 
 interface RawSession {
-  user: { id: string } | null;
+  user: { id: string; email?: string } | null;
   access_token: string;
 }
 
 function toAuthSession(raw: RawSession | null): AuthSession | null {
   if (!raw || !raw.user) return null;
-  return { userId: raw.user.id, accessToken: raw.access_token };
+  return { userId: raw.user.id, email: raw.user.email ?? null, accessToken: raw.access_token };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

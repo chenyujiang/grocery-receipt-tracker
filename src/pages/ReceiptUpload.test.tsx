@@ -9,8 +9,12 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 vi.mock("@/lib/receipts", () => ({
   uploadReceipt: vi.fn(),
 }));
+vi.mock("@/lib/AuthProvider", () => ({
+  useAuth: vi.fn(),
+}));
 
 import { uploadReceipt } from "@/lib/receipts";
+import { useAuth } from "@/lib/AuthProvider";
 import { AiAccessRefusedError, SUPPORT_EMAIL } from "@/lib/aiAccessRefusal";
 import { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
 import { renderInZh } from "@/test/renderInZh";
@@ -45,6 +49,10 @@ function makeFile() {
 describe("ReceiptUpload", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useAuth).mockReturnValue({
+      session: { userId: "user-1", email: "ann@example.com", accessToken: "tok" },
+      loading: false,
+    });
   });
 
   it("uploads the selected file and navigates to the review page", async () => {
@@ -123,7 +131,8 @@ describe("ReceiptUpload", () => {
   });
 
   // Spec Section 16: the way out is a mailto: link that opens the user's own
-  // email client on a pre-filled draft — no email is sent by the app.
+  // email client on a pre-filled draft — no email is sent by the app. The
+  // draft names the account, so the admin knows whom to grant credit to.
   it("links a refused user to a pre-filled email draft to the admin", async () => {
     vi.mocked(uploadReceipt).mockRejectedValue(new AiAccessRefusedError({ code: "ai_trial_exhausted" }));
 
@@ -135,7 +144,9 @@ describe("ReceiptUpload", () => {
     expect(draft.protocol).toBe("mailto:");
     expect(draft.pathname).toBe(SUPPORT_EMAIL);
     expect(draft.searchParams.get("subject")).toBe("申请 AI 识别额度");
-    expect(draft.searchParams.get("body")).toBe("你好，我想为我的账号申请 AI 识别额度。");
+    expect(draft.searchParams.get("body")).toBe(
+      "你好，我想为我的账号申请 AI 识别额度。\n\n邮箱：ann@example.com\n用户 ID：user-1"
+    );
   });
 
   it("rewords a refusal already on screen when the user switches language", async () => {
