@@ -22,7 +22,8 @@ export interface AdminUserRow {
   credit: AdminUserCredit;
 }
 
-// src/lib/adminApi.ts's DEFAULT_GRANT_USD mirrors this to label the button.
+// src/lib/defaultGrant.ts's DEFAULT_GRANT_USD mirrors this to label the button;
+// adminUsers.test.ts checks the two agree.
 const DEFAULT_CAP_USD = 1.0;
 // Supabase's ban API takes a duration string, not a boolean — ~100 years is
 // effectively indefinite until an admin unbans.

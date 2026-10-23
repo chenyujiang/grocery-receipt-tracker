@@ -30,9 +30,7 @@ export type AdminUserCredit =
 // Must match api/_lib/userAiAccess.ts's FREE_TRIAL_LIMIT.
 export const FREE_TRIAL_LIMIT = 5;
 
-// Must match api/_lib/adminUsers.ts's DEFAULT_CAP_USD — the amount the server
-// grants when the one-click action omits capUsd. Only used to label that button.
-export const DEFAULT_GRANT_USD = 1;
+export { DEFAULT_GRANT_USD } from "@/lib/defaultGrant";
 
 export interface AdminUserRow {
   userId: string;

@@ -8,6 +8,7 @@ vi.mock("./supabaseAdmin", () => ({ supabaseAdmin: {} }));
 import { supabaseAdmin } from "./supabaseAdmin";
 import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
 import { listAdminUsers, grantCredit, setUserBanned, mergeUsersIntoNewCircle } from "./adminUsers";
+import { DEFAULT_GRANT_USD } from "../../src/lib/defaultGrant.js";
 
 describe("listAdminUsers", () => {
   it("joins profiles, circles, user_ai_access, and auth users into one row per user", async () => {
@@ -96,6 +97,22 @@ describe("grantCredit", () => {
         spent_usd: 0,
         free_trial_calls_used: 5,
       }),
+    ]);
+  });
+
+  // The dashboard labels its one-click button from src/lib/defaultGrant.ts's
+  // DEFAULT_GRANT_USD, but the cap actually written is this module's own
+  // default. Nothing shares the two, so this is what keeps the button honest.
+  it("grants the same default amount the dashboard's one-click button shows", async () => {
+    const db = installFakeSupabase(supabaseAdmin, {
+      tables: { user_ai_access: { error: null } },
+    });
+
+    await grantCredit("u1");
+
+    expect(db.callsFor("user_ai_access")).toContainEqual([
+      "upsert",
+      expect.objectContaining({ cap_usd: DEFAULT_GRANT_USD }),
     ]);
   });
 
