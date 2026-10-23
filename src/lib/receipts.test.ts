@@ -120,11 +120,12 @@ describe("uploadReceipt", () => {
     });
     vi.mocked(fetch).mockResolvedValue({
       ok: false,
-      json: () => Promise.resolve({ error: "AI recognition quota used up" }),
+      status: 401,
+      json: () => Promise.resolve({ error: "Invalid or expired session" }),
     } as never);
 
     await expect(uploadReceipt(makeFile("x", "image/jpeg"))).rejects.toThrow(
-      "AI recognition quota used up"
+      "Invalid or expired session"
     );
   });
 
