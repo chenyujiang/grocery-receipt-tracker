@@ -8,6 +8,7 @@ vi.mock("../_lib/userAiAccess.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../_lib/userAiAccess.js")>()),
   reserveCall: vi.fn(),
 }));
+vi.mock("../_lib/aiAccessRefusal.js", () => ({ aiAccessRefusal: vi.fn() }));
 vi.mock("../_lib/haikuCost.js", () => ({ calculateHaikuCost: vi.fn() }));
 vi.mock("../_lib/recognizeReceipt.js", () => ({ recognizeReceipt: vi.fn() }));
 vi.mock("../_lib/saveDraftReceipt.js", () => ({ saveDraftReceipt: vi.fn() }));
@@ -16,6 +17,7 @@ import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
 import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
 import { reserveCall, type AccessMode, type AccessStatus } from "../_lib/userAiAccess.js";
+import { aiAccessRefusal } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt } from "../_lib/recognizeReceipt.js";
 import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
@@ -195,26 +197,21 @@ describe("POST /api/receipts/recognize", () => {
   describe("AI Access refusal (402)", () => {
     beforeEach(() => installSupabase());
 
-    // The body is the refusal, not a sentence: the page words it in the
-    // user's chosen language (src/lib/aiAccessRefusal.ts).
-    it("402s when the Free Trial is used up", async () => {
-      reserve(blocked("trial"));
+    // The body is whatever aiAccessRefusal builds from the refused status —
+    // its shape is that module's to test (aiAccessRefusal.test.ts), so the
+    // route only checks it sends it (docs/adr/0001).
+    it("402s with the refusal built from the caller's access status", async () => {
+      const status = blocked("cap", { spentUsd: 0.97, capUsd: 1 });
+      reserve(status);
+      const refusal = { code: "ai_trial_exhausted" } as const;
+      vi.mocked(aiAccessRefusal).mockReturnValue(refusal);
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
 
+      expect(aiAccessRefusal).toHaveBeenCalledWith(status);
       expect(res.statusCode).toBe(402);
-      expect(res.body).toEqual({ code: "ai_trial_exhausted" });
-    });
-
-    it("402s when granted AI Credit is used up, reporting spend against the cap", async () => {
-      reserve(blocked("cap", { spentUsd: 0.97, capUsd: 1 }));
-      const res = makeRes();
-
-      await handler(recognizeRequest(), res.res);
-
-      expect(res.statusCode).toBe(402);
-      expect(res.body).toEqual({ code: "ai_credit_exhausted", spentUsd: 0.97, capUsd: 1 });
+      expect(res.body).toBe(refusal);
     });
 
     it("checks access for the authenticated caller, not the Circle", async () => {
