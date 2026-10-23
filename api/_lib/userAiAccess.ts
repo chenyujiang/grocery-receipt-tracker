@@ -14,8 +14,6 @@ import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
 // The route's lifecycle is: reserveCall before Claude, then exactly one of
 // the returned Reservation's recordSpend (Claude answered) or release (it
 // didn't).
-export { FREE_TRIAL_LIMIT };
-
 export type AccessMode = "trial" | "cap";
 
 export interface AccessStatus {

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "./supabaseAdmin.js";
-import { FREE_TRIAL_LIMIT } from "./userAiAccess.js";
+import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
 import type { Role } from "../../src/types/index.js";
 import { DEFAULT_GRANT_USD } from "../../src/lib/defaultGrant.js";
 

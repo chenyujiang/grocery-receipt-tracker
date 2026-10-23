@@ -7,7 +7,8 @@ vi.mock("./supabaseAdmin", () => ({ supabaseAdmin: {} }));
 
 import { supabaseAdmin } from "./supabaseAdmin";
 import { installFakeSupabase, type PreparedResult } from "../../src/test/fakeSupabase.js";
-import { reserveCall, FREE_TRIAL_LIMIT } from "./userAiAccess";
+import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
+import { reserveCall } from "./userAiAccess";
 
 /** What reserve_ai_call returns: a one-row set. */
 function reservation(row: Record<string, unknown>) {

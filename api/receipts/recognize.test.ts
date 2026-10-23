@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 vi.mock("../_lib/supabaseAdmin.js", () => ({ supabaseAdmin: {} }));
 
 // reserveCall is stubbed (it hands back a fake Reservation, see reserve());
-// the rest of the module, FREE_TRIAL_LIMIT included, stays real.
+// the rest of the module stays real.
 vi.mock("../_lib/userAiAccess.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../_lib/userAiAccess.js")>()),
   reserveCall: vi.fn(),
@@ -14,12 +14,8 @@ vi.mock("../_lib/saveDraftReceipt.js", () => ({ saveDraftReceipt: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
-import {
-  reserveCall,
-  FREE_TRIAL_LIMIT,
-  type AccessMode,
-  type AccessStatus,
-} from "../_lib/userAiAccess.js";
+import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
+import { reserveCall, type AccessMode, type AccessStatus } from "../_lib/userAiAccess.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt } from "../_lib/recognizeReceipt.js";
 import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
