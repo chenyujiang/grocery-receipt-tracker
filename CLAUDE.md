@@ -88,3 +88,7 @@ Default five-role vocabulary (needs-triage / needs-info / ready-for-agent / read
 ### Domain docs
 
 Single-context layout (one `CONTEXT.md` + `docs/adr/` at the repo root, created lazily as decisions get resolved). See `docs/agents/domain.md`.
+
+### Worktrees
+
+Read `docs/agents/worktrees.md` before creating a worktree, and clean up with `sh scripts/clean-worktrees.sh` rather than `git worktree remove --force` or `git branch -D`.
