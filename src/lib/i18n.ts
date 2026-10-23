@@ -417,6 +417,10 @@ export const translations = {
 
 export type TranslationKey = keyof (typeof translations)["en"];
 
+// The shape of LanguageProvider's `t`, for helpers that take the caller's
+// translator rather than a language.
+export type Translate = (key: TranslationKey, params?: Record<string, string | number>) => string;
+
 // Params are interpolated by literal `{name}` placeholders in the
 // dictionary string (e.g. "Estimated {days} days remaining").
 export function translate(
@@ -442,6 +446,6 @@ const ROLE_LABEL_KEYS: Record<Role, TranslationKey> = {
 // Shared by Circle Settings' member list and the admin dashboard's user
 // cards. Takes the caller's `t` rather than a language, so it follows
 // whatever LanguageProvider is in scope.
-export function roleLabel(role: Role, t: (key: TranslationKey) => string): string {
+export function roleLabel(role: Role, t: Translate): string {
   return t(ROLE_LABEL_KEYS[role]);
 }

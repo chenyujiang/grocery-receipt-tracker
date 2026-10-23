@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { uploadReceipt } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { useAuth } from "@/lib/AuthProvider";
-import type { TranslationKey } from "@/lib/i18n";
+import type { Translate } from "@/lib/i18n";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { errorMessage } from "@/lib/errorMessage";
 import { AiAccessRefusedError, SUPPORT_EMAIL, type AiAccessRefusal } from "@/lib/aiAccessRefusal";
@@ -13,7 +13,7 @@ import { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
 // to ask, since nothing lifts the block automatically.
 function refusalMessage(
   refusal: AiAccessRefusal,
-  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+  t: Translate
 ): string {
   if (refusal.code === "ai_trial_exhausted") {
     return t("errors.aiTrialExhausted", { limit: FREE_TRIAL_LIMIT, email: SUPPORT_EMAIL });
@@ -32,7 +32,7 @@ function refusalMessage(
 // to grant credit to without asking back.
 function creditRequestDraft(
   account: { email: string; userId: string },
-  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+  t: Translate
 ): string {
   const subject = encodeURIComponent(t("upload.creditRequestSubject"));
   const body = encodeURIComponent(t("upload.creditRequestBody", account));

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { Language } from "@/lib/bilingual";
-import { translate, type TranslationKey } from "@/lib/i18n";
+import { translate, type TranslationKey, type Translate } from "@/lib/i18n";
 
 export const LANGUAGE_STORAGE_KEY = "language";
 const DEFAULT_LANGUAGE: Language = "en";
@@ -8,7 +8,7 @@ const DEFAULT_LANGUAGE: Language = "en";
 interface LanguageContextValue {
   language: Language;
   setLanguage: (language: Language) => void;
-  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
+  t: Translate;
 }
 
 const LanguageContext = createContext<LanguageContextValue>({
