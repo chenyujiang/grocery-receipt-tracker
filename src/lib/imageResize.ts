@@ -1,4 +1,4 @@
-import { UnexplainedError } from "@/lib/errorMessage";
+import { AdvisedError, UnexplainedError } from "@/lib/errorMessage";
 
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.85;
@@ -51,24 +51,24 @@ async function decodeImage(file: File): Promise<DecodedImage> {
   return { width: img.naturalWidth, height: img.naturalHeight, source: img };
 }
 
+// A photo the browser can't decode. The fix is the user's to make, so the
+// upload page shows the advice (errors.unreadablePhoto).
+export class UnreadablePhotoError extends AdvisedError {
+  constructor() {
+    super("Couldn't decode the photo", "errors.unreadablePhoto");
+  }
+}
+
 // Section 6: phone camera photos can be several thousand pixels wide and
 // multiple MB — comfortably over Vercel's request-body limit once base64
 // encoded, and sometimes over Claude's own per-image limit too. Downscaling
 // to a JPEG here fixes both, at a resolution still more than enough for OCR.
 // If decoding fails outright (a format the browser can't read), the upload
-// is rejected here with a clear message rather than silently sending the
-// original, oversized/unsupported file through to fail later with a
+// is rejected here with an UnreadablePhotoError rather than silently sending
+// the original, oversized/unsupported file through to fail later with a
 // cryptic error. Thin browser Image/Canvas wrapper — not unit-tested
 // directly (jsdom doesn't decode real images); uploadReceipt's tests mock
 // this module at the boundary instead.
-// A photo the browser can't decode. It's an UnexplainedError, so anywhere
-// but the upload page it shows the caller's fallback; the upload page words
-// it itself (errors.unreadablePhoto), since the fix is the user's to make.
-export class UnreadablePhotoError extends UnexplainedError {
-  constructor() {
-    super("Couldn't decode the photo");
-  }
-}
 
 export async function resizeImageForUpload(file: File): Promise<ResizedImage> {
   let decoded: DecodedImage;

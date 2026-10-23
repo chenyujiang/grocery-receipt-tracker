@@ -13,6 +13,7 @@ vi.mock("@/lib/productDetail", () => ({
 
 import { fetchProductDetail } from "@/lib/productDetail";
 import ProductDetail, { SERIES_COLOURS } from "@/pages/ProductDetail";
+import { LanguageProvider, LANGUAGE_STORAGE_KEY } from "@/lib/LanguageProvider";
 
 // Found from this file rather than the working directory, so the test runs
 // the same from anywhere. (Vite's ?raw import would be neater, but Vitest
@@ -177,6 +178,27 @@ describe("ProductDetail", () => {
     expect(lines).toHaveLength(2);
     expect(new Set(lines.map((line) => line.getAttribute("stroke"))).size).toBe(2);
     expect(chart.querySelectorAll("circle")).toHaveLength(4);
+  });
+
+  // Spec Section 7: the chart's accessible name is UI chrome too.
+  it("names the chart in the chosen language", async () => {
+    vi.mocked(fetchProductDetail).mockResolvedValue({
+      ...SAMPLE_DETAIL,
+      priceTrend: [trendPoint(HORNBY, "2026-07-01", 0.8), trendPoint(HORNBY, "2026-07-20", 0.85)],
+    });
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, "zh");
+
+    render(
+      <MemoryRouter initialEntries={["/products/product-1"]}>
+        <LanguageProvider>
+          <Routes>
+            <Route path="/products/:productId" element={<ProductDetail />} />
+          </Routes>
+        </LanguageProvider>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("img", { name: "价格走势" })).toBeInTheDocument();
   });
 
   it("draws a Store bought from only once as a lone point, not a line", async () => {

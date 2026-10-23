@@ -7,6 +7,7 @@ import { aiAccessRefusal } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt.js";
 import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
+import { RecognitionFailedError } from "../../src/lib/recognitionFailure.js";
 
 // Section 3.2 (End-to-end data flow) + Section 8 (Product Matching):
 // 1. Verify the caller's Supabase session and look up their circle.
@@ -42,6 +43,10 @@ function isAllowedMediaType(value: unknown): value is AllowedMediaType {
 // both together. It deliberately still shows a PostgrestError's message: in
 // the browser that's the user's own RLS/constraint failure, already visible
 // to them in the network tab, and the only clue to what went wrong.
+//
+// The page shows its own translated fallback for any 5xx, so this text is
+// for the network tab and debugging, not the user. Advice the user can act
+// on goes out as a 422 RecognitionFailure code instead.
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message.trim()) {
     return err.message;
@@ -116,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // never allowed to replace the original error; worst case the user loses
   // one trial call. Deleting the stored image is best effort the same way:
   // worst case it's left orphaned in the bucket, as it always used to be.
-  async function fail(status: number, error: string) {
+  async function fail(status: number, body: { error: string } | { code: string }) {
     if (!claudeAnswered) {
       try {
         await reservation.release();
@@ -134,7 +139,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error("[api/receipts/recognize] failed to delete the stored image:", removeErr);
       }
     }
-    res.status(status).json({ error });
+    res.status(status).json(body);
   }
 
   // Everything past this point can throw (a bad/oversized image, a Claude
@@ -148,7 +153,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from("receipts")
       .upload(storagePath, Buffer.from(imageBase64, "base64"), { contentType: mediaType });
     if (uploadError) {
-      await fail(500, "Failed to store the receipt image");
+      await fail(500, { error: "Failed to store the receipt image" });
       return;
     }
     storedPath = storagePath;
@@ -158,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select("id, canonical_name_en")
       .eq("circle_id", circleId);
     if (productsError) {
-      await fail(500, "Failed to load this circle's existing products");
+      await fail(500, { error: "Failed to load this circle's existing products" });
       return;
     }
     const existingProducts: ExistingProduct[] = (existingProductRows ?? []).map((row) => ({
@@ -187,6 +192,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({ receiptId });
   } catch (err) {
     console.error("[api/receipts/recognize] failed:", err);
-    await fail(500, extractErrorMessage(err));
+    if (err instanceof RecognitionFailedError) {
+      await fail(422, { code: err.code });
+      return;
+    }
+    await fail(500, { error: extractErrorMessage(err) });
   }
 }

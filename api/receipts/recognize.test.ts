@@ -21,6 +21,7 @@ import { aiAccessRefusal } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt } from "../_lib/recognizeReceipt.js";
 import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
+import { RecognitionFailedError } from "../../src/lib/recognitionFailure.js";
 import { makeReq, makeRes } from "../_lib/testHandler.js";
 import handler from "./recognize.js";
 
@@ -357,6 +358,19 @@ describe("POST /api/receipts/recognize", () => {
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toEqual({ error: "Image exceeds 5MB limit" });
+    });
+
+    // Spec Section 7: what to do about a photo Claude couldn't read is the
+    // app's own advice, so it goes out as a code the page words, not English.
+    it("422s with the failure's code when the photo couldn't be read as a receipt", async () => {
+      installSupabase();
+      vi.mocked(recognizeReceipt).mockRejectedValue(new RecognitionFailedError("receipt_too_long"));
+      const res = makeRes();
+
+      await handler(recognizeRequest(), res.res);
+
+      expect(res.statusCode).toBe(422);
+      expect(res.body).toEqual({ code: "receipt_too_long" });
     });
 
     // Ticket 38: a PostgrestError (a plain object, not an Error instance)

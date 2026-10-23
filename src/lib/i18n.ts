@@ -103,6 +103,9 @@ export const translations = {
     "product.priceChange": "Price change",
     "product.priceTrend": "Price trend",
     "product.trendLegend": "Stores on the chart",
+    "product.trendChart": "Price trend over time",
+    "notFound.title": "Not found",
+    "notFound.body": "This page doesn't exist.",
     "product.compareStores": "Compare stores",
     "product.noOtherStores": "No purchase records from other stores yet.",
     "product.consumption": "Consumption",
@@ -199,6 +202,11 @@ export const translations = {
     "errors.uploadFailed": "Upload failed",
     "errors.unreadablePhoto":
       "Couldn't read this photo. Try a different one, or set your camera to JPEG instead of HEIC (Settings > Camera > Formats on iPhone).",
+    "errors.receiptTooLong": "This receipt is too long to read in one go — try photographing it in two halves.",
+    "errors.receiptIncomplete":
+      "Couldn't read this as a grocery receipt — the recognition result came back incomplete. Try again, or photograph a shorter section of the receipt.",
+    "errors.receiptUnreadable":
+      "Couldn't read this as a grocery receipt — no valid date or line items found. Try a clearer photo of the whole receipt.",
     "errors.aiTrialExhausted":
       "You've already used all {limit} of your free AI recognitions. Email {email} to get credit assigned.",
     "errors.aiCreditExhausted":
@@ -312,6 +320,9 @@ export const translations = {
     "product.priceChange": "价格变化",
     "product.priceTrend": "价格趋势",
     "product.trendLegend": "图中的门店",
+    "product.trendChart": "价格走势",
+    "notFound.title": "页面不存在",
+    "notFound.body": "你访问的页面不存在。",
     "product.compareStores": "多店比价",
     "product.noOtherStores": "还没有在其他店铺购买过的记录。",
     "product.consumption": "消耗速度",
@@ -405,6 +416,9 @@ export const translations = {
     "errors.saveChanges": "保存修改失败",
     "errors.uploadFailed": "上传失败",
     "errors.unreadablePhoto": "无法读取这张照片。请换一张，或把相机格式从 HEIC 改为 JPEG（iPhone：设置 > 相机 > 格式）。",
+    "errors.receiptTooLong": "这张小票太长，无法一次识别。请分成上下两半分别拍照。",
+    "errors.receiptIncomplete": "无法识别为购物小票：识别结果不完整。请重试，或只拍小票的一部分。",
+    "errors.receiptUnreadable": "无法识别为购物小票：没有找到有效的日期或商品行。请把整张小票拍得更清楚些。",
     "errors.aiTrialExhausted": "你已用完全部 {limit} 次免费 AI 识别。请发邮件至 {email} 申请额度。",
     "errors.aiCreditExhausted": "AI 识别额度已用完（已用 ${spent} / ${cap}）。请发邮件至 {email} 申请额度。",
     "errors.loadProduct": "加载商品失败",

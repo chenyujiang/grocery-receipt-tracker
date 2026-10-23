@@ -16,6 +16,7 @@ import { resizeImageForUpload } from "@/lib/imageResize";
 import { bilingualName, type BilingualName } from "@/lib/bilingualName";
 import { receiptStoreName, storeName, STORE_NAMES_EMBED, type StoreNames } from "@/lib/storeName";
 import { AiAccessRefusedError, isAiAccessRefusal } from "@/lib/aiAccessRefusal";
+import { isRecognitionFailure, RecognitionFailedError } from "@/lib/recognitionFailure";
 import { throwForFailedResponse, UnexplainedError } from "@/lib/errorMessage";
 import { signedInAccessToken, signedInUserId } from "@/lib/signedIn";
 import type { Database } from "@/types/database.types";
@@ -47,8 +48,12 @@ export async function uploadReceipt(file: File): Promise<UploadReceiptResult> {
     if (response.status === 402 && isAiAccessRefusal(body)) {
       throw new AiAccessRefusedError(body);
     }
-    // With no error text from the server (a platform 5xx, an empty body), the
-    // page's errorMessage(err, t("errors.uploadFailed")) shows its translated
+    // Nor is a 422 body: it names a photo that couldn't be read as a receipt.
+    if (response.status === 422 && isRecognitionFailure(body)) {
+      throw new RecognitionFailedError(body.code);
+    }
+    // With no error text worth showing (a 5xx, an empty body), the page's
+    // errorMessage(err, t("errors.uploadFailed")) shows its translated
     // fallback instead.
     throwForFailedResponse(response.status, body);
   }

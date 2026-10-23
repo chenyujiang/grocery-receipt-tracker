@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/AuthProvider";
 import { AiAccessRefusedError, SUPPORT_EMAIL } from "@/lib/aiAccessRefusal";
 import { FREE_TRIAL_LIMIT } from "@/lib/aiAccessPolicy";
 import { UnreadablePhotoError } from "@/lib/imageResize";
+import { RecognitionFailedError } from "@/lib/recognitionFailure";
 import { renderInZh } from "@/test/renderInZh";
 import { useLanguage } from "@/lib/LanguageProvider";
 import ReceiptUpload from "@/pages/ReceiptUpload";
@@ -113,6 +114,17 @@ describe("ReceiptUpload", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "无法读取这张照片。请换一张，或把相机格式从 HEIC 改为 JPEG（iPhone：设置 > 相机 > 格式）。"
+    );
+  });
+
+  it("tells the user how to retake a receipt too long to read in one go, in the chosen language", async () => {
+    vi.mocked(uploadReceipt).mockRejectedValue(new RecognitionFailedError("receipt_too_long"));
+
+    renderInZh(<ReceiptUpload />);
+    await userEvent.upload(screen.getByLabelText(/拍照|选择图片/, { selector: "input" }), makeFile());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "这张小票太长，无法一次识别。请分成上下两半分别拍照。"
     );
   });
 

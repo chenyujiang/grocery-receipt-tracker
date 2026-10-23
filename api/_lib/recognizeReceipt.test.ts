@@ -11,6 +11,7 @@ vi.mock("./anthropicClient", () => ({
 
 import { anthropicClient } from "./anthropicClient";
 import { recognizeReceipt } from "./recognizeReceipt";
+import { RecognitionFailedError } from "../../src/lib/recognitionFailure.js";
 
 function mockClaudeResponse(parsed: unknown, usage = { input_tokens: 1200, output_tokens: 300 }) {
   vi.mocked(anthropicClient.messages.create).mockResolvedValue({
@@ -173,7 +174,7 @@ describe("recognizeReceipt", () => {
         mediaType: "image/jpeg",
         existingProducts: [],
       })
-    ).rejects.toThrow(/couldn't read this as a grocery receipt/i);
+    ).rejects.toEqual(new RecognitionFailedError("receipt_incomplete"));
   });
 
   it("throws a clear error when Claude couldn't find a valid date on the photo", async () => {
@@ -185,7 +186,7 @@ describe("recognizeReceipt", () => {
         mediaType: "image/jpeg",
         existingProducts: [],
       })
-    ).rejects.toThrow(/couldn't read this as a grocery receipt/i);
+    ).rejects.toEqual(new RecognitionFailedError("receipt_unreadable"));
   });
 
   it("throws a clear error when Claude found no line items", async () => {
@@ -197,7 +198,7 @@ describe("recognizeReceipt", () => {
         mediaType: "image/jpeg",
         existingProducts: [],
       })
-    ).rejects.toThrow(/couldn't read this as a grocery receipt/i);
+    ).rejects.toEqual(new RecognitionFailedError("receipt_unreadable"));
   });
 
   it("includes the circle's existing products in the prompt so Claude can suggest a match", async () => {
@@ -279,6 +280,6 @@ describe("recognizeReceipt on a receipt too long for one response", () => {
         mediaType: "image/jpeg",
         existingProducts: [],
       })
-    ).rejects.toThrow(/too long to read in one go/i);
+    ).rejects.toEqual(new RecognitionFailedError("receipt_too_long"));
   });
 });

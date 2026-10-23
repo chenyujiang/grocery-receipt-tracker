@@ -23,6 +23,7 @@ import {
 } from "@/lib/receipts";
 import type { DraftItem } from "@/lib/receipts";
 import { AiAccessRefusedError } from "@/lib/aiAccessRefusal";
+import { RecognitionFailedError } from "@/lib/recognitionFailure";
 import { errorMessage, UnexplainedError } from "@/lib/errorMessage";
 
 function makeFile(content: string, type: string) {
@@ -153,6 +154,47 @@ describe("uploadReceipt", () => {
     expect(err).toBeInstanceOf(UnexplainedError);
     expect(err).toHaveProperty("message", "Request failed with status 504");
     expect(errorMessage(err, "上传失败")).toBe("上传失败");
+  });
+
+  // A 5xx body is the server describing its own failure in English, so the
+  // caller's translated fallback shows instead, as for the admin routes.
+  it("leaves the caller's translated fallback to show on a server failure", async () => {
+    installFakeSupabase(supabase, {
+      auth: { getSession: { data: { session: { access_token: "tok-1" } }, error: null } },
+    });
+    vi.mocked(resizeImageForUpload).mockResolvedValue({
+      base64: "resized-base64-bytes",
+      mediaType: "image/jpeg",
+    });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: "Failed to store the receipt image" }),
+    } as never);
+
+    const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
+
+    expect(errorMessage(err, "上传失败")).toBe("上传失败");
+  });
+
+  it("throws the failure itself when the photo couldn't be read as a receipt, so the page can word it", async () => {
+    installFakeSupabase(supabase, {
+      auth: { getSession: { data: { session: { access_token: "tok-1" } }, error: null } },
+    });
+    vi.mocked(resizeImageForUpload).mockResolvedValue({
+      base64: "resized-base64-bytes",
+      mediaType: "image/jpeg",
+    });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: () => Promise.resolve({ code: "receipt_unreadable" }),
+    } as never);
+
+    const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(RecognitionFailedError);
+    expect(err).toHaveProperty("code", "receipt_unreadable");
   });
 
   it("throws the refusal itself when AI Access is exhausted, so the page can word it", async () => {

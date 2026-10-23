@@ -60,7 +60,7 @@ function PriceTrendChart({ points: allPoints }: { points: PriceTrendPoint[] }) {
 
   return (
     <>
-      <svg viewBox={`0 0 ${width} ${height}`} className="price-trend-chart" role="img" aria-label="Price trend over time">
+      <svg viewBox={`0 0 ${width} ${height}`} className="price-trend-chart" role="img" aria-label={t("product.trendChart")}>
         {storeIds.map((storeId) => {
           const line = coords.filter((c) => c.point.storeId === storeId);
           // A Store bought from once is just its point — a one-point line would

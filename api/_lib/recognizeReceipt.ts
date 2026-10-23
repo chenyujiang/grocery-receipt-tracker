@@ -1,5 +1,6 @@
 import { anthropicClient } from "./anthropicClient.js";
 import { CATEGORIES } from "../../src/types/index.js";
+import { RecognitionFailedError } from "../../src/lib/recognitionFailure.js";
 
 // Sections 6, 8, 9: one Claude call does OCR, English->Chinese translation,
 // category selection, and a product-match suggestion against the circle's
@@ -192,9 +193,7 @@ export async function recognizeReceipt(
   // Cut off mid-object, the JSON would only fail to parse with a message no
   // one can act on.
   if (response.stop_reason === "max_tokens") {
-    throw new Error(
-      "This receipt is too long to read in one go — try photographing it in two halves."
-    );
+    throw new RecognitionFailedError("receipt_too_long");
   }
 
   const textBlock = response.content.find((block) => block.type === "text");
@@ -208,9 +207,7 @@ export async function recognizeReceipt(
   try {
     parsed = JSON.parse(textBlock.text) as ParsedReceipt;
   } catch {
-    throw new Error(
-      "Couldn't read this as a grocery receipt — the recognition result came back incomplete. Try again, or photograph a shorter section of the receipt."
-    );
+    throw new RecognitionFailedError("receipt_incomplete");
   }
 
   // Claude's JSON schema constrains shape, not content — an unreadable or
@@ -219,9 +216,7 @@ export async function recognizeReceipt(
   // "invalid input syntax for type date" instead of a message anyone can
   // act on. Catch it here instead, before it ever reaches saveDraftReceipt.
   if (!DATE_PATTERN.test(parsed.purchase_date) || parsed.items.length === 0) {
-    throw new Error(
-      "Couldn't read this as a grocery receipt — no valid date or line items found. Try a clearer photo of the whole receipt."
-    );
+    throw new RecognitionFailedError("receipt_unreadable");
   }
 
   // Ticket 34: the schema only makes matched_product_id a string, so an id
