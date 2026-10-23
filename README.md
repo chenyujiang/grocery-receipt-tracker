@@ -32,7 +32,7 @@ Schema (`supabase/migrations/`) mirrors spec.md Section 5: `circles`, `profiles`
 
 ## AI access control
 
-`user_ai_access` tracks Claude API access **per user**, not globally: a brand-new user gets 5 free successful recognition calls (count-based), then needs a global admin to grant them a dollar-based credit (default $1, or custom) via the admin dashboard. Granting is always a reset (zeroes spend, sets a fresh cap), never a top-up, and nothing resets automatically. `api/receipts/recognize.ts` checks this before every OCR call and refuses with 402 once a user is over their allowance. The model is pinned to **Claude Haiku 4.5** (`claude-haiku-4-5`) for cost — structured extraction doesn't need Opus/Sonnet-tier pricing.
+`user_ai_access` tracks Claude API access **per user**, not globally: a brand-new user gets 5 free successful recognition calls (count-based), then needs a global admin to grant them a dollar-based credit (default $1, or custom) via the admin dashboard. Granting is always a reset (zeroes spend, sets a fresh cap), never a top-up, and nothing resets automatically. `api/receipts/recognize.ts` reserves the call atomically in Postgres before every OCR call (`reserve_ai_call`, which creates the user's default row on first use and counts a trial call up front), refusing with 402 once a user is over their allowance; afterwards it either records the call's cost (`record_ai_spend`) or, if Claude didn't answer, hands the trial call back (`release_ai_call`) — so a failed call still costs nothing (issue 37). The model is pinned to **Claude Haiku 4.5** (`claude-haiku-4-5`) for cost — structured extraction doesn't need Opus/Sonnet-tier pricing.
 
 ## Admin dashboard
 
@@ -87,7 +87,7 @@ npm run dev
 
 ## AI 额度控制
 
-`user_ai_access` 是**按用户**追踪 Claude API 访问权限的，不是全局的：全新用户有 5 次免费成功识别（按次数算），用完之后需要全局管理员通过管理后台分配一份按金额算的额度（默认 $1，或自定义）。分配额度永远是重置（清零已用、设新上限），不是累加充值，也不会自动重置。`api/receipts/recognize.ts` 在每次识别调用前都会检查，一旦超出额度就返回 402 拒绝。模型固定为 **Claude Haiku 4.5**（`claude-haiku-4-5`），出于成本考虑——结构化提取任务不需要 Opus/Sonnet 级别的定价。
+`user_ai_access` 是**按用户**追踪 Claude API 访问权限的，不是全局的：全新用户有 5 次免费成功识别（按次数算），用完之后需要全局管理员通过管理后台分配一份按金额算的额度（默认 $1，或自定义）。分配额度永远是重置（清零已用、设新上限），不是累加充值，也不会自动重置。`api/receipts/recognize.ts` 在每次识别调用前都会在 Postgres 里原子地预占这次调用（`reserve_ai_call`：用户第一次使用时建一行默认值，并提前计入一次试用），一旦超出额度就返回 402 拒绝；调用结束后，要么记下这次的花费（`record_ai_spend`），要么在 Claude 没有回应时退回这次试用（`release_ai_call`）——所以失败的调用依然不计（issue 37）。模型固定为 **Claude Haiku 4.5**（`claude-haiku-4-5`），出于成本考虑——结构化提取任务不需要 Opus/Sonnet 级别的定价。
 
 ## 管理后台
 
