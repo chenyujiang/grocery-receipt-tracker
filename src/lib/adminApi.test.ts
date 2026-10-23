@@ -7,6 +7,7 @@ vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 
 import { supabase } from "@/lib/supabaseClient";
 import { installFakeSupabase } from "@/test/fakeSupabase";
+import { errorMessage } from "@/lib/errorMessage";
 import {
   fetchAdminUsers,
   grantAdminCredit,
@@ -116,5 +117,20 @@ describe("adminApi", () => {
     } as never);
 
     await expect(fetchAdminUsers()).rejects.toThrow("not found");
+  });
+
+  // A 5xx body is the server describing its own failure in English ("Failed
+  // to load users"), not something the admin can act on — so it must leave
+  // the caller's translated t("errors.…") fallback to show instead.
+  it("throws an error with no message on a server failure, so the caller's fallback shows", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: "Failed to load users" }),
+    } as never);
+
+    const err = await fetchAdminUsers().catch((e: unknown) => e);
+
+    expect(errorMessage(err, "加载用户失败")).toBe("加载用户失败");
   });
 });

@@ -54,6 +54,13 @@ async function authorizedFetch(path: string, options: RequestInit = {}): Promise
   });
 
   if (!response.ok) {
+    // A 5xx body is the server describing its own failure, in English, with
+    // nothing the admin can act on — so throw without a message and let the
+    // caller's errorMessage(err, t("errors.…")) show its translated fallback.
+    // A 4xx body says what was wrong with the request, and is kept.
+    if (response.status >= 500) {
+      throw new Error("");
+    }
     const body = await response.json().catch(() => null);
     throw new Error(body?.error ?? `Request failed with status ${response.status}`);
   }
