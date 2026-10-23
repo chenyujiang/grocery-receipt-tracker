@@ -252,8 +252,11 @@ export default function AdminDashboard() {
       load();
     } catch (err) {
       // Kept out of `error`, which hides the whole roster: a failed merge should
-      // leave the selection on screen to retry or adjust. merge_users_into_new_circle
-      // refuses a multi-member circle, and that reason is worth reading.
+      // leave the selection on screen to retry or adjust. A refused merge only
+      // shows the errors.mergeUsers fallback: api/admin/circles/merge.ts answers
+      // every failure of the merge itself with the same generic 500, so when
+      // merge_users_into_new_circle refuses a user from a multi-member circle,
+      // that reason never gets here.
       setMergeError(errorMessage(err, t("errors.mergeUsers")));
     } finally {
       setMerging(false);
