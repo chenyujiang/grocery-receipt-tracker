@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./supabaseAdmin.js";
 import { FREE_TRIAL_LIMIT } from "./userAiAccess.js";
 import type { Role } from "../../src/types/index.js";
+import { DEFAULT_GRANT_USD } from "../../src/lib/defaultGrant.js";
 
 // Issue 15: the three operations the admin dashboard needs — list every
 // user across every circle, grant a user real dollar credit, and ban/unban
@@ -22,9 +23,6 @@ export interface AdminUserRow {
   credit: AdminUserCredit;
 }
 
-// src/lib/defaultGrant.ts's DEFAULT_GRANT_USD mirrors this to label the button;
-// adminUsers.test.ts checks the two agree.
-const DEFAULT_CAP_USD = 1.0;
 // Supabase's ban API takes a duration string, not a boolean — ~100 years is
 // effectively indefinite until an admin unbans.
 const BAN_DURATION = "876000h";
@@ -83,7 +81,7 @@ export async function listAdminUsers(): Promise<AdminUserRow[]> {
 // Issue 15 decision 4: granting credit is a reset, not a top-up — always
 // zeroes spent_usd and marks the free trial as fully used, graduating the
 // user out of trial mode for good.
-export async function grantCredit(userId: string, capUsd: number = DEFAULT_CAP_USD): Promise<void> {
+export async function grantCredit(userId: string, capUsd: number = DEFAULT_GRANT_USD): Promise<void> {
   const { error } = await supabaseAdmin.from("user_ai_access").upsert({
     user_id: userId,
     free_trial_calls_used: FREE_TRIAL_LIMIT,
