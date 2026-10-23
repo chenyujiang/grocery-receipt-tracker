@@ -25,6 +25,9 @@ vi.mock("@/lib/circleActions", () => ({
   removeMember: vi.fn(),
   dissolveCircle: vi.fn(),
 }));
+// The real adminApi below imports supabaseClient, which throws at load time
+// without the VITE_SUPABASE_* env vars (as in CI).
+vi.mock("@/lib/supabaseClient", () => ({ supabase: {} }));
 vi.mock("@/lib/adminApi", async () => {
   const actual = await vi.importActual<typeof import("@/lib/adminApi")>("@/lib/adminApi");
   return { ...actual, isGlobalAdmin: vi.fn() };
