@@ -16,9 +16,19 @@ React + TypeScript + Vite (frontend), Vercel Serverless Functions in `/api` (bac
 
 Commands: `npm run dev`, `npm run build`, `npm run typecheck`, `npm run lint`, `npm test` (vitest run). A Husky pre-commit hook (`.husky/pre-commit`, installed by `npm install`'s `prepare` script) runs lint, typecheck, and the tests, so a commit that fails any of them doesn't land — fix the failure rather than skipping it with `--no-verify`.
 
-`eslint.config.js` enforces three of the conventions below mechanically, outside tests: no `instanceof Error` (Error handling), no literal `errorMessage` fallback, and no user-visible JSX text or `aria-label`/`title`/`placeholder`/`alt` literal containing a word (spec Section 7 — separators like `·` `—` `$` are fine). It also bans runtime `@/` imports in every `src` file `/api` loads, worked out by following `api/`'s relative imports, since Node on Vercel can't resolve the alias.
+`eslint.config.js` enforces three of the conventions below mechanically, outside tests: no `instanceof Error` (Error handling), no literal `errorMessage` fallback, and no user-visible JSX text or `aria-label`/`title`/`placeholder`/`alt` literal containing a word (spec Section 7 — separators like `·` `—` `$` are fine). It also enforces the import rules in "Code `/api` loads at runtime" below.
 
 `tsc -b` spans three projects — `tsconfig.app.json` (`src`), `tsconfig.node.json` (`vite.config.ts`), and `tsconfig.api.json` (`api`) — so `typecheck` and `build` both cover the serverless functions. A new top-level directory needs its own project here, or it silently goes unchecked. `app` and `api` both extend `tsconfig.base.json`, which owns the strictness flags, module resolution, and the `@/*` path alias: put a rule that should hold everywhere there, so the frontend's settings and the functions' can't drift apart.
+
+### Code `/api` loads at runtime
+
+Vercel runs the functions in `api/` under Node's own ESM loader (`package.json` is `"type": "module"`), not Vite — and that includes every `src` file they import, transitively (about a dozen `src` files today, e.g. `src/lib/purchaseHistory.ts`, `lowStockAlerts.ts`, `recognitionFailure.ts`). Each such file must:
+
+- **End every relative import in `.js`** (`"./units.js"`, `"../_lib/userAiAccess.js"`; a directory is `"./dir/index.js"`). Node won't guess an extension, and `moduleResolution: "bundler"` means tsc won't complain — a missing one only shows up on Vercel as `ERR_MODULE_NOT_FOUND` (commit `bb55a2c`). Enforced by lint.
+- **Import other `src` code relatively, never through `@/`** — Node doesn't know the alias. `import type` from `@/` is fine; it's erased. Enforced by lint.
+- **Stay off `import.meta.env` and the DOM** — so never import `supabaseClient.ts` (take a `SupabaseClient<Database>` parameter instead, as `purchaseHistory.ts` does), and no `window`/`document`/`File`. Enforced by typecheck: `tsconfig.api.json` checks these files with Node types only.
+
+Lint finds these files itself (`filesVercelLoads()` in `eslint.config.js` follows `api/`'s relative imports), so a new import from `api/` is covered as soon as it's written. Tests are exempt — vitest resolves both the alias and bare specifiers.
 
 ## Testing
 
