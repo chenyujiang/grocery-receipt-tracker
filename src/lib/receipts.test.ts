@@ -101,12 +101,15 @@ describe("uploadReceipt", () => {
     );
   });
 
-  it("throws when there is no active session", async () => {
+  it("throws an UnexplainedError when there is no active session", async () => {
     installFakeSupabase(supabase, {
       auth: { getSession: { data: { session: null }, error: null } },
     });
 
-    await expect(uploadReceipt(makeFile("x", "image/jpeg"))).rejects.toThrow("Not signed in");
+    const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UnexplainedError);
+    expect(err).toHaveProperty("message", "Not signed in");
     expect(fetch).not.toHaveBeenCalled();
     expect(resizeImageForUpload).not.toHaveBeenCalled();
   });
@@ -148,7 +151,7 @@ describe("uploadReceipt", () => {
     const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(UnexplainedError);
-    expect(err).toHaveProperty("message", "Upload failed with status 504");
+    expect(err).toHaveProperty("message", "Request failed with status 504");
     expect(errorMessage(err, "上传失败")).toBe("上传失败");
   });
 

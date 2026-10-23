@@ -119,6 +119,33 @@ describe("adminApi", () => {
     await expect(fetchAdminUsers()).rejects.toThrow("not found");
   });
 
+  // A 4xx with no error text (requireGlobalAdmin's empty 401/404 body once
+  // the session has expired) has nothing to show either.
+  it("throws an UnexplainedError on a request failure with no error text", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({}),
+    } as never);
+
+    const err = await fetchAdminUsers().catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UnexplainedError);
+    expect(err).toHaveProperty("message", "Request failed with status 401");
+    expect(errorMessage(err, "加载用户失败")).toBe("加载用户失败");
+  });
+
+  it("throws an UnexplainedError when not signed in", async () => {
+    installFakeSupabase(supabase, {
+      auth: { getSession: { data: { session: null }, error: null } },
+    });
+
+    const err = await fetchAdminUsers().catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UnexplainedError);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   // A 5xx body is the server describing its own failure in English ("Failed
   // to load users"), not something the admin can act on — so it must leave
   // the caller's translated t("errors.…") fallback to show instead.

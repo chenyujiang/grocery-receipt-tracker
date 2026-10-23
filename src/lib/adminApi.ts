@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { Role } from "@/types";
-import { UnexplainedError } from "@/lib/errorMessage";
+import { throwForFailedResponse, UnexplainedError } from "@/lib/errorMessage";
 
 // Issue 15 decision 2: a non-obvious, unguessable path — not a substitute
 // for the real is-admin check (isGlobalAdmin/RequireGlobalAdmin), just an
@@ -42,7 +42,7 @@ export interface AdminUserRow {
 async function authorizedFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const { data: sessionData, error } = await supabase.auth.getSession();
   if (error || !sessionData.session) {
-    throw error ?? new Error("Not signed in");
+    throw error ?? new UnexplainedError("Not signed in");
   }
 
   const response = await fetch(path, {
@@ -58,12 +58,11 @@ async function authorizedFetch(path: string, options: RequestInit = {}): Promise
     // A 5xx body is the server describing its own failure, in English, with
     // nothing the admin can act on — so the caller's errorMessage(err,
     // t("errors.…")) shows its translated fallback instead. A 4xx body says
-    // what was wrong with the request, and is kept.
+    // what was wrong with the request, and is kept when there is one.
     if (response.status >= 500) {
       throw new UnexplainedError(`Request failed with status ${response.status}`);
     }
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.error ?? `Request failed with status ${response.status}`);
+    throwForFailedResponse(response.status, await response.json().catch(() => null));
   }
 
   return response;

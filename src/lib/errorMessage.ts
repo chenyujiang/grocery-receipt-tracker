@@ -30,3 +30,17 @@ export function errorMessage(err: unknown, fallback: string): string {
 // the console (the status code); errorMessage shows the caller's translated
 // fallback in its place.
 export class UnexplainedError extends Error {}
+
+// The error for a failed fetch to our own /api routes, whose failure body is
+// { error: string }: that text when there is some, else an UnexplainedError
+// so the caller's translated fallback shows.
+export function throwForFailedResponse(status: number, body: unknown): never {
+  const text =
+    body && typeof body === "object" && "error" in body && typeof body.error === "string"
+      ? body.error.trim()
+      : "";
+  if (!text) {
+    throw new UnexplainedError(`Request failed with status ${status}`);
+  }
+  throw new Error(text);
+}

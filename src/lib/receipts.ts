@@ -16,7 +16,7 @@ import { resizeImageForUpload } from "@/lib/imageResize";
 import { bilingualName, type BilingualName } from "@/lib/bilingualName";
 import { receiptStoreName, storeName, STORE_NAMES_EMBED, type StoreNames } from "@/lib/storeName";
 import { AiAccessRefusedError, isAiAccessRefusal } from "@/lib/aiAccessRefusal";
-import { UnexplainedError } from "@/lib/errorMessage";
+import { throwForFailedResponse, UnexplainedError } from "@/lib/errorMessage";
 import type { Database } from "@/types/database.types";
 
 export interface UploadReceiptResult {
@@ -27,7 +27,7 @@ export interface UploadReceiptResult {
 export async function uploadReceipt(file: File): Promise<UploadReceiptResult> {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !sessionData.session) {
-    throw sessionError ?? new Error("Not signed in");
+    throw sessionError ?? new UnexplainedError("Not signed in");
   }
 
   // Downscaled to a JPEG here (phone camera photos are often too large for
@@ -49,13 +49,10 @@ export async function uploadReceipt(file: File): Promise<UploadReceiptResult> {
     if (response.status === 402 && isAiAccessRefusal(body)) {
       throw new AiAccessRefusedError(body);
     }
-    // No error text from the server (a platform 5xx, an empty body): the
+    // With no error text from the server (a platform 5xx, an empty body), the
     // page's errorMessage(err, t("errors.uploadFailed")) shows its translated
-    // fallback instead, as adminApi.ts does.
-    if (!body?.error) {
-      throw new UnexplainedError(`Upload failed with status ${response.status}`);
-    }
-    throw new Error(body.error);
+    // fallback instead.
+    throwForFailedResponse(response.status, body);
   }
 
   return (await response.json()) as UploadReceiptResult;
