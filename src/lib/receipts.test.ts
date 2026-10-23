@@ -530,6 +530,15 @@ const RICCARTON_FOUND = {
 };
 
 describe("confirmReceipt", () => {
+  it("throws an UnexplainedError when not signed in", async () => {
+    installFakeSupabase(supabase, { auth: { getUser: { data: { user: null }, error: null } } });
+
+    const err = await confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UnexplainedError);
+    expect(err).toHaveProperty("message", "Not signed in");
+  });
+
   it("points the confirmed receipt at the Store the user confirmed, in the same write as the status", async () => {
     const db = installFakeSupabase(supabase, {
       auth: SIGNED_IN,
@@ -930,6 +939,17 @@ const AT_HORNBY_RECEIPT = {
 };
 
 describe("editConfirmedReceipt", () => {
+  it("throws an UnexplainedError when not signed in", async () => {
+    installFakeSupabase(supabase, { auth: { getUser: { data: { user: null }, error: null } } });
+
+    const err = await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], HORNBY).catch(
+      (e: unknown) => e
+    );
+
+    expect(err).toBeInstanceOf(UnexplainedError);
+    expect(err).toHaveProperty("message", "Not signed in");
+  });
+
   it("writes each item's edited fields without touching status or alerts", async () => {
     // No `alerts` prepared: reaching for it at all would throw.
     const db = installFakeSupabase(supabase, {

@@ -2,7 +2,7 @@ import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { uploadReceipt } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
-import { useAuth } from "@/lib/AuthProvider";
+import { useAuth, type AuthSession } from "@/lib/AuthProvider";
 import type { Translate } from "@/lib/i18n";
 import { creditAmounts } from "@/lib/creditAmounts";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -29,7 +29,7 @@ function refusalMessage(
 // to grant credit to without asking back — or leaves it out, rather than
 // sending blank lines, when there's no session (or no email) to read it from.
 function creditRequestDraft(
-  session: { email: string | null; userId: string } | null,
+  session: Pick<AuthSession, "email" | "userId"> | null,
   t: Translate
 ): string {
   const subject = encodeURIComponent(t("upload.creditRequestSubject"));

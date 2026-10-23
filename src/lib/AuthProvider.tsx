@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-interface AuthSession {
+export interface AuthSession {
   userId: string;
   email: string | null;
   accessToken: string;

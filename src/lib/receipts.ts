@@ -306,7 +306,7 @@ export async function confirmReceipt(
     error: userError,
   } = await supabase.auth.getUser();
   if (userError || !user) {
-    throw userError ?? new Error("Not signed in");
+    throw userError ?? new UnexplainedError("Not signed in");
   }
 
   const { data: existingReceipt, error: fetchError } = await supabase
@@ -428,7 +428,7 @@ export async function editConfirmedReceipt(
     error: userError,
   } = await supabase.auth.getUser();
   if (userError || !user) {
-    throw userError ?? new Error("Not signed in");
+    throw userError ?? new UnexplainedError("Not signed in");
   }
 
   const { data: existingReceipt, error: fetchError } = await supabase

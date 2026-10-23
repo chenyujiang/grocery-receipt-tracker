@@ -180,7 +180,7 @@ export const translations = {
     "admin.resetCreditDefault": "Reset credit to ${amount}",
     "admin.custom": "Custom…",
     "admin.customPlaceholder": "e.g. 5.00",
-    "admin.invalidAmount": "Enter a grant amount greater than 0.",
+    "admin.invalidAmount": "Enter a credit amount greater than 0.",
     "admin.resetCredit": "Reset credit",
     "admin.ban": "Ban account",
     "admin.unban": "Unban account",
