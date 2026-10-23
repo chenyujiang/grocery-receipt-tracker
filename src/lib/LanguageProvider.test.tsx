@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { LanguageProvider, useLanguage } from "@/lib/LanguageProvider";
+import { LANGUAGE_STORAGE_KEY, LanguageProvider, useLanguage } from "@/lib/LanguageProvider";
 
 function TestConsumer() {
   const { language, setLanguage } = useLanguage();
@@ -31,7 +31,7 @@ describe("LanguageProvider / useLanguage", () => {
   });
 
   it("reads a previously stored language preference", () => {
-    localStorage.setItem("language", "zh");
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, "zh");
 
     render(
       <LanguageProvider>
@@ -52,6 +52,6 @@ describe("LanguageProvider / useLanguage", () => {
     await userEvent.click(screen.getByRole("button", { name: /switch to zh/i }));
 
     expect(screen.getByText("Current: zh")).toBeInTheDocument();
-    expect(localStorage.getItem("language")).toBe("zh");
+    expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("zh");
   });
 });
