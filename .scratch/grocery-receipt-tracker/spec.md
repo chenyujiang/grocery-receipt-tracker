@@ -339,7 +339,7 @@ A global-admin identity, separate from the per-circle `owner`/`member` roles in 
 
 **Migration of existing users**: everyone who already has an account is grandfathered directly into the dollar-cap model (default $1, or set per-user by the admin), skipping the new-user free-trial gate entirely.
 
-**UI direction**: settled via `/prototype` — a "needs attention" queue surfacing exactly who is blocked and why, followed by the full roster grouped by circle in collapsible sections, each user shown as a card (not a plain table row) with their credit state and actions (Grant $1 / custom amount / ban-unban) always visible.
+**UI direction**: settled via `/prototype` — a "needs attention" queue surfacing exactly who is blocked and why, followed by the full roster grouped by circle in collapsible sections, each user shown as a card (not a plain table row) with their credit state and actions (Reset credit to $1 / custom amount / ban-unban) always visible.
 
 **Amended post-launch — circle merging**: with invite links dropped (Section 4's amendment), the dashboard gained a third admin action: multi-select several standalone-circle users in the roster and merge them into one brand-new circle. Backed by `merge_users_into_new_circle`, a service-role-only Postgres function that atomically moves the selected users' products/receipts/alerts to the new circle, sets the first-selected user as owner and the rest as members, and deletes the now-empty old circles. It refuses the merge if any selected user's current circle already has other members — `Product` rows are circle-level, not per-user, so pulling one member out of an already-shared circle would strand the rest of that circle's data with no owner action able to recover it.
 
@@ -712,7 +712,7 @@ Mode is derived from `cap_usd`, not a separate enum: `null` → free-trial mode 
 
 **老用户迁移**：所有已经存在账号的用户都直接迁移进按金额算的模型（默认 $1，或管理员逐个手动设置），完全跳过新用户的免费试用限制。
 
-**UI 方向**：通过 `/prototype` 定下来——最上面是"需要处理"队列，直接标出谁被卡住了、为什么；下面是按圈子分组、可折叠的完整名单，每个用户都展示成一张卡片（而不是普通表格行），额度状态和操作（给$1/自定义金额/封禁-解封）都是一直可见的。
+**UI 方向**：通过 `/prototype` 定下来——最上面是"需要处理"队列，直接标出谁被卡住了、为什么；下面是按圈子分组、可折叠的完整名单，每个用户都展示成一张卡片（而不是普通表格行），额度状态和操作（额度重置为 $1/自定义金额/封禁-解封）都是一直可见的。
 
 **上线后修订——圈子合并**：邀请链接放弃之后（见第 4 节修订），后台又加了第三个管理员操作：在名单里多选几个各自独立圈子的用户，把他们合并成一个全新的圈子。底层是 `merge_users_into_new_circle`，一个只有 service role 能调用的 Postgres 函数，原子性地把选中用户的商品/小票/提醒都搬到新圈子，第一个被选中的用户设为 owner，其余设为 member，然后删掉变空的旧圈子。如果被选中的用户当前所在的圈子已经有其他成员，这个函数会拒绝合并——因为 `Product` 是圈子级别的数据，不是按用户区分的，把一个成员从已经共用的圈子里单独拉走，会导致这个圈子剩下的数据没人能找回来。
 

@@ -43,7 +43,7 @@ Needs deciding:
 
 ## UI Prototype
 
-Resolved via `/prototype` (see mattpocock-skills prototype/UI.md): three structurally different layouts were built with mock data — **A** (dense admin table), **B** (card grid matching the app's existing `.receipt-card` look), **C** (a "needs attention" triage queue + circle-grouped roster with click-to-expand rows). After reviewing all three, the chosen direction is **C's structure rendered with B's card as the display unit**: a "needs attention" queue up top surfacing exactly who is blocked and why (free trial used / cap hit) with one-click "Grant $1" already visible on the card, followed by the full roster grouped by circle in collapsible sections, each user shown as a full card (name/email, circle/role/joined date, credit state, Grant $1 / custom-amount / ban-unban actions) rather than a plain row needing a separate expand step.
+Resolved via `/prototype` (see mattpocock-skills prototype/UI.md): three structurally different layouts were built with mock data — **A** (dense admin table), **B** (card grid matching the app's existing `.receipt-card` look), **C** (a "needs attention" triage queue + circle-grouped roster with click-to-expand rows). After reviewing all three, the chosen direction is **C's structure rendered with B's card as the display unit**: a "needs attention" queue up top surfacing exactly who is blocked and why (free trial used / cap hit) with one-click "Reset credit to $1" already visible on the card, followed by the full roster grouped by circle in collapsible sections, each user shown as a full card (name/email, circle/role/joined date, credit state, Reset credit to $1 / custom-amount / ban-unban actions) rather than a plain row needing a separate expand step.
 
 The full prototype (all four variants, switchable via `?variant=`) is kept under the git tag `prototype/admin-dashboard-ui` (commit `a7061f5`), not on main — main only keeps this written decision. It used to be a throwaway branch of the same name; the branch was deleted and replaced by the tag. Check out that tag (`git checkout prototype/admin-dashboard-ui`) if the direction needs revisiting instead of rebuilding from scratch.
 
@@ -121,7 +121,7 @@ on conflict (user_id) do nothing;
 - No row, or `cap_usd is null`: free-trial mode. If `free_trial_used`, refuse (point the user at the `mailto:` admin-contact flow, decision 7). Otherwise allow the call; on success, upsert `{ free_trial_used: true }`.
 - `cap_usd is not null`: dollar-cap mode. If `spent_usd >= cap_usd`, refuse (same `mailto:` flow). Otherwise allow; on success, `spent_usd += actualCostUsd` (same read-then-write pattern `recordSpend` already uses — fine at this scale, per its own comment).
 
-**Admin grant-credit operation** (upsert, always resets `spent_usd` to 0 and marks the trial as used, per decision 4's "reset to a fresh allowance" semantics — `$capUsd` defaults to `1.00` for the one-click "Grant $1" action, or any admin-entered custom amount):
+**Admin grant-credit operation** (upsert, always resets `spent_usd` to 0 and marks the trial as used, per decision 4's "reset to a fresh allowance" semantics — `$capUsd` defaults to `1.00` for the one-click "Reset credit to $1" action, or any admin-entered custom amount):
 
 ```sql
 insert into user_ai_access (user_id, free_trial_used, cap_usd, spent_usd, updated_at)
@@ -190,7 +190,7 @@ on conflict (user_id) do update
 
 ## UI 原型
 
-通过 `/prototype` 解决（见 mattpocock-skills prototype/UI.md）：用模拟数据搭了三个结构完全不同的方案——**A**（密集的后台管理表格）、**B**（复用 app 现有 `.receipt-card` 样式的卡片列表）、**C**（"需要处理"分诊队列 + 按圈子分组、点击展开的名单）。三个都过了一遍之后，最终选定的方向是**用 C 的结构，配上 B 的卡片作为展示单元**：最上面是"需要处理"队列，直接标出谁被卡住了、为什么（免费试用用完/额度打满），卡片上已经能一键"给$1"；下面是按圈子分组、可折叠的完整名单，每个用户都是一张完整卡片（姓名/邮箱、圈子/角色/加入日期、额度状态、给$1/自定义额度/封禁-解封操作），而不是 C 原来那种点一下才展开详情的简单行。
+通过 `/prototype` 解决（见 mattpocock-skills prototype/UI.md）：用模拟数据搭了三个结构完全不同的方案——**A**（密集的后台管理表格）、**B**（复用 app 现有 `.receipt-card` 样式的卡片列表）、**C**（"需要处理"分诊队列 + 按圈子分组、点击展开的名单）。三个都过了一遍之后，最终选定的方向是**用 C 的结构，配上 B 的卡片作为展示单元**：最上面是"需要处理"队列，直接标出谁被卡住了、为什么（免费试用用完/额度打满），卡片上已经能一键"额度重置为 $1"；下面是按圈子分组、可折叠的完整名单，每个用户都是一张完整卡片（姓名/邮箱、圈子/角色/加入日期、额度状态、额度重置为 $1/自定义额度/封禁-解封操作），而不是 C 原来那种点一下才展开详情的简单行。
 
 完整的原型代码（四个方案，靠 `?variant=` 切换）保存在 git tag `prototype/admin-dashboard-ui`（commit `a7061f5`）上，不在主分支——主分支只留这段文字记录的决定。它原先是同名的临时分支，分支已删除，改用这个 tag 保留。以后要重新审视这个方向的话，检出这个 tag（`git checkout prototype/admin-dashboard-ui`）看，不用从头再搭一遍。
 
@@ -266,7 +266,7 @@ on conflict (user_id) do nothing;
 - 没有这行，或者 `cap_usd` 为 null：免费试用模式。如果 `free_trial_used` 为真就拒绝（引导用户走决定7的 `mailto:` 联系管理员流程）。否则放行；调用成功后 upsert `{ free_trial_used: true }`。
 - `cap_usd` 不为 null：按金额算模式。如果 `spent_usd >= cap_usd` 就拒绝（同样走 `mailto:` 流程）。否则放行；调用成功后 `spent_usd += 实际花费`（跟 `recordSpend` 现在一样，先读后写，按它自己注释里说的，这个规模下够用）。
 
-**管理员"给额度"操作**（upsert，永远把 `spent_usd` 清零并把免费试用标记为已用，对应决定4"重置成一份新额度"的语义——一键"给$1"时 `$capUsd` 默认 `1.00`，也可以是管理员输入的任意自定义金额）：
+**管理员"给额度"操作**（upsert，永远把 `spent_usd` 清零并把免费试用标记为已用，对应决定4"重置成一份新额度"的语义——一键"额度重置为 $1"时 `$capUsd` 默认 `1.00`，也可以是管理员输入的任意自定义金额）：
 
 ```sql
 insert into user_ai_access (user_id, free_trial_used, cap_usd, spent_usd, updated_at)
