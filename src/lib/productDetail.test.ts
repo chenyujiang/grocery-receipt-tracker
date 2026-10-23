@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { installFakeSupabase } from "@/test/fakeSupabase";
 import { fetchProductDetail } from "@/lib/productDetail";
 import { UnexplainedError } from "@/lib/errorMessage";
+import { rejectionOf } from "@/test/rejectionOf";
 
 const TODAY = new Date("2026-08-05");
 
@@ -153,9 +154,8 @@ describe("fetchProductDetail", () => {
     // would throw rather than quietly return nothing.
     installFakeSupabase(supabase, { tables: { products: { data: null, error: null } } });
 
-    const err = await fetchProductDetail("missing", TODAY).catch((e: unknown) => e);
+    const err = await rejectionOf(fetchProductDetail("missing", TODAY), UnexplainedError);
 
-    expect(err).toBeInstanceOf(UnexplainedError);
     expect(err).toHaveProperty("message", "Product not found");
   });
 

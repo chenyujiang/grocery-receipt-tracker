@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { installFakeSupabase } from "@/test/fakeSupabase";
 import { signUpWithEmail, signInWithEmail, signOut } from "@/lib/auth";
 import { UnexplainedError } from "@/lib/errorMessage";
+import { rejectionOf } from "@/test/rejectionOf";
 
 // The circle/profile inserts deliberately don't chain .select() (see auth.ts's
 // comment — RETURNING would hit a not-yet-satisfiable RLS SELECT policy for a
@@ -85,9 +86,7 @@ describe("signUpWithEmail", () => {
       auth: { signUp: { data: { user: null, session: null }, error: null } },
     });
 
-    const err = await signUpWithEmail("new@example.com", "hunter2pass").catch((e: unknown) => e);
-
-    expect(err).toBeInstanceOf(UnexplainedError);
+    await rejectionOf(signUpWithEmail("new@example.com", "hunter2pass"), UnexplainedError);
   });
 });
 
@@ -128,9 +127,7 @@ describe("signInWithEmail", () => {
       auth: { signInWithPassword: { data: { user: null, session: null }, error: null } },
     });
 
-    const err = await signInWithEmail("returning@example.com", "hunter2pass").catch((e: unknown) => e);
-
-    expect(err).toBeInstanceOf(UnexplainedError);
+    await rejectionOf(signInWithEmail("returning@example.com", "hunter2pass"), UnexplainedError);
   });
 
   it("creates a circle and an owner profile if the signed-in user doesn't have one yet", async () => {

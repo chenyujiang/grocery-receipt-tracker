@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { createFakeSupabase } from "@/test/fakeSupabase";
 import { listStores, resolveStore } from "@/lib/stores";
 import { UnexplainedError } from "@/lib/errorMessage";
+import { rejectionOf } from "@/test/rejectionOf";
 
 describe("resolveStore", () => {
   const hornbyRow = {
@@ -168,12 +169,11 @@ describe("resolveStore", () => {
   it("refuses a chain that's blank, without looking up or creating a Store", async () => {
     const db = createFakeSupabase({ tables: {} });
 
-    const err = await resolveStore(db.client, "circle-1", {
+    const err = await rejectionOf(resolveStore(db.client, "circle-1", {
       chain: { en: " . ", zh: null },
       branch: { en: "Hornby", zh: null },
-    }).catch((e: unknown) => e);
+    }), UnexplainedError);
 
-    expect(err).toBeInstanceOf(UnexplainedError);
     expect(err).toHaveProperty("message", expect.stringMatching(/chain/i));
     expect(db.callsFor("stores")).toEqual([]);
   });

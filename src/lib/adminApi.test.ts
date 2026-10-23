@@ -15,6 +15,7 @@ import {
   isGlobalAdmin,
   mergeUsersIntoCircle,
 } from "@/lib/adminApi";
+import { rejectionOf } from "@/test/rejectionOf";
 
 // The `fetch` casts below are the HTTP boundary, not the Supabase one —
 // out of scope for the shared fake.
@@ -128,9 +129,8 @@ describe("adminApi", () => {
       json: () => Promise.resolve({}),
     } as never);
 
-    const err = await fetchAdminUsers().catch((e: unknown) => e);
+    const err = await rejectionOf(fetchAdminUsers(), UnexplainedError);
 
-    expect(err).toBeInstanceOf(UnexplainedError);
     expect(err).toHaveProperty("message", "Request failed with status 401");
     expect(errorMessage(err, "加载用户失败")).toBe("加载用户失败");
   });
@@ -140,9 +140,8 @@ describe("adminApi", () => {
       auth: { getSession: { data: { session: null }, error: null } },
     });
 
-    const err = await fetchAdminUsers().catch((e: unknown) => e);
+    await rejectionOf(fetchAdminUsers(), UnexplainedError);
 
-    expect(err).toBeInstanceOf(UnexplainedError);
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -156,9 +155,8 @@ describe("adminApi", () => {
       json: () => Promise.resolve({ error: "Failed to load users" }),
     } as never);
 
-    const err = await fetchAdminUsers().catch((e: unknown) => e);
+    const err = await rejectionOf(fetchAdminUsers(), UnexplainedError);
 
-    expect(err).toBeInstanceOf(UnexplainedError);
     expect(err).toHaveProperty("message", "Request failed with status 500");
     expect(errorMessage(err, "加载用户失败")).toBe("加载用户失败");
   });

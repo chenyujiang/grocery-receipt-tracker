@@ -25,6 +25,7 @@ import type { DraftItem } from "@/lib/receipts";
 import { AiAccessRefusedError } from "@/lib/aiAccessRefusal";
 import { RecognitionFailedError } from "@/lib/recognitionFailure";
 import { errorMessage, UnexplainedError } from "@/lib/errorMessage";
+import { rejectionOf } from "@/test/rejectionOf";
 
 function makeFile(content: string, type: string) {
   return new File([content], "receipt.jpg", { type });
@@ -107,9 +108,8 @@ describe("uploadReceipt", () => {
       auth: { getSession: { data: { session: null }, error: null } },
     });
 
-    const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
+    const err = await rejectionOf(uploadReceipt(makeFile("x", "image/jpeg")), UnexplainedError);
 
-    expect(err).toBeInstanceOf(UnexplainedError);
     expect(err).toHaveProperty("message", "Not signed in");
     expect(fetch).not.toHaveBeenCalled();
     expect(resizeImageForUpload).not.toHaveBeenCalled();
@@ -149,9 +149,8 @@ describe("uploadReceipt", () => {
       json: () => Promise.reject(new SyntaxError("Unexpected token")),
     } as never);
 
-    const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
+    const err = await rejectionOf(uploadReceipt(makeFile("x", "image/jpeg")), UnexplainedError);
 
-    expect(err).toBeInstanceOf(UnexplainedError);
     expect(err).toHaveProperty("message", "Request failed with status 504");
     expect(errorMessage(err, "上传失败")).toBe("上传失败");
   });
@@ -191,10 +190,9 @@ describe("uploadReceipt", () => {
       json: () => Promise.resolve({ code: "receipt_unreadable" }),
     } as never);
 
-    const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
+    const err = await rejectionOf(uploadReceipt(makeFile("x", "image/jpeg")), RecognitionFailedError);
 
-    expect(err).toBeInstanceOf(RecognitionFailedError);
-    expect(err).toHaveProperty("code", "receipt_unreadable");
+    expect(err.code).toBe("receipt_unreadable");
   });
 
   it("throws the refusal itself when AI Access is exhausted, so the page can word it", async () => {
@@ -212,10 +210,9 @@ describe("uploadReceipt", () => {
       json: () => Promise.resolve(refusal),
     } as never);
 
-    const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
+    const err = await rejectionOf(uploadReceipt(makeFile("x", "image/jpeg")), AiAccessRefusedError);
 
-    expect(err).toBeInstanceOf(AiAccessRefusedError);
-    expect((err as AiAccessRefusedError).refusal).toEqual(refusal);
+    expect(err.refusal).toEqual(refusal);
   });
 
   // The page formats spentUsd/capUsd with toFixed, so a 402 body that isn't a
@@ -467,9 +464,8 @@ describe("fetchReceiptDraft", () => {
     // isn't there would throw rather than pass quietly.
     installFakeSupabase(supabase, { tables: { receipts: { data: null, error: null } } });
 
-    const err = await fetchReceiptDraft("missing-receipt").catch((e: unknown) => e);
+    const err = await rejectionOf(fetchReceiptDraft("missing-receipt"), UnexplainedError);
 
-    expect(err).toBeInstanceOf(UnexplainedError);
     expect(err).toHaveProperty("message", "Receipt not found");
   });
 });
@@ -578,9 +574,8 @@ describe("confirmReceipt", () => {
   it("throws an UnexplainedError when not signed in", async () => {
     installFakeSupabase(supabase, { auth: { getUser: { data: { user: null }, error: null } } });
 
-    const err = await confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY).catch((e: unknown) => e);
+    const err = await rejectionOf(confirmReceipt("receipt-1", [SAMPLE_ITEM_UPDATE], HORNBY), UnexplainedError);
 
-    expect(err).toBeInstanceOf(UnexplainedError);
     expect(err).toHaveProperty("message", "Not signed in");
   });
 
@@ -987,11 +982,8 @@ describe("editConfirmedReceipt", () => {
   it("throws an UnexplainedError when not signed in", async () => {
     installFakeSupabase(supabase, { auth: { getUser: { data: { user: null }, error: null } } });
 
-    const err = await editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], HORNBY).catch(
-      (e: unknown) => e
-    );
+    const err = await rejectionOf(editConfirmedReceipt("receipt-1", "2026-08-05", [SAMPLE_ITEM_UPDATE], HORNBY), UnexplainedError);
 
-    expect(err).toBeInstanceOf(UnexplainedError);
     expect(err).toHaveProperty("message", "Not signed in");
   });
 
