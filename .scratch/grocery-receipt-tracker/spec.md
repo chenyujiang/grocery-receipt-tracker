@@ -329,7 +329,7 @@ A global-admin identity, separate from the per-circle `owner`/`member` roles in 
 
 **Per-user credit model** (replaces Section 3.1's old global cap): each user has an independent dollar cap and spend counter. "Granting credit" is a **reset**, not a top-up — it zeroes the user's spend counter and sets a fresh cap, defaulting to $1 on a single click, or any custom admin-entered amount. It has no relationship to what the user had before.
 
-**New-user free trial**: a brand-new user gets **`FREE_TRIAL_LIMIT` (5) free successful recognition calls** (count-based, not dollar-based — a single Haiku 4.5 call costs far less than $1, so a dollar allowance wouldn't actually cap them usefully). Only a successful call consumes one; failed/errored attempts don't. Once all 5 are used, further attempts are refused until an admin grants a real (dollar-based) credit. **Amended post-launch**: the signup flow now tells the user about this allowance directly — a one-time welcome message on the Home page right after registering, via `justSignedUp` router state set by `Auth.tsx`'s post-signup redirect.
+**New-user free trial**: a brand-new user gets **`FREE_TRIAL_LIMIT` (5) free successful recognition calls** (count-based, not dollar-based — a single Haiku 4.5 call costs far less than $1, so a dollar allowance wouldn't actually cap them usefully). Only a successful call consumes one; failed/errored attempts don't. (Since issue 37, `reserve_ai_call` counts the call up front, before Claude is called, and `release_ai_call` hands it back if Claude doesn't answer — so concurrent uploads can't overshoot the allowance, and a failure still costs nothing.) Once all 5 are used, further attempts are refused until an admin grants a real (dollar-based) credit. **Amended post-launch**: the signup flow now tells the user about this allowance directly — a one-time welcome message on the Home page right after registering, via `justSignedUp` router state set by `Auth.tsx`'s post-signup redirect.
 
 **Blocked-user messaging**: when refused (free trial spent, or dollar cap hit), the user sees a message with a `mailto:` link to the admin's email address, opening their own email client with a pre-filled draft. No backend transactional-email service is introduced.
 
@@ -365,7 +365,7 @@ Presence of a row = is a global admin. Added by hand via the Supabase SQL editor
 | `spent_usd` | Accumulated spend against `cap_usd`, default 0 |
 | `updated_at` | Last-write timestamp |
 
-Mode is derived from `cap_usd`, not a separate enum: `null` → free-trial mode (refuse if `free_trial_calls_used >= FREE_TRIAL_LIMIT`); non-null → dollar-cap mode (refuse if `spent_usd >= cap_usd`). The **absence** of a row for a `user_id` is itself meaningful — a fresh signup that's never consumed a free call. Migrating existing users inserts a row per current `profiles.user_id` with `free_trial_calls_used = 5, cap_usd = 1.00, spent_usd = 0` (grandfathered straight into dollar-cap mode, so the trial-call count is moot for them). **Amended post-launch**: the trial limit was raised from 1 to 5 (`free_trial_used boolean` → `free_trial_calls_used integer`, migration `20260809000001_user_ai_access_trial_count`).
+Mode is derived from `cap_usd`, not a separate enum: `null` → free-trial mode (refuse if `free_trial_calls_used >= FREE_TRIAL_LIMIT`); non-null → dollar-cap mode (refuse if `spent_usd >= cap_usd`). A `user_id` with no row is treated exactly like one with the default row (`free_trial_calls_used = 0, cap_usd = null, spent_usd = 0`) — a fresh signup that's never consumed a free call. Since issue 37, `reserve_ai_call` inserts that default row on a user's first recognition request, before reserving the call, and the row stays even if the call is then released. Migrating existing users inserts a row per current `profiles.user_id` with `free_trial_calls_used = 5, cap_usd = 1.00, spent_usd = 0` (grandfathered straight into dollar-cap mode, so the trial-call count is moot for them). **Amended post-launch**: the trial limit was raised from 1 to 5 (`free_trial_used boolean` → `free_trial_calls_used integer`, migration `20260809000001_user_ai_access_trial_count`).
 
 ---
 
@@ -702,7 +702,7 @@ Mode is derived from `cap_usd`, not a separate enum: `null` → free-trial mode 
 
 **按用户额度模型**（取代第 3.1 节里旧的全局总闸门）：每个用户有自己独立的美元上限和花费计数。"给额度"是**重置**，不是累加充值——把用户的花费计数清零，并设置一份新的上限，默认一键 $1，或者管理员自定义任意金额。这和用户之前的额度没有任何关系。
 
-**新用户免费试用**：全新用户拿到的是**`FREE_TRIAL_LIMIT`（5 次）成功识别调用**的免费额度（按次数算，不按金额——单次 Haiku 4.5 调用远花不到 $1，按金额算的额度根本没法有效限制次数）。只有成功的调用才会消耗一次额度，失败/报错的尝试不算。5 次用完之后，后续请求全部被拒绝，直到管理员分配一份真正的（按金额算的）额度。**上线后追加**：注册流程现在会直接告诉用户这份额度——注册成功跳回首页后会出现一条一次性的欢迎提示，靠 `Auth.tsx` 登录后跳转时带的 `justSignedUp` 路由 state 驱动。
+**新用户免费试用**：全新用户拿到的是**`FREE_TRIAL_LIMIT`（5 次）成功识别调用**的免费额度（按次数算，不按金额——单次 Haiku 4.5 调用远花不到 $1，按金额算的额度根本没法有效限制次数）。只有成功的调用才会消耗一次额度，失败/报错的尝试不算。（issue 37 之后，`reserve_ai_call` 在调用 Claude 之前就先预占这一次，Claude 没有回应时再由 `release_ai_call` 退回——所以并发上传不会超出额度，失败依然不计。）5 次用完之后，后续请求全部被拒绝，直到管理员分配一份真正的（按金额算的）额度。**上线后追加**：注册流程现在会直接告诉用户这份额度——注册成功跳回首页后会出现一条一次性的欢迎提示，靠 `Auth.tsx` 登录后跳转时带的 `justSignedUp` 路由 state 驱动。
 
 **被卡住时的提示**：用户被拒绝时（免费试用用完，或按金额算的额度用完），会看到一条提示信息和一个指向管理员邮箱的 `mailto:` 链接，点击后用自己的邮件客户端打开一封预填好的邮件草稿。不引入任何后端自动发信服务。
 
@@ -738,4 +738,4 @@ Mode is derived from `cap_usd`, not a separate enum: `null` → free-trial mode 
 | `spent_usd` | 相对 `cap_usd` 累计的花费，默认 0 |
 | `updated_at` | 最后写入时间 |
 
-模式由 `cap_usd` 推导，不单独存一个枚举：`null` → 免费试用模式（`free_trial_calls_used >= FREE_TRIAL_LIMIT` 则拒绝）；不为 null → 按金额算模式（`spent_usd >= cap_usd` 则拒绝）。某个 `user_id` **没有**对应的行，这件事本身就有意义——全新注册、一次免费识别都还没用过。迁移老用户时，给 `profiles` 里现有的每个 `user_id` 插入一行，`free_trial_calls_used = 5, cap_usd = 1.00, spent_usd = 0`（直接落地成按金额算模式，试用次数对他们已经无意义）。**上线后追加**：试用额度从 1 次提高到 5 次（`free_trial_used boolean` → `free_trial_calls_used integer`，迁移文件 `20260809000001_user_ai_access_trial_count`）。
+模式由 `cap_usd` 推导，不单独存一个枚举：`null` → 免费试用模式（`free_trial_calls_used >= FREE_TRIAL_LIMIT` 则拒绝）；不为 null → 按金额算模式（`spent_usd >= cap_usd` 则拒绝）。某个 `user_id` 没有对应的行，和有一行默认值（`free_trial_calls_used = 0, cap_usd = null, spent_usd = 0`）完全等价——全新注册、一次免费识别都还没用过。issue 37 之后，`reserve_ai_call` 会在用户第一次发起识别请求时、预占调用之前插入这行默认值，即使这次调用随后被退回，这一行也会保留。迁移老用户时，给 `profiles` 里现有的每个 `user_id` 插入一行，`free_trial_calls_used = 5, cap_usd = 1.00, spent_usd = 0`（直接落地成按金额算模式，试用次数对他们已经无意义）。**上线后追加**：试用额度从 1 次提高到 5 次（`free_trial_used boolean` → `free_trial_calls_used integer`，迁移文件 `20260809000001_user_ai_access_trial_count`）。
