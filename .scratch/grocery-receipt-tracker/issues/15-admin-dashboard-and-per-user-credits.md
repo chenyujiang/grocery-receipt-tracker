@@ -49,7 +49,7 @@ The full prototype (all four variants, switchable via `?variant=`) is kept under
 
 ## Schema Design (draft)
 
-Concrete tables/RLS for the model above, written to match this codebase's existing conventions (see `supabase/migrations/20260804000007_ai_spend_limit.sql` and `api/_lib/spendLimit.ts` — since replaced by `api/_lib/userAiAccess.ts` — for the pattern being followed: a table read-only to `authenticated`, writable only by the backend's service-role client). **Not yet applied** — this is a design draft, not a migration file.
+Concrete tables/RLS for the model above, written to match this codebase's existing conventions (see `supabase/migrations/20260804000007_ai_spend_limit.sql` and `api/_lib/spendLimit.ts` — since replaced by `api/_lib/userAiAccess.ts` — for the pattern being followed: a table read-only to `authenticated`, writable only by the backend's service-role client). **Applied** as `supabase/migrations/20260806000001_admin_dashboard_and_user_ai_access.sql`, later amended by `20260809000001_user_ai_access_trial_count.sql` (trial count) and `20261022000003_atomic_ai_access.sql` (issue 37's atomic accounting); the SQL below is the design as kept up to date with those, but the migration files are canonical.
 
 **Why not just add columns to `profiles`?** `profiles` already has a working RLS policy (`20260805000004_profiles_update_own_display_name.sql`) letting a user `UPDATE` their *own row* — but Postgres RLS restricts rows, not columns. A policy scoped to `user_id = auth.uid()` would let a user overwrite *any* column on their own row via a direct client call, including a hypothetical `is_global_admin` or `free_trial_calls_used` column — i.e. self-promotion to admin, or resetting their own trial-call count to 0, by calling `supabase.from("profiles").update(...)` themselves. Two new, separate tables avoid touching that existing policy surface at all: neither gets an `insert`/`update`/`delete` policy for `authenticated`, so every write — including the first one — has to go through the backend's service-role client, exactly like `ai_spend_limit` today.
 
@@ -201,7 +201,7 @@ on conflict (user_id) do update
 
 ## Schema 设计（草案）
 
-按上面定下来的模型，写出具体的表结构/RLS，尽量贴合这个代码库已有的写法（参照 `supabase/migrations/20260804000007_ai_spend_limit.sql` 和 `api/_lib/spendLimit.ts`（后来被 `api/_lib/userAiAccess.ts` 取代）的模式：一张对 `authenticated` 只读、只有后端 service-role 客户端能写的表）。**这只是设计草案，还没实际落地成迁移文件。**
+按上面定下来的模型，写出具体的表结构/RLS，尽量贴合这个代码库已有的写法（参照 `supabase/migrations/20260804000007_ai_spend_limit.sql` 和 `api/_lib/spendLimit.ts`（后来被 `api/_lib/userAiAccess.ts` 取代）的模式：一张对 `authenticated` 只读、只有后端 service-role 客户端能写的表）。**已落地**为 `supabase/migrations/20260806000001_admin_dashboard_and_user_ai_access.sql`，之后又被 `20260809000001_user_ai_access_trial_count.sql`（试用次数）和 `20261022000003_atomic_ai_access.sql`（issue 37 的原子记账）修改过；下面的 SQL 是跟着这些改动更新过的设计，但以迁移文件为准。
 
 **为什么不直接在 `profiles` 上加字段？** `profiles` 已经有一条生效的 RLS 策略（`20260805000004_profiles_update_own_display_name.sql`），允许用户 `UPDATE` **自己的那一行**——但 Postgres 的 RLS 只按行限制，不按列限制。一条按 `user_id = auth.uid()` 判断的策略，会让用户能通过前端直接调用把自己那一行的**任何**列都改掉，包括假设加上去的 `is_global_admin` 或 `free_trial_calls_used` 列——也就是说，用户自己调用一次 `supabase.from("profiles").update(...)`，就能把自己提升成管理员，或者把自己的免费试用次数清零。用两张独立的新表就能完全避开对现有这条策略的改动：这两张新表都不给 `authenticated` 设 `insert`/`update`/`delete` 策略，所以任何写入——包括第一次写入——都必须经过后端的 service-role 客户端，跟现在的 `ai_spend_limit` 完全一样。
 
