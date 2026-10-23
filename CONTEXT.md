@@ -77,7 +77,7 @@ _Avoid_: Edit, fix, override
 ## AI Access
 
 **AI Access**:
-Whether a given user may make an AI recognition call right now. The umbrella state; it resolves through either a Free Trial or AI Credit, never both.
+Whether a given user may make an AI recognition call right now. The umbrella state; it resolves through either a Free Trial or AI Credit, never both. When a user is refused, the refusal says which of the two ran out — and, for AI Credit, how much of the cap was spent — rather than carrying ready-made wording.
 _Avoid_: Quota, allowance, limit, budget
 
 **Free Trial**:
@@ -185,7 +185,7 @@ _避免_：编辑、修正、覆盖
 ## AI 使用权
 
 **AI Access（AI 使用权）**：
-某个用户此刻是否可以发起一次 AI 识别调用。这是总括状态；它要么经由 Free Trial 判定，要么经由 AI Credit 判定，绝不会两者同时。
+某个用户此刻是否可以发起一次 AI 识别调用。这是总括状态；它要么经由 Free Trial 判定，要么经由 AI Credit 判定，绝不会两者同时。用户被拒绝时，拒绝本身说明是两者中哪一个用尽了——若是 AI Credit，还说明上限已花掉多少——而不附带现成的文案。
 _避免_：配额、额度、限制、预算
 
 **Free Trial（免费试用）**：
