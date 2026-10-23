@@ -64,7 +64,7 @@ export default tseslint.config(
       "no-restricted-syntax": [
         "error",
         {
-          // CLAUDE.md "Error handling": a PostgrestError isn't an Error.
+          // CODING_STANDARDS.md "Error handling": a PostgrestError isn't an Error.
           selector: "BinaryExpression[operator='instanceof'][right.name='Error']",
           message: "A PostgrestError isn't an Error: use errorMessage(err, t(\"errors.…\")) instead.",
         },

@@ -16,7 +16,7 @@ React + TypeScript + Vite (frontend), Vercel Serverless Functions in `/api` (bac
 
 Commands: `npm run dev`, `npm run build`, `npm run typecheck`, `npm run lint`, `npm test` (vitest run). A Husky pre-commit hook (`.husky/pre-commit`, installed by `npm install`'s `prepare` script) runs lint, typecheck, and the tests, so a commit that fails any of them doesn't land — fix the failure rather than skipping it with `--no-verify`.
 
-`eslint.config.js` enforces three of the conventions below mechanically, outside tests: no `instanceof Error` (Error handling), no literal `errorMessage` fallback, and no user-visible JSX text or `aria-label`/`title`/`placeholder`/`alt` literal containing a word (spec Section 7 — separators like `·` `—` `$` are fine). It also enforces the import rules in "Code `/api` loads at runtime" below.
+`eslint.config.js` enforces three conventions from `CODING_STANDARDS.md` mechanically, outside tests: no `instanceof Error` and no literal `errorMessage` fallback (its "Error handling"), and no user-visible JSX text or `aria-label`/`title`/`placeholder`/`alt` literal containing a word (spec Section 7 — separators like `·` `—` `$` are fine). It also enforces the import rules in "Code `/api` loads at runtime" below.
 
 `tsc -b` spans three projects — `tsconfig.app.json` (`src`), `tsconfig.node.json` (`vite.config.ts`), and `tsconfig.api.json` (`api`) — so `typecheck` and `build` both cover the serverless functions. A new top-level directory needs its own project here, or it silently goes unchecked. `app` and `api` both extend `tsconfig.base.json`, which owns the strictness flags, module resolution, and the `@/*` path alias: put a rule that should hold everywhere there, so the frontend's settings and the functions' can't drift apart.
 
@@ -42,36 +42,9 @@ This project is built TDD-first (see the `tdd` skill). Before adding tests for a
 - **Purchase history is fetched in exactly one place**: `fetchPurchaseHistories(client, productIds)` in `src/lib/purchaseHistory.ts`. Every price/consumption feature starts from it — price change (S10), price trend, store comparison (S11), consumption rate (S12), price-spike alerts (S13), and the monthly report's leaderboard (S14). It reads in batched, paged `.in("product_id", batch)` queries; a `for` loop around a `receipt_items` select is the N+1 this module exists to prevent. Its page size, `POSTGREST_PAGE_SIZE` (`src/lib/postgrestPaging.ts`), must stay ≤ PostgREST's max-rows, or a server-truncated page looks like the last one and the read silently stops early. The Supabase client is a parameter, not an import: passing `supabase` scopes the read to the caller's circle via RLS, passing `supabaseAdmin` (cron only) sweeps every circle — that choice *is* the scope decision, so keep it visible at the call site rather than behind a flag.
 - `CONTEXT.md` is the project's domain glossary (Purchase, Purchase History, Circle, …). Read it before naming a new type, and add to it when a term gets settled — but keep it a glossary: no implementation details, no requirements.
 
-## Error handling
+## Coding standards
 
-Supabase's `PostgrestError` is a plain object, **not** an `Error` instance, and `src/lib/*.ts` rethrows it raw (`throw error`). So `err instanceof Error ? err.message : "..."` is false for the errors this app actually hits — RLS violations, constraint failures, permission denials — and silently shows the generic fallback instead. Always turn a caught error into display text with `errorMessage(err, fallback)` from `src/lib/errorMessage.ts`; never hand-roll an `instanceof Error` check. In `/api`, use `serverErrorMessage(err, fallback)` from the same file instead: it hides a `PostgrestError`'s text behind the fallback (ticket 38), since server-side it describes the admin client's queries, not the user's.
-
-Pass the fallback as `t("errors.…")` (keys in `src/lib/i18n.ts`), not a literal, so it follows the language toggle. That only half-closes the gap: Supabase's own error text, shown whenever the error carries one, is English regardless.
-
-When a `src/lib/*.ts` call fails with no text worth showing — a fetch with no body at all, or only a server's own generic English one (the admin routes' 5xx), or a check of its own with nothing to tell the user (nobody signed in, a row that's gone, a guard that shouldn't trip) — throw `UnexplainedError` (`src/lib/errorMessage.ts`). `errorMessage` always gives it the caller's fallback; its own message (a status code, or what failed) is for the console. Don't signal this with an empty-message `Error` instead. A failed fetch to one of our own `/api` routes goes through `throwForFailedResponse(status, body)` (same file), which throws the body's `error` text when there is some and an `UnexplainedError` otherwise — and for any 5xx, whatever the body says, since that's the server describing its own failure in English — so `adminApi.ts` and `receipts.ts` can't drift apart on what the user sees. Likewise, read the signed-in user through `signedInAccessToken()` / `signedInUserId()` (`src/lib/signedIn.ts`), which throw an `UnexplainedError` when nobody is signed in, rather than calling `getSession`/`getUser` and hand-rolling that check again.
-
-Two deliberate `instanceof` exceptions, both in `src/pages/ReceiptUpload.tsx`, both testing for the app's own error types rather than pulling a message out. `err instanceof AiAccessRefusedError` (`src/lib/aiAccessRefusal.ts`) reads its structured `refusal` — the page renders the refusal as JSX, with a `mailto:` link to the admin, worded at render time so it follows the language toggle. `err instanceof AdvisedError` (`src/lib/errorMessage.ts`) shows `t(err.adviceKey)`, the app's own advice for a failure the user can fix: `UnreadablePhotoError` (`src/lib/imageResize.ts`, retake or switch the camera off HEIC) and `RecognitionFailedError` (`src/lib/recognitionFailure.ts`, a photo Claude couldn't read as a receipt). Both are `UnexplainedError`s, so anywhere else they fall back like any other. Every other error on that page still goes through `errorMessage`. Don't hard-code an English sentence in a `src/lib` or `/api` throw to carry advice like this: it can't follow the language toggle. Give it an `AdvisedError` subclass with an i18n key instead.
-
-## UI style conventions
-
-Design tokens are CSS custom properties in `src/index.css`'s `:root` (plus a `prefers-color-scheme: dark` override block) — reach for `var(--primary)`, `var(--danger)`, etc. rather than hardcoding colors.
-
-**Buttons** — default `<button>` plus modifier classes, combinable with `.btn-block` / `.btn-sm`:
-
-- Default `<button>`, no class — green background (`--primary`), white text (`--primary-contrast`). The baseline for primary actions.
-- `.btn-danger` — red background (`--danger`), white text. Reserved for destructive actions (delete a receipt, dissolve a circle).
-- `.btn-dark` — inverted (background `--text`, text `--bg`). Used only for sign-out — a deliberately distinct look, not a third semantic color, so don't reach for it elsewhere.
-- `.btn-secondary` — transparent background, bordered. For a cancel/dismiss action sitting next to a primary one.
-- `.btn-block` — `display: block; width: 100%; margin-top: 14px`. A standalone action button below a form/section.
-- `.btn-sm` — compact padding/font-size, for inline actions inside a card row (e.g. the receipt list's delete button).
-
-Pick the modifier by what the action *does*, not by where it sits: destructive → `.btn-danger`, sign-out → `.btn-dark`, everything else stays the unstyled green default.
-
-**Spacing**: 14px is the standard gap between a control/list and whatever sits above it (`.btn-block`'s `margin-top`, `.receipt-list`'s `margin-top` and card-to-card `gap`, `form`'s field `gap`). Reuse 14px for that relationship rather than picking a new value; smaller gaps (6–12px) are for tighter internal groupings within a single component.
-
-**Cards**: `.page section`, `.page fieldset`, and `.receipt-card` all share one look — `var(--surface)` background, `var(--border)` border, `var(--radius)` corner radius, `var(--shadow)`, `16px 18px` padding. Reuse one of these rather than inventing a new bordered/shadowed box.
-
-**Form controls**: `input`/`select`/`textarea` are pinned to `font-size: 16px` in `src/index.css` — mobile browsers (iOS Safari, Android Chrome) auto-zoom the whole page on focus if a form control's font-size drops below 16px. Don't let a component-specific style shrink this back down.
+`CODING_STANDARDS.md` holds how code here is written: error handling (`errorMessage`, `UnexplainedError`, `AdvisedError`), UI styling (tokens, button classes, spacing, cards), and the judgement calls past reviews settled (one source per fact, types, names, tests, comments). Read it before writing a `catch`, a `throw` in `src/lib` or `/api`, any JSX or CSS, and before reviewing a diff.
 
 ## Claude API usage in this app (not this coding session)
 
