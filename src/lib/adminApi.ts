@@ -27,10 +27,6 @@ export type AdminUserCredit =
   | { mode: "trial"; callsUsed: number }
   | { mode: "cap"; capUsd: number; spentUsd: number };
 
-export { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
-
-export { DEFAULT_GRANT_USD } from "@/lib/defaultGrant";
-
 export interface AdminUserRow {
   userId: string;
   displayName: string;

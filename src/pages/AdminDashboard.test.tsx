@@ -4,16 +4,12 @@ import { MemoryRouter } from "react-router-dom";
 
 // @/lib/adminApi is the boundary — its own Supabase/fetch behavior is
 // already covered by adminApi.test.ts; this only checks the page's UI
-// behavior (issue 15's needs-attention queue + circle-grouped roster). The
-// constants are the real ones, not copies, so the assertions below pin
-// their actual values.
-vi.mock("@/lib/adminApi", async () => ({
+// behavior (issue 15's needs-attention queue + circle-grouped roster).
+vi.mock("@/lib/adminApi", () => ({
   fetchAdminUsers: vi.fn(),
   grantAdminCredit: vi.fn(),
   setAdminUserBanned: vi.fn(),
   mergeUsersIntoCircle: vi.fn(),
-  FREE_TRIAL_LIMIT: (await import("@/lib/freeTrialLimit")).FREE_TRIAL_LIMIT,
-  DEFAULT_GRANT_USD: (await import("@/lib/defaultGrant")).DEFAULT_GRANT_USD,
 }));
 
 import { fetchAdminUsers, grantAdminCredit, setAdminUserBanned, mergeUsersIntoCircle } from "@/lib/adminApi";

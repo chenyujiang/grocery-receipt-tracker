@@ -7,13 +7,6 @@ import { MemoryRouter } from "react-router-dom";
 vi.mock("@/lib/home", () => ({
   fetchHomeSummary: vi.fn(),
 }));
-// Home only needs the FREE_TRIAL_LIMIT constant, not any of adminApi's
-// Supabase-backed functions — mocked here so this test doesn't need real
-// Supabase env vars just to import it. The constant itself is the real one,
-// read from its import-free home.
-vi.mock("@/lib/adminApi", async () => ({
-  FREE_TRIAL_LIMIT: (await import("@/lib/freeTrialLimit")).FREE_TRIAL_LIMIT,
-}));
 
 import { fetchHomeSummary } from "@/lib/home";
 import Home from "@/pages/Home";
