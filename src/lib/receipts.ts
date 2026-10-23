@@ -15,6 +15,7 @@ import { diffReceiptItemFields } from "@/lib/editLog";
 import { resizeImageForUpload } from "@/lib/imageResize";
 import { bilingualName, type BilingualName } from "@/lib/bilingualName";
 import { receiptStoreName, storeName, STORE_NAMES_EMBED, type StoreNames } from "@/lib/storeName";
+import { AiAccessRefusedError, type AiAccessRefusal } from "@/lib/aiAccessRefusal";
 import type { Database } from "@/types/database.types";
 
 export interface UploadReceiptResult {
@@ -43,6 +44,10 @@ export async function uploadReceipt(file: File): Promise<UploadReceiptResult> {
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
+    // A 402 body is an AiAccessRefusal, not a sentence: the page words it.
+    if (response.status === 402 && body?.code) {
+      throw new AiAccessRefusedError(body as AiAccessRefusal);
+    }
     throw new Error(body?.error ?? `Upload failed with status ${response.status}`);
   }
 

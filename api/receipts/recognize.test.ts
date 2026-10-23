@@ -2,9 +2,8 @@ import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({ supabaseAdmin: {} }));
 
-// reserveCall is stubbed (it hands back a fake Reservation, see reserve()),
-// but FREE_TRIAL_LIMIT stays real — the refusal copy is built from it, and a
-// fake limit would make the 402 assertions vacuous.
+// reserveCall is stubbed (it hands back a fake Reservation, see reserve());
+// the rest of the module, FREE_TRIAL_LIMIT included, stays real.
 vi.mock("../_lib/userAiAccess.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../_lib/userAiAccess.js")>()),
   reserveCall: vi.fn(),
@@ -21,7 +20,6 @@ import {
   type AccessMode,
   type AccessStatus,
 } from "../_lib/userAiAccess.js";
-import { aiAccessRefusalMessage, SUPPORT_EMAIL } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt } from "../_lib/recognizeReceipt.js";
 import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
@@ -201,41 +199,26 @@ describe("POST /api/receipts/recognize", () => {
   describe("AI Access refusal (402)", () => {
     beforeEach(() => installSupabase());
 
-    it("402s when the Free Trial is used up, naming the call count", async () => {
-      const status = blocked("trial");
-      reserve(status);
+    // The body is the refusal, not a sentence: the page words it in the
+    // user's chosen language (src/lib/aiAccessRefusal.ts).
+    it("402s when the Free Trial is used up", async () => {
+      reserve(blocked("trial"));
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
 
       expect(res.statusCode).toBe(402);
-      expect(res.body).toEqual({ error: aiAccessRefusalMessage(status) });
-      expect(res.body).toMatchObject({
-        error: expect.stringContaining(`all ${FREE_TRIAL_LIMIT} of your free AI recognitions`),
-      });
+      expect(res.body).toEqual({ code: "ai_trial_exhausted" });
     });
 
-    it("402s when granted AI Credit is used up, naming spend against the cap", async () => {
-      const status = blocked("cap", { spentUsd: 0.97, capUsd: 1 });
-      reserve(status);
+    it("402s when granted AI Credit is used up, reporting spend against the cap", async () => {
+      reserve(blocked("cap", { spentUsd: 0.97, capUsd: 1 }));
       const res = makeRes();
 
       await handler(recognizeRequest(), res.res);
 
       expect(res.statusCode).toBe(402);
-      expect(res.body).toEqual({ error: aiAccessRefusalMessage(status) });
-      expect(res.body).toMatchObject({ error: expect.stringContaining("($0.97 of $1.00)") });
-    });
-
-    // Nothing lifts a block automatically — no auto-reset, no auto-raise — so
-    // a refusal that didn't say who to ask would be a dead end for the user.
-    it.each(["trial", "cap"] as const)("tells a blocked %s user how to get unblocked", async (mode) => {
-      reserve(blocked(mode));
-      const res = makeRes();
-
-      await handler(recognizeRequest(), res.res);
-
-      expect(res.body).toMatchObject({ error: expect.stringContaining(SUPPORT_EMAIL) });
+      expect(res.body).toEqual({ code: "ai_credit_exhausted", spentUsd: 0.97, capUsd: 1 });
     });
 
     it("checks access for the authenticated caller, not the Circle", async () => {

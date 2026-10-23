@@ -11,6 +11,9 @@ vi.mock("@/lib/receipts", () => ({
 }));
 
 import { uploadReceipt } from "@/lib/receipts";
+import { AiAccessRefusedError, SUPPORT_EMAIL } from "@/lib/aiAccessRefusal";
+import { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
+import { renderInZh } from "@/test/renderInZh";
 import ReceiptUpload from "@/pages/ReceiptUpload";
 
 function renderUploadPage() {
@@ -78,5 +81,33 @@ describe("ReceiptUpload", () => {
     await userEvent.upload(input, makeFile());
 
     expect(await screen.findByRole("alert")).toHaveTextContent("AI recognition quota used up");
+  });
+
+  // Spec Section 7: the refusal is the app's own copy, so it follows the
+  // language toggle like the rest of the chrome.
+  it("tells a user whose Free Trial is used up how to get unblocked, in the chosen language", async () => {
+    vi.mocked(uploadReceipt).mockRejectedValue(new AiAccessRefusedError({ code: "ai_trial_exhausted" }));
+
+    renderInZh(<ReceiptUpload />);
+    await userEvent.upload(screen.getByLabelText(/拍照|选择图片/, { selector: "input" }), makeFile());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `你已用完全部 ${FREE_TRIAL_LIMIT} 次免费 AI 识别。请发邮件至 ${SUPPORT_EMAIL} 申请额度。`
+    );
+  });
+
+  // Spend is summed per-call costs, so a raw float like 0.8200000000000001
+  // must not reach the user verbatim.
+  it("tells a user whose AI Credit is used up their spend against the cap, to the cent", async () => {
+    vi.mocked(uploadReceipt).mockRejectedValue(
+      new AiAccessRefusedError({ code: "ai_credit_exhausted", spentUsd: 0.8200000000000001, capUsd: 0.8 })
+    );
+
+    renderInZh(<ReceiptUpload />);
+    await userEvent.upload(screen.getByLabelText(/拍照|选择图片/, { selector: "input" }), makeFile());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `AI 识别额度已用完（已用 $0.82 / $0.80）。请发邮件至 ${SUPPORT_EMAIL} 申请额度。`
+    );
   });
 });

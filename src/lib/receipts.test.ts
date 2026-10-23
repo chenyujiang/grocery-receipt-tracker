@@ -22,6 +22,7 @@ import {
   toItemUpdate,
 } from "@/lib/receipts";
 import type { DraftItem } from "@/lib/receipts";
+import { AiAccessRefusedError } from "@/lib/aiAccessRefusal";
 
 function makeFile(content: string, type: string) {
   return new File([content], "receipt.jpg", { type });
@@ -125,6 +126,27 @@ describe("uploadReceipt", () => {
     await expect(uploadReceipt(makeFile("x", "image/jpeg"))).rejects.toThrow(
       "AI recognition quota used up"
     );
+  });
+
+  it("throws the refusal itself when AI Access is exhausted, so the page can word it", async () => {
+    installFakeSupabase(supabase, {
+      auth: { getSession: { data: { session: { access_token: "tok-1" } }, error: null } },
+    });
+    vi.mocked(resizeImageForUpload).mockResolvedValue({
+      base64: "resized-base64-bytes",
+      mediaType: "image/jpeg",
+    });
+    const refusal = { code: "ai_credit_exhausted", spentUsd: 1, capUsd: 1 } as const;
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 402,
+      json: () => Promise.resolve(refusal),
+    } as never);
+
+    const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(AiAccessRefusedError);
+    expect((err as AiAccessRefusedError).refusal).toEqual(refusal);
   });
 });
 

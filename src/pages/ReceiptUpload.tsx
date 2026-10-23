@@ -2,8 +2,27 @@ import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { uploadReceipt } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { errorMessage } from "@/lib/errorMessage";
+import { AiAccessRefusedError, SUPPORT_EMAIL, type AiAccessRefusal } from "@/lib/aiAccessRefusal";
+import { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
+
+// Spec Section 16: what a user blocked from AI recognition is told, and who
+// to ask, since nothing lifts the block automatically.
+function refusalMessage(
+  refusal: AiAccessRefusal,
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string
+): string {
+  if (refusal.code === "ai_trial_exhausted") {
+    return t("errors.aiTrialExhausted", { limit: FREE_TRIAL_LIMIT, email: SUPPORT_EMAIL });
+  }
+  return t("errors.aiCreditExhausted", {
+    spent: refusal.spentUsd.toFixed(2),
+    cap: refusal.capUsd.toFixed(2),
+    email: SUPPORT_EMAIL,
+  });
+}
 
 // Section 6 + 15, page 2: photo upload flow.
 // take photo / pick from library -> AI processing -> preview/confirm -> save.
@@ -26,7 +45,11 @@ export default function ReceiptUpload() {
       const { receiptId } = await uploadReceipt(file);
       navigate(`/receipts/${receiptId}/review`);
     } catch (err) {
-      setError(errorMessage(err, t("errors.uploadFailed")));
+      setError(
+        err instanceof AiAccessRefusedError
+          ? refusalMessage(err.refusal, t)
+          : errorMessage(err, t("errors.uploadFailed"))
+      );
     } finally {
       setUploading(false);
     }

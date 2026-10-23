@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { parseBearerToken } from "../_lib/bearerToken.js";
 import { reserveCall } from "../_lib/userAiAccess.js";
-import { aiAccessRefusalMessage } from "../_lib/aiAccessRefusal.js";
+import { aiAccessRefusal } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt.js";
 import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
@@ -99,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // uploads can't all slip through on the last free call.
   const reservation = await reserveCall(user.id);
   if (!reservation.status.allowed) {
-    res.status(402).json({ error: aiAccessRefusalMessage(reservation.status) });
+    res.status(402).json(aiAccessRefusal(reservation.status));
     return;
   }
   // Set once Claude has answered: from then on the call counts as spent, even

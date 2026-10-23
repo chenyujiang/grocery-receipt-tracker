@@ -192,6 +192,10 @@ export const translations = {
     "errors.confirmReceipt": "Failed to confirm receipt",
     "errors.saveChanges": "Failed to save changes",
     "errors.uploadFailed": "Upload failed",
+    "errors.aiTrialExhausted":
+      "You've already used all {limit} of your free AI recognitions. Email {email} to get credit assigned.",
+    "errors.aiCreditExhausted":
+      "AI recognition quota used up (${spent} of ${cap}). Email {email} to get credit assigned.",
     "errors.loadProduct": "Failed to load product",
     "errors.loadReport": "Failed to load report",
     "errors.exportFailed": "Export failed",
@@ -388,6 +392,8 @@ export const translations = {
     "errors.confirmReceipt": "确认小票失败",
     "errors.saveChanges": "保存修改失败",
     "errors.uploadFailed": "上传失败",
+    "errors.aiTrialExhausted": "你已用完全部 {limit} 次免费 AI 识别。请发邮件至 {email} 申请额度。",
+    "errors.aiCreditExhausted": "AI 识别额度已用完（已用 ${spent} / ${cap}）。请发邮件至 {email} 申请额度。",
     "errors.loadProduct": "加载商品失败",
     "errors.loadReport": "加载报告失败",
     "errors.exportFailed": "导出失败",

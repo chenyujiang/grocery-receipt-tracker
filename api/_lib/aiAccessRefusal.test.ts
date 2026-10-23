@@ -1,16 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
+import { aiAccessRefusal } from "./aiAccessRefusal.js";
+import type { AccessStatus } from "./userAiAccess.js";
 
-// Nothing here touches Supabase, but FREE_TRIAL_LIMIT lives in userAiAccess.ts,
-// which imports supabaseAdmin — and that module throws at import time when the
-// service-role env vars are absent. Stubbed so the import graph stays loadable.
-vi.mock("./supabaseAdmin.js", () => ({ supabaseAdmin: {} }));
-
-import { aiAccessRefusalMessage, SUPPORT_EMAIL } from "./aiAccessRefusal.js";
-import { FREE_TRIAL_LIMIT, type AccessStatus } from "./userAiAccess.js";
-
-// The copy a user sees when AI Access is exhausted. Tested here rather than
-// in the route test so that rewording it doesn't churn an HTTP test, and so
-// the support address lives in one place instead of inline in a handler.
+// What a refused recognition call sends back. Tested here rather than in the
+// route test so that changing the refusal's shape doesn't churn an HTTP test.
+// The copy itself is the page's (src/lib/i18n.ts), so it follows the language
+// toggle; this only decides which refusal it was and what to report.
 
 function trialStatus(overrides: Partial<AccessStatus> = {}): AccessStatus {
   return {
@@ -18,7 +13,7 @@ function trialStatus(overrides: Partial<AccessStatus> = {}): AccessStatus {
     mode: "trial",
     spentUsd: 0,
     capUsd: null,
-    freeTrialCallsUsed: FREE_TRIAL_LIMIT,
+    freeTrialCallsUsed: 5,
     ...overrides,
   };
 }
@@ -34,32 +29,16 @@ function capStatus(overrides: Partial<AccessStatus> = {}): AccessStatus {
   };
 }
 
-describe("aiAccessRefusalMessage", () => {
-  it("names the Free Trial call count when the trial is what ran out", () => {
-    expect(aiAccessRefusalMessage(trialStatus())).toBe(
-      `You've already used all ${FREE_TRIAL_LIMIT} of your free AI recognitions. ` +
-        `Email ${SUPPORT_EMAIL} to get credit assigned.`
-    );
+describe("aiAccessRefusal", () => {
+  it("reports a used-up Free Trial", () => {
+    expect(aiAccessRefusal(trialStatus())).toEqual({ code: "ai_trial_exhausted" });
   });
 
   it("reports spend against the cap when granted AI Credit ran out", () => {
-    expect(aiAccessRefusalMessage(capStatus({ spentUsd: 1, capUsd: 1 }))).toBe(
-      `AI recognition quota used up ($1.00 of $1.00). ` +
-        `Email ${SUPPORT_EMAIL} to get credit assigned.`
-    );
-  });
-
-  // The old inline version interpolated the raw numbers, so a $0.8200000001
-  // float from summed per-call costs reached the user verbatim.
-  it("formats both dollar amounts to 2 decimal places", () => {
-    const message = aiAccessRefusalMessage(capStatus({ spentUsd: 0.8200000000000001, capUsd: 0.8 }));
-
-    expect(message).toContain("($0.82 of $0.80)");
-  });
-
-  it("always tells the user how to get unblocked, since nothing lifts a block automatically", () => {
-    for (const status of [trialStatus(), capStatus()]) {
-      expect(aiAccessRefusalMessage(status)).toContain(SUPPORT_EMAIL);
-    }
+    expect(aiAccessRefusal(capStatus({ spentUsd: 0.97, capUsd: 1 }))).toEqual({
+      code: "ai_credit_exhausted",
+      spentUsd: 0.97,
+      capUsd: 1,
+    });
   });
 });
