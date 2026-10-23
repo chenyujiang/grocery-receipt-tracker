@@ -86,11 +86,11 @@ using (user_id = (select auth.uid()));
 -- happen from the backend only, matching ai_spend_limit's convention.
 --
 -- Mode is derived from cap_usd, not stored as a separate enum:
---   cap_usd is null      -> free-trial mode; refuse if free_trial_used
+--   cap_usd is null      -> free-trial mode; refuse if free_trial_calls_used >= FREE_TRIAL_LIMIT (5)
 --   cap_usd is not null  -> dollar-cap mode; refuse if spent_usd >= cap_usd
 create table user_ai_access (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  free_trial_used boolean not null default false,
+  free_trial_calls_used integer not null default 0,
   cap_usd numeric(10, 4),
   spent_usd numeric(10, 4) not null default 0,
   updated_at timestamptz not null default now()
@@ -110,8 +110,8 @@ using (user_id = (select auth.uid()));
 **Migrating existing users** (decision 9 — grandfather them straight into dollar-cap mode, default $1, skipping the free-trial gate):
 
 ```sql
-insert into user_ai_access (user_id, free_trial_used, cap_usd, spent_usd)
-select user_id, true, 1.00, 0
+insert into user_ai_access (user_id, free_trial_calls_used, cap_usd, spent_usd)
+select user_id, 5, 1.00, 0
 from profiles
 on conflict (user_id) do nothing;
 ```
@@ -125,10 +125,10 @@ on conflict (user_id) do nothing;
 **Admin grant-credit operation** (upsert, always resets `spent_usd` to 0 and marks the trial as used, per decision 4's "reset to a fresh allowance" semantics — `$capUsd` defaults to `1.00` for the one-click "Reset credit to $1" action, or any admin-entered custom amount):
 
 ```sql
-insert into user_ai_access (user_id, free_trial_used, cap_usd, spent_usd, updated_at)
-values ($1, true, $2, 0, now())
+insert into user_ai_access (user_id, free_trial_calls_used, cap_usd, spent_usd, updated_at)
+values ($1, 5, $2, 0, now())
 on conflict (user_id) do update
-  set cap_usd = excluded.cap_usd, spent_usd = 0, free_trial_used = true, updated_at = now();
+  set cap_usd = excluded.cap_usd, spent_usd = 0, free_trial_calls_used = 5, updated_at = now();
 ```
 
 **Ban/unban**: no schema change at all — implemented purely through `supabaseAdmin.auth.admin.updateUserById(userId, { ban_duration })`, per decision 5. `auth.users` isn't a table this app defines migrations for.
@@ -231,11 +231,11 @@ using (user_id = (select auth.uid()));
 -- 跟 ai_spend_limit 的写入方式一致。
 --
 -- 模式由 cap_usd 推导出来，不单独存一个枚举字段：
---   cap_usd 为 null      -> 免费试用模式；free_trial_used 为真则拒绝
+--   cap_usd 为 null      -> 免费试用模式；free_trial_calls_used >= FREE_TRIAL_LIMIT（5）则拒绝
 --   cap_usd 不为 null    -> 按金额算模式；spent_usd >= cap_usd 则拒绝
 create table user_ai_access (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  free_trial_used boolean not null default false,
+  free_trial_calls_used integer not null default 0,
   cap_usd numeric(10, 4),
   spent_usd numeric(10, 4) not null default 0,
   updated_at timestamptz not null default now()
@@ -255,8 +255,8 @@ using (user_id = (select auth.uid()));
 **老用户迁移**（决定9——直接迁移进按金额算的模式，默认 $1，跳过免费试用限制）：
 
 ```sql
-insert into user_ai_access (user_id, free_trial_used, cap_usd, spent_usd)
-select user_id, true, 1.00, 0
+insert into user_ai_access (user_id, free_trial_calls_used, cap_usd, spent_usd)
+select user_id, 5, 1.00, 0
 from profiles
 on conflict (user_id) do nothing;
 ```
@@ -270,10 +270,10 @@ on conflict (user_id) do nothing;
 **管理员"给额度"操作**（upsert，永远把 `spent_usd` 清零并把免费试用标记为已用，对应决定4"重置成一份新额度"的语义——一键"额度重置为 $1"时 `$capUsd` 默认 `1.00`，也可以是管理员输入的任意自定义金额）：
 
 ```sql
-insert into user_ai_access (user_id, free_trial_used, cap_usd, spent_usd, updated_at)
-values ($1, true, $2, 0, now())
+insert into user_ai_access (user_id, free_trial_calls_used, cap_usd, spent_usd, updated_at)
+values ($1, 5, $2, 0, now())
 on conflict (user_id) do update
-  set cap_usd = excluded.cap_usd, spent_usd = 0, free_trial_used = true, updated_at = now();
+  set cap_usd = excluded.cap_usd, spent_usd = 0, free_trial_calls_used = 5, updated_at = now();
 ```
 
 **禁用/启用**：完全不需要改 schema——纯粹用 `supabaseAdmin.auth.admin.updateUserById(userId, { ban_duration })` 实现，对应决定5。`auth.users` 不是这个项目自己建迁移管理的表。
