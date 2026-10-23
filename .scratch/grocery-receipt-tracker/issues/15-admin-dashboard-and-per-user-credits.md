@@ -78,12 +78,14 @@ using (user_id = (select auth.uid()));
 
 ```sql
 -- Per-user AI-call access. Replaces ai_spend_limit's singleton row.
--- Absence of a row for a user_id is itself meaningful: "fresh signup,
--- free trial available, never touched." A row only gets created the
--- first time that user either (a) successfully consumes one of their
--- FREE_TRIAL_LIMIT (5) free trial calls, or (b) is granted real credit
--- by an admin — both writes
--- happen from the backend only, matching ai_spend_limit's convention.
+-- A missing row for a user_id means "fresh signup, free trial
+-- available, never touched" — the same as a default row (trial mode,
+-- 0 calls used). The row is created the first time that user either
+-- (a) asks for a recognition call — reserve_ai_call inserts a default
+-- row before reserving (issue 37), so a reservation that's later
+-- released still leaves the row behind — or (b) is granted real credit
+-- by an admin. Both writes happen from the backend only, matching
+-- ai_spend_limit's convention.
 --
 -- Mode is derived from cap_usd, not stored as a separate enum:
 --   cap_usd is null      -> free-trial mode; refuse if free_trial_calls_used >= FREE_TRIAL_LIMIT (5)
@@ -228,10 +230,12 @@ using (user_id = (select auth.uid()));
 
 ```sql
 -- 每用户 AI 调用额度。取代 ai_spend_limit 的单例行。
--- 某个 user_id 没有对应的行，这件事本身就有意义："全新注册用户，
--- 免费试用额度还没用，什么都没碰过"。只有在这两种情况下才会创建行：
--- (a) 用户成功消耗了 FREE_TRIAL_LIMIT（5 次）免费试用调用中的一次，或者
--- (b) 管理员给这个用户分配了真正的额度——这两种写入都只从后端发起，
+-- 某个 user_id 没有对应的行，意思是"全新注册用户，免费试用额度还没用，
+-- 什么都没碰过"——跟一条默认行（免费试用模式，已用 0 次）等价。
+-- 这一行在以下两种情况第一次发生时创建：
+-- (a) 用户发起识别调用——reserve_ai_call 在预占之前先插入一条默认行
+-- （issue 37），所以即使这次预占后来被 release 退回，这行也会留下；或者
+-- (b) 管理员给这个用户分配了真正的额度。这两种写入都只从后端发起，
 -- 跟 ai_spend_limit 的写入方式一致。
 --
 -- 模式由 cap_usd 推导出来，不单独存一个枚举字段：
