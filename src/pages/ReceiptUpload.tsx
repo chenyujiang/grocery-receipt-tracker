@@ -7,7 +7,7 @@ import { creditAmounts, type Translate } from "@/lib/i18n";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { errorMessage } from "@/lib/errorMessage";
 import { AiAccessRefusedError, SUPPORT_EMAIL, type AiAccessRefusal } from "@/lib/aiAccessRefusal";
-import { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
+import { FREE_TRIAL_LIMIT } from "@/lib/aiAccessPolicy";
 
 // Spec Section 16: what a user blocked from AI recognition is told, and who
 // to ask, since nothing lifts the block automatically.

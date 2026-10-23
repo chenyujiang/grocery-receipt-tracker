@@ -1,7 +1,6 @@
 import { supabaseAdmin } from "./supabaseAdmin.js";
-import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
+import { DEFAULT_GRANT_USD, FREE_TRIAL_LIMIT } from "../../src/lib/aiAccessPolicy.js";
 import type { Role } from "../../src/types/index.js";
-import { DEFAULT_GRANT_USD } from "../../src/lib/defaultGrant.js";
 
 // Issue 15: the three operations the admin dashboard needs — list every
 // user across every circle, grant a user real dollar credit, and ban/unban

@@ -16,7 +16,7 @@ vi.mock("@/lib/AuthProvider", () => ({
 import { uploadReceipt } from "@/lib/receipts";
 import { useAuth } from "@/lib/AuthProvider";
 import { AiAccessRefusedError, SUPPORT_EMAIL } from "@/lib/aiAccessRefusal";
-import { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
+import { FREE_TRIAL_LIMIT } from "@/lib/aiAccessPolicy";
 import { renderInZh } from "@/test/renderInZh";
 import { useLanguage } from "@/lib/LanguageProvider";
 import ReceiptUpload from "@/pages/ReceiptUpload";

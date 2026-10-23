@@ -15,7 +15,7 @@ vi.mock("../_lib/saveDraftReceipt.js", () => ({ saveDraftReceipt: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
-import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
+import { FREE_TRIAL_LIMIT } from "../../src/lib/aiAccessPolicy.js";
 import { reserveCall, type AccessMode, type AccessStatus } from "../_lib/userAiAccess.js";
 import { aiAccessRefusal } from "../_lib/aiAccessRefusal.js";
 import { calculateHaikuCost } from "../_lib/haikuCost.js";

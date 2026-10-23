@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "./supabaseAdmin.js";
-import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
+import { FREE_TRIAL_LIMIT } from "../../src/lib/aiAccessPolicy.js";
 
 // Issue 15: per-user AI-call access, replacing ai_spend_limit's single
 // global cap (see supabase/migrations/..._admin_dashboard_and_user_ai_access.sql).

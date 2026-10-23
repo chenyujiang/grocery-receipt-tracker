@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { aiAccessRefusal } from "./aiAccessRefusal.js";
 import type { AccessStatus } from "./userAiAccess.js";
-import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
+import { FREE_TRIAL_LIMIT } from "../../src/lib/aiAccessPolicy.js";
 
 // What a refused recognition call sends back. Tested here rather than in the
 // route test so that changing the refusal's shape doesn't churn an HTTP test.

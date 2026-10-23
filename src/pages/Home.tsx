@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { fetchHomeSummary, type HomeSummary } from "@/lib/home";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
-import { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
+import { FREE_TRIAL_LIMIT } from "@/lib/aiAccessPolicy";
 import { errorMessage } from "@/lib/errorMessage";
 import { useLatestRequest } from "@/lib/useLatestRequest";
 

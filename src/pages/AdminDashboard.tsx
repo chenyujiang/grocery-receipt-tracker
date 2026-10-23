@@ -11,8 +11,7 @@ import {
   mergeUsersIntoCircle,
   type AdminUserRow,
 } from "@/lib/adminApi";
-import { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
-import { DEFAULT_GRANT_USD } from "@/lib/defaultGrant";
+import { DEFAULT_GRANT_USD, FREE_TRIAL_LIMIT } from "@/lib/aiAccessPolicy";
 
 // Issue 15: the winning /prototype direction (variant D) folded into a real
 // page — a needs-attention queue up top, then the full roster grouped by
