@@ -203,7 +203,7 @@ describe("POST /api/receipts/recognize", () => {
     it("402s with the refusal built from the caller's access status", async () => {
       const status = blocked("cap", { spentUsd: 0.97, capUsd: 1 });
       reserve(status);
-      const refusal = { code: "ai_trial_exhausted" } as const;
+      const refusal = { code: "ai_credit_exhausted", spentUsd: 0.97, capUsd: 1 } as const;
       vi.mocked(aiAccessRefusal).mockReturnValue(refusal);
       const res = makeRes();
 

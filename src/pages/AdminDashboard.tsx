@@ -116,7 +116,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
             disabled={busy}
             onClick={() => withBusy(() => grantAdminCredit(user.userId))}
           >
-            {t("admin.grantDefault", { amount: DEFAULT_GRANT_USD })}
+            {t("admin.resetCreditDefault", { amount: DEFAULT_GRANT_USD })}
           </button>
           <button
             type="button"
@@ -160,7 +160,7 @@ function UserCard({ user, onChange, selected, onToggleSelect, error, onError }: 
               });
             }}
           >
-            {t("admin.grant")}
+            {t("admin.resetCredit")}
           </button>
         </div>
       )}
