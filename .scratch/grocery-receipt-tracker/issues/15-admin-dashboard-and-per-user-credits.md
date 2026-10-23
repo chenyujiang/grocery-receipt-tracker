@@ -80,8 +80,9 @@ using (user_id = (select auth.uid()));
 -- Per-user AI-call access. Replaces ai_spend_limit's singleton row.
 -- Absence of a row for a user_id is itself meaningful: "fresh signup,
 -- free trial available, never touched." A row only gets created the
--- first time that user either (a) successfully consumes their free
--- trial call, or (b) is granted real credit by an admin — both writes
+-- first time that user either (a) successfully consumes one of their
+-- FREE_TRIAL_LIMIT (5) free trial calls, or (b) is granted real credit
+-- by an admin — both writes
 -- happen from the backend only, matching ai_spend_limit's convention.
 --
 -- Mode is derived from cap_usd, not stored as a separate enum:
@@ -97,8 +98,8 @@ create table user_ai_access (
 
 alter table user_ai_access enable row level security;
 
--- Read-only for the row's own owner, so the frontend can show "1 free
--- upload available" / "$0.32 of $1.00 used". No write policy for
+-- Read-only for the row's own owner, so the frontend can show "4 of
+-- FREE_TRIAL_LIMIT (5) free uploads left" / "$0.32 of $1.00 used". No write policy for
 -- authenticated at all — only the service-role key writes (recognize
 -- flow on first successful call, or the admin grant-credit route).
 create policy "a user can view their own AI access status"
@@ -225,7 +226,7 @@ using (user_id = (select auth.uid()));
 -- 每用户 AI 调用额度。取代 ai_spend_limit 的单例行。
 -- 某个 user_id 没有对应的行，这件事本身就有意义："全新注册用户，
 -- 免费试用额度还没用，什么都没碰过"。只有在这两种情况下才会创建行：
--- (a) 用户成功消耗了免费试用的那 1 次调用，或者
+-- (a) 用户成功消耗了 FREE_TRIAL_LIMIT（5 次）免费试用调用中的一次，或者
 -- (b) 管理员给这个用户分配了真正的额度——这两种写入都只从后端发起，
 -- 跟 ai_spend_limit 的写入方式一致。
 --
@@ -242,7 +243,7 @@ create table user_ai_access (
 
 alter table user_ai_access enable row level security;
 
--- 只对这行的主人本人只读，这样前端可以显示"还有1次免费上传"/
+-- 只对这行的主人本人只读，这样前端可以显示"FREE_TRIAL_LIMIT（5 次）免费上传还剩 4 次"/
 -- "已用 $0.32，共 $1.00"。完全不给 authenticated 设写入策略——
 -- 只有 service-role key 能写（识别流程在第一次成功调用之后写，
 -- 或者管理员的"给额度"接口写）。
