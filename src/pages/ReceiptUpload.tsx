@@ -24,6 +24,15 @@ function refusalMessage(
   });
 }
 
+// Spec Section 16: opens the user's own email client on a draft to the admin;
+// the app sends nothing itself. encodeURIComponent, not URLSearchParams: mail
+// clients read a "+" in a mailto: query literally rather than as a space.
+function creditRequestDraft(t: (key: TranslationKey) => string): string {
+  const subject = encodeURIComponent(t("upload.creditRequestSubject"));
+  const body = encodeURIComponent(t("upload.creditRequestBody"));
+  return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+}
+
 // Section 6 + 15, page 2: photo upload flow.
 // take photo / pick from library -> AI processing -> preview/confirm -> save.
 // No `capture` attribute here on purpose: setting it makes most mobile
@@ -32,6 +41,9 @@ function refusalMessage(
 export default function ReceiptUpload() {
   const { t } = useLanguage();
   const [error, setError] = useState<string | null>(null);
+  // Held as the refusal, not its text, so it's worded at render: it carries a
+  // link, and it follows a language switch made while it's on screen.
+  const [refusal, setRefusal] = useState<AiAccessRefusal | null>(null);
   const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
 
@@ -40,16 +52,14 @@ export default function ReceiptUpload() {
     if (!file) return;
 
     setError(null);
+    setRefusal(null);
     setUploading(true);
     try {
       const { receiptId } = await uploadReceipt(file);
       navigate(`/receipts/${receiptId}/review`);
     } catch (err) {
-      setError(
-        err instanceof AiAccessRefusedError
-          ? refusalMessage(err.refusal, t)
-          : errorMessage(err, t("errors.uploadFailed"))
-      );
+      if (err instanceof AiAccessRefusedError) setRefusal(err.refusal);
+      else setError(errorMessage(err, t("errors.uploadFailed")));
     } finally {
       setUploading(false);
     }
@@ -63,6 +73,11 @@ export default function ReceiptUpload() {
         {uploading ? t("upload.recognizing") : t("upload.prompt")}
       </label>
       {error && <p role="alert">{error}</p>}
+      {refusal && (
+        <p role="alert">
+          {refusalMessage(refusal, t)} <a href={creditRequestDraft(t)}>{t("upload.emailAdmin")}</a>
+        </p>
+      )}
       {uploading && <LoadingOverlay message={t("upload.recognizing")} />}
     </div>
   );

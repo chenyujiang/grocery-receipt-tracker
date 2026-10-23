@@ -14,6 +14,7 @@ import { uploadReceipt } from "@/lib/receipts";
 import { AiAccessRefusedError, SUPPORT_EMAIL } from "@/lib/aiAccessRefusal";
 import { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
 import { renderInZh } from "@/test/renderInZh";
+import { useLanguage } from "@/lib/LanguageProvider";
 import ReceiptUpload from "@/pages/ReceiptUpload";
 
 function renderUploadPage() {
@@ -24,6 +25,16 @@ function renderUploadPage() {
         <Route path="/receipts/:receiptId/review" element={<p>Review page</p>} />
       </Routes>
     </MemoryRouter>
+  );
+}
+
+// Stands in for the app shell's language toggle, which isn't on this page.
+function SwitchToEnglish() {
+  const { setLanguage } = useLanguage();
+  return (
+    <button type="button" onClick={() => setLanguage("en")}>
+      English
+    </button>
   );
 }
 
@@ -109,5 +120,40 @@ describe("ReceiptUpload", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       `AI 识别额度已用完（已用 $0.82 / $0.80）。请发邮件至 ${SUPPORT_EMAIL} 申请额度。`
     );
+  });
+
+  // Spec Section 16: the way out is a mailto: link that opens the user's own
+  // email client on a pre-filled draft — no email is sent by the app.
+  it("links a refused user to a pre-filled email draft to the admin", async () => {
+    vi.mocked(uploadReceipt).mockRejectedValue(new AiAccessRefusedError({ code: "ai_trial_exhausted" }));
+
+    renderInZh(<ReceiptUpload />);
+    await userEvent.upload(screen.getByLabelText(/拍照|选择图片/, { selector: "input" }), makeFile());
+
+    const link = await screen.findByRole("link", { name: "发邮件申请额度" });
+    const draft = new URL(link.getAttribute("href") ?? "");
+    expect(draft.protocol).toBe("mailto:");
+    expect(draft.pathname).toBe(SUPPORT_EMAIL);
+    expect(draft.searchParams.get("subject")).toBe("申请 AI 识别额度");
+    expect(draft.searchParams.get("body")).toBe("你好，我想为我的账号申请 AI 识别额度。");
+  });
+
+  it("rewords a refusal already on screen when the user switches language", async () => {
+    vi.mocked(uploadReceipt).mockRejectedValue(new AiAccessRefusedError({ code: "ai_trial_exhausted" }));
+
+    renderInZh(
+      <>
+        <SwitchToEnglish />
+        <ReceiptUpload />
+      </>
+    );
+    await userEvent.upload(screen.getByLabelText(/拍照|选择图片/, { selector: "input" }), makeFile());
+    await screen.findByRole("alert");
+    await userEvent.click(screen.getByRole("button", { name: "English" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      `You've already used all ${FREE_TRIAL_LIMIT} of your free AI recognitions. Email ${SUPPORT_EMAIL} to get credit assigned.`
+    );
+    expect(screen.getByRole("link", { name: "Email to request credit" })).toBeInTheDocument();
   });
 });
