@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { aiAccessRefusal } from "./aiAccessRefusal.js";
 import type { AccessStatus } from "./userAiAccess.js";
+import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
 
 // What a refused recognition call sends back. Tested here rather than in the
 // route test so that changing the refusal's shape doesn't churn an HTTP test.
@@ -13,7 +14,7 @@ function trialStatus(overrides: Partial<AccessStatus> = {}): AccessStatus {
     mode: "trial",
     spentUsd: 0,
     capUsd: null,
-    freeTrialCallsUsed: 5,
+    freeTrialCallsUsed: FREE_TRIAL_LIMIT,
     ...overrides,
   };
 }
