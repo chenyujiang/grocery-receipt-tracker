@@ -14,7 +14,9 @@ Every planning doc under `.scratch/grocery-receipt-tracker/`, plus this repo's `
 
 React + TypeScript + Vite (frontend), Vercel Serverless Functions in `/api` (backend), Supabase (Postgres + Auth + Storage). Path alias `@` → `src`.
 
-Commands: `npm run dev`, `npm run build`, `npm run typecheck`, `npm test` (vitest run).
+Commands: `npm run dev`, `npm run build`, `npm run typecheck`, `npm run lint`, `npm test` (vitest run).
+
+`eslint.config.js` enforces three of the conventions below mechanically, outside tests: no `instanceof Error` (Error handling), no literal `errorMessage` fallback, and no user-visible JSX text or `aria-label`/`title`/`placeholder`/`alt` literal containing a word (spec Section 7 — separators like `·` `—` `$` are fine). It also bans runtime `@/` imports in every `src` file `/api` loads, worked out by following `api/`'s relative imports, since Node on Vercel can't resolve the alias.
 
 `tsc -b` spans three projects — `tsconfig.app.json` (`src`), `tsconfig.node.json` (`vite.config.ts`), and `tsconfig.api.json` (`api`) — so `typecheck` and `build` both cover the serverless functions. A new top-level directory needs its own project here, or it silently goes unchecked. `app` and `api` both extend `tsconfig.base.json`, which owns the strictness flags, module resolution, and the `@/*` path alias: put a rule that should hold everywhere there, so the frontend's settings and the functions' can't drift apart.
 

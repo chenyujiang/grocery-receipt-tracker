@@ -48,6 +48,7 @@ function isAllowedMediaType(value: unknown): value is AllowedMediaType {
 // for the network tab and debugging, not the user. Advice the user can act
 // on goes out as a 422 RecognitionFailure code instead.
 function extractErrorMessage(err: unknown): string {
+  // eslint-disable-next-line no-restricted-syntax -- this is the one place that reads an Error's text
   if (err instanceof Error && err.message.trim()) {
     return err.message;
   }

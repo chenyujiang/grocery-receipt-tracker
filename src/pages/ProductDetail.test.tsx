@@ -201,6 +201,35 @@ describe("ProductDetail", () => {
     expect(await screen.findByRole("img", { name: "价格走势" })).toBeInTheDocument();
   });
 
+  // Spec Section 7: the words around the numbers are UI chrome too.
+  it("words the price change and consumption rate in the chosen language", async () => {
+    vi.mocked(fetchProductDetail).mockResolvedValue({
+      ...SAMPLE_DETAIL,
+      priceChange: {
+        ...SAMPLE_DETAIL.priceChange,
+        baseline: { basis: "each" as const, value: 4 },
+        current: { basis: "each" as const, value: 3.2 },
+      },
+      consumption: { basis: "each" as const, dailyRate: 0.5, estimatedRemaining: 2, estimatedDaysRemaining: 4 },
+    });
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, "zh");
+
+    render(
+      <MemoryRouter initialEntries={["/products/product-1"]}>
+        <LanguageProvider>
+          <Routes>
+            <Route path="/products/:productId" element={<ProductDetail />} />
+          </Routes>
+        </LanguageProvider>
+      </MemoryRouter>
+    );
+
+    const priceChange = (await screen.findByRole("heading", { name: "价格变化" })).closest("section")!;
+    expect(priceChange).toHaveTextContent("现价 $3.20/个");
+    const consumption = screen.getByRole("heading", { name: "消耗速度" }).closest("section")!;
+    expect(consumption).toHaveTextContent("每天 0.5 个");
+  });
+
   it("draws a Store bought from only once as a lone point, not a line", async () => {
     vi.mocked(fetchProductDetail).mockResolvedValue({
       ...SAMPLE_DETAIL,

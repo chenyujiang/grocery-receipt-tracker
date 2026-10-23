@@ -18,6 +18,7 @@ import type { TranslationKey } from "./i18n.js";
 export function errorMessage(err: unknown, fallback: string): string {
   if (err instanceof UnexplainedError) return fallback;
   const message =
+    // eslint-disable-next-line no-restricted-syntax -- this is the one place that reads an Error's text
     err instanceof Error
       ? err.message
       : err && typeof err === "object" && "message" in err && typeof err.message === "string"

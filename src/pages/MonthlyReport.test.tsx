@@ -192,7 +192,6 @@ describe("MonthlyReport", () => {
     await userEvent.click(screen.getByRole("button", { name: /pick a month/i }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
-    // eslint-disable-next-line testing-library/no-node-access
     await userEvent.click(document.querySelector(".month-picker-backdrop") as HTMLElement);
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

@@ -6,17 +6,19 @@ import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText, categoryLabel } from "@/lib/bilingual";
 import { errorMessage } from "@/lib/errorMessage";
 import { useLatestRequest } from "@/lib/useLatestRequest";
+import type { TranslationKey } from "@/lib/i18n";
+import type { BaseQuantityBasis, UnitBasis } from "@/lib/units";
 
-const PRICE_BASIS_LABEL: Record<string, string> = {
-  per_100g: "/100g",
-  per_100ml: "/100ml",
-  each: "/each",
+const PRICE_BASIS_LABEL: Record<UnitBasis, TranslationKey> = {
+  per_100g: "product.per100g",
+  per_100ml: "product.per100ml",
+  each: "product.perEach",
 };
 
-const QUANTITY_BASIS_LABEL: Record<string, string> = {
-  g: "g",
-  ml: "ml",
-  each: "items",
+const QUANTITY_BASIS_LABEL: Record<BaseQuantityBasis, TranslationKey> = {
+  g: "product.grams",
+  ml: "product.millilitres",
+  each: "product.items",
 };
 
 // How many --series-N colour tokens index.css defines; a fifth Store reuses
@@ -147,8 +149,12 @@ export default function ProductDetail() {
                 }
               >
                 {detail.priceChange.changePercent > 0 ? "+" : ""}
-                {detail.priceChange.changePercent}% — now ${detail.priceChange.current.value.toFixed(2)}
-                {PRICE_BASIS_LABEL[detail.priceChange.current.basis]} ·{" "}
+                {detail.priceChange.changePercent}% —{" "}
+                {t("product.currentPrice", {
+                  price: detail.priceChange.current.value.toFixed(2),
+                  basis: t(PRICE_BASIS_LABEL[detail.priceChange.current.basis]),
+                })}{" "}
+                ·{" "}
                 {pickText(detail.priceChange.storeNameEn, detail.priceChange.storeNameZh, language)}
               </p>
             )}
@@ -169,7 +175,7 @@ export default function ProductDetail() {
                   <li key={entry.storeId}>
                     {pickText(entry.storeNameEn, entry.storeNameZh, language)} — $
                     {entry.value.toFixed(2)}
-                    {PRICE_BASIS_LABEL[entry.basis]} ({entry.purchaseDate})
+                    {t(PRICE_BASIS_LABEL[entry.basis])} ({entry.purchaseDate})
                   </li>
                 ))}
               </ul>
@@ -183,7 +189,12 @@ export default function ProductDetail() {
             ) : (
               <p>
                 {t("product.estimatedDaysRemaining", { days: detail.consumption.estimatedDaysRemaining })}{" "}
-                ({detail.consumption.dailyRate} {QUANTITY_BASIS_LABEL[detail.consumption.basis]}/day —{" "}
+                (
+                {t("product.dailyRate", {
+                  rate: detail.consumption.dailyRate,
+                  unit: t(QUANTITY_BASIS_LABEL[detail.consumption.basis]),
+                })}{" "}
+                —{" "}
                 {t("product.consumptionNote")})
               </p>
             )}
