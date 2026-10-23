@@ -149,6 +149,20 @@ describe("ReceiptUpload", () => {
     );
   });
 
+  // With no session to read the account from, the draft leaves the account
+  // lines out rather than sending them blank.
+  it("leaves the account out of the draft when there is no session", async () => {
+    vi.mocked(useAuth).mockReturnValue({ session: null, loading: false });
+    vi.mocked(uploadReceipt).mockRejectedValue(new AiAccessRefusedError({ code: "ai_trial_exhausted" }));
+
+    renderInZh(<ReceiptUpload />);
+    await userEvent.upload(screen.getByLabelText(/拍照|选择图片/, { selector: "input" }), makeFile());
+
+    const link = await screen.findByRole("link", { name: "发邮件申请额度" });
+    const draft = new URL(link.getAttribute("href") ?? "");
+    expect(draft.searchParams.get("body")).toBe("你好，我想为我的账号申请 AI 识别额度。");
+  });
+
   it("rewords a refusal already on screen when the user switches language", async () => {
     vi.mocked(uploadReceipt).mockRejectedValue(new AiAccessRefusedError({ code: "ai_trial_exhausted" }));
 

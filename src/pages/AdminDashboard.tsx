@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { errorMessage } from "@/lib/errorMessage";
 import { useLanguage } from "@/lib/LanguageProvider";
-import { creditAmounts, roleLabel } from "@/lib/i18n";
+import { roleLabel } from "@/lib/i18n";
+import { creditAmounts } from "@/lib/creditAmounts";
 import { useLatestRequest } from "@/lib/useLatestRequest";
 import {
   fetchAdminUsers,

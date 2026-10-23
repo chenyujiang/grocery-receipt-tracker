@@ -50,8 +50,9 @@ export const translations = {
     "upload.prompt": "Take photo / choose image",
     "upload.emailAdmin": "Email to request credit",
     "upload.creditRequestSubject": "AI recognition credit request",
-    "upload.creditRequestBody":
-      "Hi, I'd like AI recognition credit assigned to my account.\n\nEmail: {email}\nUser ID: {userId}",
+    "upload.creditRequestBody": "Hi, I'd like AI recognition credit assigned to my account.",
+    "upload.creditRequestEmail": "Email: {email}",
+    "upload.creditRequestUserId": "User ID: {userId}",
 
     "review.title": "Confirm Receipt",
     "review.duplicateTitle": "Possible duplicate",
@@ -256,7 +257,9 @@ export const translations = {
     "upload.prompt": "拍照 / 选择图片",
     "upload.emailAdmin": "发邮件申请额度",
     "upload.creditRequestSubject": "申请 AI 识别额度",
-    "upload.creditRequestBody": "你好，我想为我的账号申请 AI 识别额度。\n\n邮箱：{email}\n用户 ID：{userId}",
+    "upload.creditRequestBody": "你好，我想为我的账号申请 AI 识别额度。",
+    "upload.creditRequestEmail": "邮箱：{email}",
+    "upload.creditRequestUserId": "用户 ID：{userId}",
 
     "review.title": "确认小票",
     "review.duplicateTitle": "可能重复",
@@ -448,14 +451,4 @@ const ROLE_LABEL_KEYS: Record<Role, TranslationKey> = {
 // whatever LanguageProvider is in scope.
 export function roleLabel(role: Role, t: Translate): string {
   return t(ROLE_LABEL_KEYS[role]);
-}
-
-// The {spent}/{cap} params of an AI Credit's copy, shared by the admin
-// dashboard's progress line and the upload page's refusal. Rounded to the
-// cent: spend is summed per-call costs, so it's rarely a clean float.
-export function creditAmounts(credit: { spentUsd: number; capUsd: number }): {
-  spent: string;
-  cap: string;
-} {
-  return { spent: credit.spentUsd.toFixed(2), cap: credit.capUsd.toFixed(2) };
 }

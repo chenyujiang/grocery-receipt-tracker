@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { uploadReceipt } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { useAuth } from "@/lib/AuthProvider";
-import { creditAmounts, type Translate } from "@/lib/i18n";
+import type { Translate } from "@/lib/i18n";
+import { creditAmounts } from "@/lib/creditAmounts";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { errorMessage } from "@/lib/errorMessage";
 import { AiAccessRefusedError, SUPPORT_EMAIL, type AiAccessRefusal } from "@/lib/aiAccessRefusal";
@@ -25,13 +26,23 @@ function refusalMessage(
 // the app sends nothing itself. encodeURIComponent, not URLSearchParams: mail
 // clients read a "+" in a mailto: query literally rather than as a space.
 // The body names the account (email and user id), so the admin can find whom
-// to grant credit to without asking back.
+// to grant credit to without asking back — or leaves it out, rather than
+// sending blank lines, when there's no session (or no email) to read it from.
 function creditRequestDraft(
-  account: { email: string; userId: string },
+  session: { email: string | null; userId: string } | null,
   t: Translate
 ): string {
   const subject = encodeURIComponent(t("upload.creditRequestSubject"));
-  const body = encodeURIComponent(t("upload.creditRequestBody", account));
+  const accountLines = session
+    ? [
+        session.email !== null && t("upload.creditRequestEmail", { email: session.email }),
+        t("upload.creditRequestUserId", { userId: session.userId }),
+      ].filter((line) => line !== false)
+    : [];
+  const greeting = t("upload.creditRequestBody");
+  const body = encodeURIComponent(
+    accountLines.length > 0 ? `${greeting}\n\n${accountLines.join("\n")}` : greeting
+  );
   return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
 }
 
@@ -79,10 +90,7 @@ export default function ReceiptUpload() {
       {refusal && (
         <p role="alert">
           {refusalMessage(refusal, t)} <a
-            href={creditRequestDraft(
-              { email: session?.email ?? "", userId: session?.userId ?? "" },
-              t
-            )}
+            href={creditRequestDraft(session, t)}
           >{t("upload.emailAdmin")}</a>
         </p>
       )}
