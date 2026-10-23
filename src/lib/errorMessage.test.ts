@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { errorMessage, UnexplainedError } from "@/lib/errorMessage";
+import { errorMessage, serverErrorMessage, UnexplainedError } from "@/lib/errorMessage";
 
 describe("errorMessage", () => {
   it("returns the message of a real Error", () => {
@@ -39,5 +39,26 @@ describe("errorMessage", () => {
     expect(errorMessage(new UnexplainedError("Request failed with status 500"), "Failed to load")).toBe(
       "Failed to load"
     );
+  });
+});
+
+// Ticket 38: server-side, a PostgrestError describes the admin client's own
+// queries (table, column and constraint names), so only an Error's text —
+// written for the caller — goes out.
+describe("serverErrorMessage", () => {
+  it("returns the message of a real Error", () => {
+    expect(serverErrorMessage(new Error("Image exceeds 5MB limit"), "Failed")).toBe("Image exceeds 5MB limit");
+  });
+
+  it("hides a PostgrestError's message behind the fallback", () => {
+    const postgrestError = { message: 'null value in column "store_id" violates not-null constraint' };
+
+    expect(serverErrorMessage(postgrestError, "Failed")).toBe("Failed");
+  });
+
+  it("falls back for a blank Error, a non-Error, or an UnexplainedError", () => {
+    expect(serverErrorMessage(new Error("  "), "Failed")).toBe("Failed");
+    expect(serverErrorMessage("something went sideways", "Failed")).toBe("Failed");
+    expect(serverErrorMessage(new UnexplainedError("Request failed with status 500"), "Failed")).toBe("Failed");
   });
 });

@@ -8,6 +8,7 @@ import { calculateHaikuCost } from "../_lib/haikuCost.js";
 import { recognizeReceipt, type ExistingProduct } from "../_lib/recognizeReceipt.js";
 import { saveDraftReceipt } from "../_lib/saveDraftReceipt.js";
 import { RecognitionFailedError } from "../../src/lib/recognitionFailure.js";
+import { serverErrorMessage } from "../../src/lib/errorMessage.js";
 
 // Section 3.2 (End-to-end data flow) + Section 8 (Product Matching):
 // 1. Verify the caller's Supabase session and look up their circle.
@@ -29,30 +30,6 @@ type AllowedMediaType = (typeof ALLOWED_MEDIA_TYPES)[number];
 
 function isAllowedMediaType(value: unknown): value is AllowedMediaType {
   return typeof value === "string" && (ALLOWED_MEDIA_TYPES as readonly string[]).includes(value);
-}
-
-// An Error's message is shown to the user: the ones thrown on this path were
-// written for them (a photo that can't be read, a receipt too long to read in
-// one go). Supabase's PostgrestError is a plain object (not an Error
-// instance), and its message names tables, columns and constraints — so it,
-// like anything else that isn't an Error, gets the generic message instead
-// (ticket 38). The raw error is still logged by the caller.
-//
-// The frontend's errorMessage() in src/lib/errorMessage.ts is the same check
-// for an Error, kept as a separate copy rather than a shared import — change
-// both together. It deliberately still shows a PostgrestError's message: in
-// the browser that's the user's own RLS/constraint failure, already visible
-// to them in the network tab, and the only clue to what went wrong.
-//
-// The page shows its own translated fallback for any 5xx, so this text is
-// for the network tab and debugging, not the user. Advice the user can act
-// on goes out as a 422 RecognitionFailure code instead.
-function extractErrorMessage(err: unknown): string {
-  // eslint-disable-next-line no-restricted-syntax -- this is the one place that reads an Error's text
-  if (err instanceof Error && err.message.trim()) {
-    return err.message;
-  }
-  return "Failed to recognize receipt";
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -197,6 +174,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await fail(422, { code: err.code });
       return;
     }
-    await fail(500, { error: extractErrorMessage(err) });
+    // The page shows its own translated fallback for any 5xx, so this text is
+    // for the network tab and debugging, not the user.
+    await fail(500, { error: serverErrorMessage(err, "Failed to recognize receipt") });
   }
 }

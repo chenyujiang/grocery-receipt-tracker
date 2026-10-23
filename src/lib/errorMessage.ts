@@ -6,26 +6,37 @@ import type { TranslationKey } from "./i18n.js";
 // this app actually hits (RLS violations, constraint failures, permission
 // denials), and the real message gets swallowed by the generic fallback.
 //
-// Mirrored server-side by extractErrorMessage in api/receipts/recognize.ts —
-// kept as a separate copy rather than a shared import. Change both together.
-// One deliberate difference: the server hides a PostgrestError's message
-// behind a generic one (ticket 38), since there it describes the admin
-// client's own queries. Here it's the user's own RLS/constraint failure,
-// already visible in their network tab, and the only clue to what went wrong.
+// Here a PostgrestError is the user's own RLS/constraint failure, already
+// visible in their network tab, and the only clue to what went wrong, so its
+// message is shown. serverErrorMessage below is the /api version, which
+// hides it.
 //
 // An UnexplainedError always gets the fallback: it's how src/lib/*.ts says a
 // failure came with no text worth showing the user.
 export function errorMessage(err: unknown, fallback: string): string {
-  if (err instanceof UnexplainedError) return fallback;
+  return ownText(err, { plainObjects: true }) ?? fallback;
+}
+
+// errorMessage for /api: only an Error's text goes out, since the ones thrown
+// there were written for the caller. A PostgrestError, like anything else
+// that isn't an Error, gets the fallback (ticket 38) — server-side it
+// describes the admin client's own queries, naming tables, columns and
+// constraints. Log the raw error before calling this.
+export function serverErrorMessage(err: unknown, fallback: string): string {
+  return ownText(err, { plainObjects: false }) ?? fallback;
+}
+
+function ownText(err: unknown, { plainObjects }: { plainObjects: boolean }): string | null {
+  if (err instanceof UnexplainedError) return null;
   const message =
     // eslint-disable-next-line no-restricted-syntax -- this is the one place that reads an Error's text
     err instanceof Error
       ? err.message
-      : err && typeof err === "object" && "message" in err && typeof err.message === "string"
+      : plainObjects && err && typeof err === "object" && "message" in err && typeof err.message === "string"
         ? err.message
         : null;
 
-  return message?.trim() ? message : fallback;
+  return message?.trim() ? message : null;
 }
 
 // A failure with no text worth showing the user: a server that answered with
