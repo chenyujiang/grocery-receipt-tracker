@@ -175,11 +175,11 @@ export const translations = {
     "admin.trialUsedUp": "Free trial used up — awaiting credit",
     "admin.trialProgress": "Free trial: {used} of {limit} used",
     "admin.creditProgress": "${spent} of ${cap} used",
-    "admin.grantDefault": "Grant ${amount}",
+    "admin.grantDefault": "Reset credit to ${amount}",
     "admin.custom": "Custom…",
     "admin.customPlaceholder": "e.g. 5.00",
     "admin.invalidAmount": "Enter a grant amount greater than 0.",
-    "admin.grant": "Grant",
+    "admin.grant": "Reset credit",
     "admin.ban": "Ban account",
     "admin.unban": "Unban account",
 

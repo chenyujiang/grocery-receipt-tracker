@@ -60,7 +60,7 @@ function renderPage() {
 function openCustomGrant(amount: string) {
   fireEvent.click(screen.getByRole("button", { name: "Custom…" }));
   fireEvent.change(screen.getByPlaceholderText("e.g. 5.00"), { target: { value: amount } });
-  fireEvent.click(screen.getByRole("button", { name: "Grant" }));
+  fireEvent.click(screen.getByRole("button", { name: "Reset credit" }));
 }
 
 describe("AdminDashboard", () => {
@@ -105,7 +105,7 @@ describe("AdminDashboard", () => {
     renderPage();
     await screen.findByText("Ben Wu");
 
-    fireEvent.click(screen.getByRole("button", { name: "Grant $1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset credit to $1" }));
 
     expect(grantAdminCredit).toHaveBeenCalledWith("u2");
     expect(await screen.findByText(/Needs attention/)).toBeInTheDocument();
@@ -228,7 +228,7 @@ describe("AdminDashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Custom…" }));
     const input = screen.getByPlaceholderText("e.g. 5.00");
     fireEvent.change(input, { target: { value: "-5" } });
-    fireEvent.click(screen.getByRole("button", { name: "Grant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset credit" }));
 
     await screen.findByRole("alert");
     expect(input).toHaveValue("-5");
@@ -241,7 +241,7 @@ describe("AdminDashboard", () => {
     renderPage();
     await screen.findByText("Ben Wu");
 
-    fireEvent.click(screen.getByRole("button", { name: "Grant $1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset credit to $1" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("capUsd must be a positive number");
   });
@@ -268,10 +268,10 @@ describe("AdminDashboard", () => {
     renderPage();
     await screen.findByText("Ben Wu");
 
-    fireEvent.click(screen.getByRole("button", { name: "Grant $1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset credit to $1" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("grant blew up");
 
-    fireEvent.click(screen.getByRole("button", { name: "Grant $1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset credit to $1" }));
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
@@ -319,7 +319,7 @@ describe("AdminDashboard", () => {
     fireEvent.click(await screen.findByText(/Chen Family \(1\)/));
     await waitFor(() => expect(screen.getAllByText("Ben Wu")).toHaveLength(2));
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Grant $1" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Reset credit to $1" })[0]);
 
     await waitFor(() => expect(screen.getAllByRole("alert")).toHaveLength(2));
     for (const alert of screen.getAllByRole("alert")) {
