@@ -23,7 +23,7 @@ import {
 } from "@/lib/receipts";
 import type { DraftItem } from "@/lib/receipts";
 import { AiAccessRefusedError } from "@/lib/aiAccessRefusal";
-import { errorMessage } from "@/lib/errorMessage";
+import { errorMessage, UnexplainedError } from "@/lib/errorMessage";
 
 function makeFile(content: string, type: string) {
   return new File([content], "receipt.jpg", { type });
@@ -147,6 +147,8 @@ describe("uploadReceipt", () => {
 
     const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
 
+    expect(err).toBeInstanceOf(UnexplainedError);
+    expect(err).toHaveProperty("message", "Upload failed with status 504");
     expect(errorMessage(err, "上传失败")).toBe("上传失败");
   });
 

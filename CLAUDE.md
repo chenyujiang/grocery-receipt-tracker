@@ -36,6 +36,8 @@ Supabase's `PostgrestError` is a plain object, **not** an `Error` instance, and 
 
 Pass the fallback as `t("errors.…")` (keys in `src/lib/i18n.ts`), not a literal, so it follows the language toggle. That only half-closes the gap: Supabase's own error text, shown whenever the error carries one, is English regardless.
 
+When a `src/lib/*.ts` fetch fails with no text worth showing — no body at all, or only a server's own generic English one (the admin routes' 5xx) — throw `UnexplainedError` (`src/lib/errorMessage.ts`). `errorMessage` always gives it the caller's fallback; its own message (the status code) is for the console. Don't signal this with an empty-message `Error` instead.
+
 One deliberate `instanceof` exception: `src/pages/ReceiptUpload.tsx` checks `err instanceof AiAccessRefusedError` (`src/lib/aiAccessRefusal.ts`). That tests for the app's own error type to read its structured `refusal`, not to pull a message out — the page renders the refusal as JSX, with a `mailto:` link to the admin, worded at render time so it follows the language toggle. Every other error on that page still goes through `errorMessage`.
 
 ## UI style conventions

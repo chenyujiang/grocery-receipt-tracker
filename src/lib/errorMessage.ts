@@ -10,7 +10,11 @@
 // behind a generic one (ticket 38), since there it describes the admin
 // client's own queries. Here it's the user's own RLS/constraint failure,
 // already visible in their network tab, and the only clue to what went wrong.
+//
+// An UnexplainedError always gets the fallback: it's how src/lib/*.ts says a
+// failure came with no text worth showing the user.
 export function errorMessage(err: unknown, fallback: string): string {
+  if (err instanceof UnexplainedError) return fallback;
   const message =
     err instanceof Error
       ? err.message
@@ -20,3 +24,9 @@ export function errorMessage(err: unknown, fallback: string): string {
 
   return message?.trim() ? message : fallback;
 }
+
+// A failure with no text worth showing the user: a server that answered with
+// no error, or only its own generic English one. The message names it for
+// the console (the status code); errorMessage shows the caller's translated
+// fallback in its place.
+export class UnexplainedError extends Error {}

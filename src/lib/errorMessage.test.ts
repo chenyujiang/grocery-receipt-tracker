@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { errorMessage } from "@/lib/errorMessage";
+import { errorMessage, UnexplainedError } from "@/lib/errorMessage";
 
 describe("errorMessage", () => {
   it("returns the message of a real Error", () => {
@@ -31,5 +31,13 @@ describe("errorMessage", () => {
     expect(errorMessage({ message: "" }, "Failed to load")).toBe("Failed to load");
     expect(errorMessage({ message: "   " }, "Failed to load")).toBe("Failed to load");
     expect(errorMessage(new Error(""), "Failed to load")).toBe("Failed to load");
+  });
+
+  // Its message is for the console, not the user: it names the failure (a
+  // status code) without explaining it in words worth showing.
+  it("falls back for an UnexplainedError, whatever its message", () => {
+    expect(errorMessage(new UnexplainedError("Request failed with status 500"), "Failed to load")).toBe(
+      "Failed to load"
+    );
   });
 });
