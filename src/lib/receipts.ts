@@ -17,6 +17,7 @@ import { bilingualName, type BilingualName } from "@/lib/bilingualName";
 import { receiptStoreName, storeName, STORE_NAMES_EMBED, type StoreNames } from "@/lib/storeName";
 import { AiAccessRefusedError, isAiAccessRefusal } from "@/lib/aiAccessRefusal";
 import { throwForFailedResponse, UnexplainedError } from "@/lib/errorMessage";
+import { signedInAccessToken, signedInUserId } from "@/lib/signedIn";
 import type { Database } from "@/types/database.types";
 
 export interface UploadReceiptResult {
@@ -25,10 +26,7 @@ export interface UploadReceiptResult {
 
 // Section 6: photo upload -> backend OCR + translation + product-match call.
 export async function uploadReceipt(file: File): Promise<UploadReceiptResult> {
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !sessionData.session) {
-    throw sessionError ?? new UnexplainedError("Not signed in");
-  }
+  const accessToken = await signedInAccessToken();
 
   // Downscaled to a JPEG here (phone camera photos are often too large for
   // the request otherwise, and occasionally in a format Claude rejects).
@@ -38,7 +36,7 @@ export async function uploadReceipt(file: File): Promise<UploadReceiptResult> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${sessionData.session.access_token}`,
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ imageBase64, mediaType }),
   });
@@ -301,13 +299,7 @@ export async function confirmReceipt(
   items: ConfirmReceiptItemUpdate[],
   store: StoreChoice
 ): Promise<void> {
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-  if (userError || !user) {
-    throw userError ?? new UnexplainedError("Not signed in");
-  }
+  const userId = await signedInUserId();
 
   const { data: existingReceipt, error: fetchError } = await supabase
     .from("receipts")
@@ -326,7 +318,7 @@ export async function confirmReceipt(
   const storeId = confirmedStore.id;
 
   const purchaseDate = await takeBackStoreOnFailure(created ? storeId : null, () =>
-    writeConfirmation(receiptId, items, user.id, startingStore(existingReceipt), confirmedStore)
+    writeConfirmation(receiptId, items, userId, startingStore(existingReceipt), confirmedStore)
   );
 
   await recordPriceSpikeAlerts(
@@ -423,13 +415,7 @@ export async function editConfirmedReceipt(
   items: ConfirmReceiptItemUpdate[],
   store: StoreChoice
 ): Promise<void> {
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-  if (userError || !user) {
-    throw userError ?? new UnexplainedError("Not signed in");
-  }
+  const userId = await signedInUserId();
 
   const { data: existingReceipt, error: fetchError } = await supabase
     .from("receipts")
@@ -480,7 +466,7 @@ export async function editConfirmedReceipt(
   // Store and date's one transaction: if that transaction fails, the item
   // edits stay saved and logged, and only the Store and date change is lost.
   await takeBackStoreOnFailure(createdStoreId, async () => {
-    await updateReceiptItemsWithLog(items, user.id);
+    await updateReceiptItemsWithLog(items, userId);
     if (logs.length > 0 || changes.storeId !== undefined) {
       await updateReceiptWithLog(receiptId, changes, logs);
     }

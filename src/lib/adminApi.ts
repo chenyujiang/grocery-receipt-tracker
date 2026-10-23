@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { Role } from "@/types";
 import { throwForFailedResponse, UnexplainedError } from "@/lib/errorMessage";
+import { signedInAccessToken } from "@/lib/signedIn";
 
 // Issue 15 decision 2: a non-obvious, unguessable path — not a substitute
 // for the real is-admin check (isGlobalAdmin/RequireGlobalAdmin), just an
@@ -40,16 +41,13 @@ export interface AdminUserRow {
 }
 
 async function authorizedFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const { data: sessionData, error } = await supabase.auth.getSession();
-  if (error || !sessionData.session) {
-    throw error ?? new UnexplainedError("Not signed in");
-  }
+  const accessToken = await signedInAccessToken();
 
   const response = await fetch(path, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${sessionData.session.access_token}`,
+      Authorization: `Bearer ${accessToken}`,
       ...options.headers,
     },
   });
