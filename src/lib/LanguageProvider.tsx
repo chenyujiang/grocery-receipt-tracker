@@ -2,7 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import type { Language } from "@/lib/bilingual";
 import { translate, type TranslationKey } from "@/lib/i18n";
 
-export const STORAGE_KEY = "language";
+export const LANGUAGE_STORAGE_KEY = "language";
 const DEFAULT_LANGUAGE: Language = "en";
 
 interface LanguageContextValue {
@@ -18,7 +18,7 @@ const LanguageContext = createContext<LanguageContextValue>({
 });
 
 function readStoredLanguage(): Language {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
   return stored === "zh" || stored === "en" ? stored : DEFAULT_LANGUAGE;
 }
 
@@ -31,7 +31,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(readStoredLanguage);
 
   function setLanguage(next: Language) {
-    localStorage.setItem(STORAGE_KEY, next);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
     setLanguageState(next);
   }
 
