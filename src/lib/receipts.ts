@@ -48,7 +48,10 @@ export async function uploadReceipt(file: File): Promise<UploadReceiptResult> {
     if (response.status === 402 && body?.code) {
       throw new AiAccessRefusedError(body as AiAccessRefusal);
     }
-    throw new Error(body?.error ?? `Upload failed with status ${response.status}`);
+    // No error text from the server (a platform 5xx, an empty body): an empty
+    // message lets the page's errorMessage(err, t("errors.uploadFailed")) show
+    // its translated fallback, as adminApi.ts does.
+    throw new Error(body?.error ?? "");
   }
 
   return (await response.json()) as UploadReceiptResult;

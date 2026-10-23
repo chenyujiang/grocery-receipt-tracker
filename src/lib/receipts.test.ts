@@ -23,6 +23,7 @@ import {
 } from "@/lib/receipts";
 import type { DraftItem } from "@/lib/receipts";
 import { AiAccessRefusedError } from "@/lib/aiAccessRefusal";
+import { errorMessage } from "@/lib/errorMessage";
 
 function makeFile(content: string, type: string) {
   return new File([content], "receipt.jpg", { type });
@@ -127,6 +128,26 @@ describe("uploadReceipt", () => {
     await expect(uploadReceipt(makeFile("x", "image/jpeg"))).rejects.toThrow(
       "Invalid or expired session"
     );
+  });
+
+  it("leaves the caller's translated fallback to show when the server sends no error text", async () => {
+    installFakeSupabase(supabase, {
+      auth: { getSession: { data: { session: { access_token: "tok-1" } }, error: null } },
+    });
+    vi.mocked(resizeImageForUpload).mockResolvedValue({
+      base64: "resized-base64-bytes",
+      mediaType: "image/jpeg",
+    });
+    // A platform 504 has no JSON body, so there's no `error` to show.
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 504,
+      json: () => Promise.reject(new SyntaxError("Unexpected token")),
+    } as never);
+
+    const err = await uploadReceipt(makeFile("x", "image/jpeg")).catch((e: unknown) => e);
+
+    expect(errorMessage(err, "上传失败")).toBe("上传失败");
   });
 
   it("throws the refusal itself when AI Access is exhausted, so the page can word it", async () => {
