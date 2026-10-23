@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabaseAdmin.js";
+import { FREE_TRIAL_LIMIT } from "../../src/lib/freeTrialLimit.js";
 
 // Issue 15: per-user AI-call access, replacing ai_spend_limit's single
 // global cap (see supabase/migrations/..._admin_dashboard_and_user_ai_access.sql).
@@ -13,7 +14,7 @@ import { supabaseAdmin } from "./supabaseAdmin.js";
 // The route's lifecycle is: reserveCall before Claude, then exactly one of
 // the returned Reservation's recordSpend (Claude answered) or release (it
 // didn't).
-export const FREE_TRIAL_LIMIT = 5;
+export { FREE_TRIAL_LIMIT };
 
 export type AccessMode = "trial" | "cap";
 

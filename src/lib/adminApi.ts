@@ -27,8 +27,7 @@ export type AdminUserCredit =
   | { mode: "trial"; callsUsed: number }
   | { mode: "cap"; capUsd: number; spentUsd: number };
 
-// Must match api/_lib/userAiAccess.ts's FREE_TRIAL_LIMIT.
-export const FREE_TRIAL_LIMIT = 5;
+export { FREE_TRIAL_LIMIT } from "@/lib/freeTrialLimit";
 
 export { DEFAULT_GRANT_USD } from "@/lib/defaultGrant";
 
