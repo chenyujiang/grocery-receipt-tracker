@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { roleLabel, translate } from "@/lib/i18n";
+import { roleLabel, translate, type TranslationKey } from "@/lib/i18n";
 
 describe("translate", () => {
   it("returns the string for the given language", () => {
@@ -17,7 +17,7 @@ describe("translate", () => {
 
 describe("roleLabel", () => {
   it("labels each role through the given translator", () => {
-    const zh = (key: Parameters<typeof translate>[1]) => translate("zh", key);
+    const zh = (key: TranslationKey) => translate("zh", key);
     expect(roleLabel("owner", zh)).toBe("拥有者");
     expect(roleLabel("member", zh)).toBe("成员");
   });
