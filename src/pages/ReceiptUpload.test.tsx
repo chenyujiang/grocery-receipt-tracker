@@ -83,7 +83,7 @@ describe("ReceiptUpload", () => {
   });
 
   it("shows an error message when the upload fails", async () => {
-    vi.mocked(uploadReceipt).mockRejectedValue(new Error("AI recognition quota used up"));
+    vi.mocked(uploadReceipt).mockRejectedValue(new Error("Invalid or expired session"));
 
     renderUploadPage();
     const input = screen.getByLabelText(/take photo|choose image|拍照|选择图片/i, {
@@ -91,7 +91,7 @@ describe("ReceiptUpload", () => {
     });
     await userEvent.upload(input, makeFile());
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("AI recognition quota used up");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Invalid or expired session");
   });
 
   // Spec Section 7: the refusal is the app's own copy, so it follows the
