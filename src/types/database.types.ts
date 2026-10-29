@@ -455,29 +455,6 @@ export interface Database {
         };
         Relationships: [];
       };
-      // Superseded by user_ai_access (see CLAUDE.md) — still present in the
-      // database, so it stays in the schema type.
-      ai_spend_limit: {
-        Row: {
-          id: boolean;
-          cap_usd: number;
-          spent_usd: number;
-          updated_at: string;
-        };
-        Insert: {
-          id?: boolean;
-          cap_usd?: number;
-          spent_usd?: number;
-          updated_at?: string;
-        };
-        Update: {
-          id?: boolean;
-          cap_usd?: number;
-          spent_usd?: number;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
     };
     Views: Record<never, never>;
     Functions: {

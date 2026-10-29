@@ -1,6 +1,6 @@
 // Section 3.1: Claude Haiku 4.5 pricing — $1.00/1M input tokens, $5.00/1M
 // output tokens. Used to turn a single Claude call's actual usage into a
-// dollar amount for ai_spend_limit.spent_usd.
+// dollar amount for user_ai_access.spent_usd.
 export interface TokenUsage {
   input_tokens: number;
   output_tokens: number;

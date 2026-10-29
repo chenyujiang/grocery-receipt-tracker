@@ -140,7 +140,7 @@ on conflict (user_id) do update
 
 **Ban/unban**: no schema change at all — implemented purely through `supabaseAdmin.auth.admin.updateUserById(userId, { ban_duration })`, per decision 5. `auth.users` isn't a table this app defines migrations for.
 
-**`ai_spend_limit`**: left in place as-is, just unreferenced by the code once this ships. Dropping it is a separate, later cleanup migration once the new model has proven out — not bundled into this one, to keep this migration reversible/inspectable on its own.
+**`ai_spend_limit`**: left in place as-is, just unreferenced by the code once this ships. Dropping it is a separate, later cleanup migration once the new model has proven out — not bundled into this one, to keep this migration reversible/inspectable on its own. Dropped later by `supabase/migrations/20261030000001_drop_ai_spend_limit.sql`.
 
 **Consequences for other tickets**:
 - **Ticket 08 (Tech Stack & Storage)** is superseded on the spend-cap point: its "single global hard $1 cap" design is replaced by the per-user model above. Ticket 08's OCR-model choice, backend-proxy requirement, and image-storage decisions are unaffected and still stand.
@@ -292,7 +292,7 @@ on conflict (user_id) do update
 
 **禁用/启用**：完全不需要改 schema——纯粹用 `supabaseAdmin.auth.admin.updateUserById(userId, { ban_duration })` 实现，对应决定5。`auth.users` 不是这个项目自己建迁移管理的表。
 
-**`ai_spend_limit`**：原样保留，这次上线之后代码只是不再引用它。要不要删掉这张表留给以后单独的清理迁移，等新模型跑稳了再说——不跟这次迁移绑在一起，让这次迁移保持可回滚、可单独审查。
+**`ai_spend_limit`**：原样保留，这次上线之后代码只是不再引用它。要不要删掉这张表留给以后单独的清理迁移，等新模型跑稳了再说——不跟这次迁移绑在一起，让这次迁移保持可回滚、可单独审查。后来由 `supabase/migrations/20261030000001_drop_ai_spend_limit.sql` 删掉了。
 
 **对其他票的影响**：
 - **票 08（技术栈与存储）**在"额度总闸门"这一点上被取代：它"全局硬性 $1 总闸门"的设计被上面这套按用户分配的模型替换。票 08 里关于 OCR 模型选型、后端代理调用、图片存储的决定不受影响，继续有效。

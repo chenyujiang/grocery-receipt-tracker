@@ -45,7 +45,6 @@ Functionally complete against spec.md. Known gaps:
 - **Email alerting is not implemented.** Price-spike and low-stock alerts are detected and shown in-app (Notifications page), but not sent anywhere — that needs an email service (Supabase's built-in option or Resend) the project hasn't configured.
 - **CSV export is hidden** behind `SHOW_EXPORT_CSV` in `MonthlyReport.tsx`, pending a product decision. Code is intact.
 - **Dissolve circle is hidden** behind `SHOW_DISSOLVE_CIRCLE` in `CircleSettings.tsx`, now that circle consolidation is admin-driven rather than something an owner does unilaterally.
-- The old `ai_spend_limit` singleton table is still present but unused (superseded by `user_ai_access`), kept only for a possible later cleanup migration.
 
 Deliberately dropped, not deferred: the invite-link "join an existing circle" flow (spec.md Section 4). The app is family-only/self-use, so circle consolidation became admin-driven instead — every signup still self-service-creates its own circle, and an admin merges standalone circles together from the dashboard, carrying products/receipts/alerts over atomically. The merge function refuses to merge a user out of an already-multi-member circle, since products are circle-level and that would strand the circle's other members without their data.
 
@@ -100,6 +99,5 @@ npm run dev
 - **邮件提醒尚未实现。** 价格异常和库存提醒已经会被检测到并显示在应用内（通知中心页面），但还没有发送渠道——这需要一个项目里还没配置的邮件服务（Supabase 内置的或 Resend）。
 - **CSV 导出已隐藏**，开关是 `MonthlyReport.tsx` 里的 `SHOW_EXPORT_CSV`，等产品决定，代码保留。
 - **解散圈子已隐藏**，开关是 `CircleSettings.tsx` 里的 `SHOW_DISSOLVE_CIRCLE`，因为圈子合并现在由管理员操作，不应该由某个成员单方面解散。
-- 旧的 `ai_spend_limit` 单例表还在，但已经不用了（被 `user_ai_access` 取代），保留着只是为了以后可能的清理迁移。
 
 主动放弃、不是延后：邀请链接"加入已有圈子"的流程（spec.md 第 4 节）。这个应用最终定位是只给自己家人用，所以圈子的合并改成了由管理员来操作——每个新账号注册时依然会自助创建自己的圈子，然后由全局管理员在后台把几个独立圈子合并到一起，他们的商品/小票/提醒记录会原子性地一起搬过去。这个合并函数会拒绝把一个用户从"已经有其他成员"的圈子里选出来合并，因为商品是圈子级别的数据，这么做会导致圈子里其他成员的数据被搬空。
