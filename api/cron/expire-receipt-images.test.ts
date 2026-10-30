@@ -13,18 +13,25 @@ type Result = { data?: unknown; error: unknown };
 interface Wiring {
   /** Results for `from("receipts")`, in order: page reads and the updates after them. */
   receipts?: Result[];
-  /** What `storage.from("receipts").remove()` resolves to, on every call. */
+  /**
+   * What `storage.from("receipts").remove()` resolves to, on every call.
+   * Unset, Storage deletes every path it's asked to.
+   */
   remove?: Result;
 }
 
-function installSupabase({
-  receipts = [{ data: [], error: null }],
-  remove = { data: [], error: null },
-}: Wiring = {}) {
-  return installFakeSupabase(supabaseAdmin, {
+function installSupabase({ receipts = [{ data: [], error: null }], remove }: Wiring = {}) {
+  const db = installFakeSupabase(supabaseAdmin, {
     tables: { receipts },
-    storage: { remove },
+    storage: { remove: remove ?? { data: [], error: null } },
   });
+  if (!remove) {
+    db.storage.remove.mockImplementation(async (paths: string[]) => ({
+      data: paths.map((name) => ({ name })),
+      error: null,
+    }));
+  }
+  return db;
 }
 
 // What Vercel Cron sends as `Authorization: Bearer $CRON_SECRET`.
@@ -43,8 +50,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
     delete process.env.CRON_SECRET;
   });
 
-  // Same access control as low-stock-check: the route deletes across every
-  // Circle with the service-role client, so the shared secret is all of it.
+  // Access control is isCronAuthorized's (api/_lib/cronAuth.ts).
   it.each(["POST", "DELETE", "PUT"])("rejects %s with 405", async (method) => {
     const db = installSupabase();
     const res = makeRes();
@@ -141,9 +147,9 @@ describe("GET /api/cron/expire-receipt-images", () => {
       expect(res.body).toEqual({ expiredImages: 2 });
     });
 
-    // A failed update after a successful remove leaves the column set, so the
-    // next run removes the (already gone) path again and clears it then. The
-    // other order would leave an image in the bucket that no row points to.
+    // A failed update after a successful remove leaves a row pointing at an
+    // image that's gone, which is harmless. The other order could leave an
+    // image in the bucket that no row points to.
     it("removes from Storage before clearing the column", async () => {
       const db = installSupabase({
         receipts: [
@@ -158,18 +164,50 @@ describe("GET /api/cron/expire-receipt-images", () => {
       expect(db.storage.remove.mock.invocationCallOrder[0]).toBeLessThan(updateOrder);
     });
 
+    // A path Storage didn't report as deleted may still be in the bucket, so
+    // its row keeps pointing at it for the next run to try again.
+    it("clears only the images Storage reports it deleted", async () => {
+      const db = installSupabase({
+        receipts: [
+          { data: EXPIRED, error: null },
+          { data: null, error: null },
+        ],
+        remove: { data: [{ name: "circle-1/a.jpg" }], error: null },
+      });
+      const res = makeRes();
+
+      await handler(cronReq(), res.res);
+
+      const update = db.queriesFor("receipts")[1];
+      expect(update).toContainEqual(["in", "id", ["receipt-1"]]);
+      expect(res.body).toEqual({ expiredImages: 1 });
+    });
+
+    it("skips the update when Storage reports nothing deleted", async () => {
+      const db = installSupabase({
+        receipts: [{ data: EXPIRED, error: null }],
+        remove: { data: [], error: null },
+      });
+      const res = makeRes();
+
+      await handler(cronReq(), res.res);
+
+      expect(db.queriesFor("receipts")).toHaveLength(1);
+      expect(res.body).toEqual({ expiredImages: 0 });
+    });
+
     // PostgREST caps a read at max-rows and drops the rest without an error
     // (ticket 36), so a full page means "read on", keyed after its last id.
     it("reads on past a full page, starting after its last id", async () => {
       const fullPage = Array.from({ length: POSTGREST_PAGE_SIZE }, (_, index) => ({
-        id: `receipt-${String(index + 1).padStart(6, "0")}`,
-        original_image_url: `circle-1/${index + 1}.jpg`,
+        id: `receipt-${index}`,
+        original_image_url: `circle-1/${index}.jpg`,
       }));
       const db = installSupabase({
         receipts: [
           { data: fullPage, error: null },
           { data: null, error: null },
-          { data: [{ id: "receipt-999999", original_image_url: "circle-2/last.jpg" }], error: null },
+          { data: [{ id: "receipt-last", original_image_url: "circle-2/last.jpg" }], error: null },
           { data: null, error: null },
         ],
       });
@@ -178,7 +216,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
       await handler(cronReq(), res.res);
 
       const secondRead = db.queriesFor("receipts")[2];
-      expect(secondRead).toContainEqual(["gt", "id", "receipt-001000"]);
+      expect(secondRead).toContainEqual(["gt", "id", fullPage.at(-1)?.id]);
       expect(db.storage.remove).toHaveBeenLastCalledWith(["circle-2/last.jpg"]);
       expect(res.body).toEqual({ expiredImages: POSTGREST_PAGE_SIZE + 1 });
     });

@@ -29,11 +29,13 @@ Out of scope: objects in the bucket that no receipt points to (from before ticke
 
 ## Answer
 
-Done as planned. `api/cron/expire-receipt-images.ts` runs daily at 03:00 UTC (`vercel.json`; the low-stock check stays at 00:00). The cutoff is `IMAGE_RETENTION_MONTHS` (12) calendar months before now, in UTC. Each page removes its paths from the `receipts` bucket, then sets `original_image_url` to null for its ids; a failed read, remove, or update returns 500 and stops, and a failed remove leaves the column set so the next run retries it. Success returns `200 { expiredImages: N }`.
+Done as planned. `api/cron/expire-receipt-images.ts` runs daily at 03:00 UTC (`vercel.json`; the low-stock check stays at 00:00). The cutoff is `IMAGE_RETENTION_MONTHS` (12) calendar months before now, in UTC. Each page removes its paths from the `receipts` bucket, then sets `original_image_url` to null for the ids whose paths `remove()` reports deleted; a failed read, remove, or update returns 500 and stops, and a failed remove leaves the column set so the next run retries it. Success returns `200 { expiredImages: N }`, counting only the cleared rows. CRON_SECRET checking is shared with the low-stock cron as `isCronAuthorized` in `api/_lib/cronAuth.ts`.
 
-Tests in `api/cron/expire-receipt-images.test.ts`: 405 for non-GET; 401 with no secret, a wrong one, or `CRON_SECRET` unset; the read's filters (image present, `uploaded_at` before the cutoff); remove then clear, in that order; paging past a full page; and the three failures.
+Tests in `api/cron/expire-receipt-images.test.ts`: 405 for non-GET; 401 with no secret, a wrong one, or `CRON_SECRET` unset; the read's filters (image present, `uploaded_at` before the cutoff); remove then clear, in that order; clearing only what Storage reports deleted; paging past a full page; and the three failures.
 
-Not checked by the tests: that live PostgREST applies the filters as written, and that Storage's `remove()` succeeds for a path already gone. Check both on the first live run that has something to expire (the oldest receipts date from August 2026, so not before August 2027).
+Amendment to Plan 4, from code review: clearing every id on the page trusted Storage to have deleted every path it was given. A path `remove()` doesn't report keeps its row set instead, so a later run tries it again. The cost: Storage doesn't report an object that was already gone, so a row whose update failed after its image was removed keeps pointing at nothing. That is harmless (the UI never renders the image) and preferred to an image left in the bucket that no row points to.
+
+Not checked by the tests: that live PostgREST applies the filters as written, and that each object `remove()` returns has the full path (`circle/file.jpg`) as its `name`. Check both on the first live run that has something to expire (the oldest receipts date from August 2026, so not before August 2027).
 
 ---
 
@@ -66,8 +68,10 @@ spec.md 第 5.1 节规定，小票原图"存在 Supabase Storage 里，默认 12
 
 ## 结论
 
-按方案完成。`api/cron/expire-receipt-images.ts` 每天 UTC 03:00 运行（`vercel.json`；库存检查仍在 00:00）。截止时间是当前时间往前 `IMAGE_RETENTION_MONTHS`（12）个自然月，按 UTC 算。每一页先从 `receipts` bucket 删掉这些路径，再把这些 id 的 `original_image_url` 置空；读取、remove 或 update 任何一步失败都返回 500 并停止，remove 失败时这一列保持原值，下次运行会重试。成功时返回 `200 { expiredImages: N }`。
+按方案完成。`api/cron/expire-receipt-images.ts` 每天 UTC 03:00 运行（`vercel.json`；库存检查仍在 00:00）。截止时间是当前时间往前 `IMAGE_RETENTION_MONTHS`（12）个自然月，按 UTC 算。每一页先从 `receipts` bucket 删掉这些路径，再把 `remove()` 报告已删除的那些路径对应的 id 的 `original_image_url` 置空；读取、remove 或 update 任何一步失败都返回 500 并停止，remove 失败时这一列保持原值，下次运行会重试。成功时返回 `200 { expiredImages: N }`，只计入被置空的行。CRON_SECRET 校验和库存 cron 共用，是 `api/_lib/cronAuth.ts` 里的 `isCronAuthorized`。
 
-测试在 `api/cron/expire-receipt-images.test.ts`：非 GET 返回 405；没带密钥、密钥错误、或 `CRON_SECRET` 未设置都返回 401；读取的过滤条件（有图片、`uploaded_at` 早于截止时间）；先 remove 再置空，顺序不能反；超过一整页时继续翻页；以及三种失败情况。
+测试在 `api/cron/expire-receipt-images.test.ts`：非 GET 返回 405；没带密钥、密钥错误、或 `CRON_SECRET` 未设置都返回 401；读取的过滤条件（有图片、`uploaded_at` 早于截止时间）；先 remove 再置空，顺序不能反；只置空 Storage 报告已删除的；超过一整页时继续翻页；以及三种失败情况。
 
-测试覆盖不到的：线上 PostgREST 是否按写的那样执行过滤，以及 Storage 的 `remove()` 对已经不存在的路径是否返回成功。等第一次真正有东西过期的线上运行时核实（最早的小票是 2026 年 8 月的，所以不会早于 2027 年 8 月）。
+对方案第 4 条的修订（来自 code review）：把整页 id 都置空，等于相信 Storage 删掉了给它的每一条路径。现在 `remove()` 没报告的路径，对应的行保持原值，以后的运行会再试。代价是：Storage 不会报告本来就不存在的对象，所以如果图片删掉后 update 失败，那一行会一直指向一个不存在的对象。这没有害处（UI 从不渲染图片），比在 bucket 里留下没有任何行指向的图片要好。
+
+测试覆盖不到的：线上 PostgREST 是否按写的那样执行过滤，以及 `remove()` 返回的每个对象的 `name` 是否是完整路径（`circle/file.jpg`）。等第一次真正有东西过期的线上运行时核实（最早的小票是 2026 年 8 月的，所以不会早于 2027 年 8 月）。

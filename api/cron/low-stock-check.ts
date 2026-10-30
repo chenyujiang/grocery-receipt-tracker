@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { parseBearerToken } from "../_lib/bearerToken.js";
+import { isCronAuthorized } from "../_lib/cronAuth.js";
 import { detectLowStock, type ProductConsumptionCheck } from "../../src/lib/lowStockAlerts.js";
 import { fetchPurchaseHistories } from "../../src/lib/purchaseHistory.js";
 import { POSTGREST_PAGE_SIZE } from "../../src/lib/postgrestPaging.js";
@@ -90,19 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // Issue 19: this is one of the two cron routes in api/ with no user session
-  // to check (the other is expire-receipt-images.ts) --
-  // it reads and writes with the service-role client across every Circle, so
-  // RLS doesn't contain it. Vercel Cron sends `Authorization: Bearer
-  // $CRON_SECRET` when CRON_SECRET is set on the project, and that shared
-  // secret is the whole of this route's access control.
-  //
-  // An unset CRON_SECRET fails closed. Treating "no secret configured" as
-  // "skip the check" would leave the route wide open in exactly the
-  // misconfigured deploy this is meant to protect.
-  const cronSecret = process.env.CRON_SECRET;
-  const presentedSecret = parseBearerToken(req.headers.authorization);
-  if (!cronSecret || presentedSecret !== cronSecret) {
+  if (!isCronAuthorized(req.headers.authorization)) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }

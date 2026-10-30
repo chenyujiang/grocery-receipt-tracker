@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { parseBearerToken } from "../_lib/bearerToken.js";
+import { isCronAuthorized } from "../_lib/cronAuth.js";
 import { POSTGREST_PAGE_SIZE } from "../../src/lib/postgrestPaging.js";
 
 // Section 5.1 (ticket 39): original receipt images are deleted from Storage
@@ -17,12 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // Same access control as low-stock-check.ts (issue 19): the service-role
-  // client deletes across every Circle, so the shared secret is the whole of
-  // it, and an unset CRON_SECRET fails closed.
-  const cronSecret = process.env.CRON_SECRET;
-  const presentedSecret = parseBearerToken(req.headers.authorization);
-  if (!cronSecret || presentedSecret !== cronSecret) {
+  if (!isCronAuthorized(req.headers.authorization)) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
@@ -57,30 +52,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       receipt.original_image_url === null ? [] : [{ id: receipt.id, path: receipt.original_image_url }]
     );
     if (expired.length > 0) {
-      // Storage first, then the column: if the update fails, the next run
-      // removes the same (already gone) paths again and clears the column then.
-      // Storage treats a missing object as removed. The other order could leave
-      // an image in the bucket that no receipt points to.
+      // Storage first, then the column, and only for the paths Storage reports
+      // it deleted: a row keeps pointing at any image that may still be in the
+      // bucket, so a later run tries it again. The cost is that a row whose
+      // update failed after its image went keeps pointing at nothing (Storage
+      // doesn't report an object that's already gone), which is harmless. The
+      // other way round could leave an image in the bucket that no receipt
+      // points to.
       //
       // Either failure stops the run. Pages already done stay done, and the
       // next day's run picks up the rest.
-      const { error: removeError } = await supabaseAdmin.storage
+      const { data: removed, error: removeError } = await supabaseAdmin.storage
         .from("receipts")
         .remove(expired.map((image) => image.path));
       if (removeError) {
         res.status(500).json({ error: "Failed to delete expired images" });
         return;
       }
-      const { error: clearError } = await supabaseAdmin
-        .from("receipts")
-        .update({ original_image_url: null })
-        .in("id", expired.map((image) => image.id));
-      if (clearError) {
-        res.status(500).json({ error: "Failed to clear expired image paths" });
-        return;
+      const removedPaths = new Set(removed.map((object) => object.name));
+      const clearedIds = expired
+        .filter((image) => removedPaths.has(image.path))
+        .map((image) => image.id);
+      if (clearedIds.length > 0) {
+        const { error: clearError } = await supabaseAdmin
+          .from("receipts")
+          .update({ original_image_url: null })
+          .in("id", clearedIds);
+        if (clearError) {
+          res.status(500).json({ error: "Failed to clear expired image paths" });
+          return;
+        }
       }
+      totalExpired += clearedIds.length;
     }
-    totalExpired += expired.length;
 
     // A short page is the last one.
     if (receiptRows.length < POSTGREST_PAGE_SIZE) {
