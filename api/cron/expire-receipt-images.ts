@@ -64,19 +64,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       //
       // Any failure stops the run. Pages already done stay done, and the next
       // day's run picks up the rest.
+      const paths = expired.map((image) => image.path);
       const { data: removed, error: removeError } = await supabaseAdmin.storage
         .from("receipts")
-        .remove(expired.map((image) => image.path));
+        .remove(paths);
       if (removeError) {
         res.status(500).json({ error: "Failed to delete expired images" });
-        return;
-      }
-      // A reported name that's none of the paths sent means Storage names
-      // objects some other way, and nothing would ever be cleared; fail loudly
-      // rather than report 0 while the images go.
-      const sentPaths = new Set(expired.map((image) => image.path));
-      if (removed.some((object) => !sentPaths.has(object.name))) {
-        res.status(500).json({ error: "Storage reported deleting unexpected paths" });
         return;
       }
       const removedPaths = new Set(removed.map((object) => object.name));
@@ -94,6 +87,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
       totalExpired += clearedIds.length;
+
+      // A reported name that's none of the paths sent means Storage names
+      // objects some other way. Its image is already gone, but its row can't be
+      // matched, so it's never cleared and is never reported again. This 500
+      // can't save the image; it's an alarm, so the run doesn't report success
+      // while rows go stale. The rows that did match are cleared above first,
+      // or they'd be stuck the same way.
+      const sentPaths = new Set(paths);
+      if (removed.some((object) => !sentPaths.has(object.name))) {
+        res.status(500).json({ error: "Storage reported deleting unexpected paths" });
+        return;
+      }
     }
 
     // A short page is the last one.

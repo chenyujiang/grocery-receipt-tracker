@@ -17,6 +17,14 @@ export interface RequestParts {
   query?: Record<string, string | string[]>;
 }
 
+/** Any secret will do: the cron routes' tests mock isCronAuthorized. */
+export const CRON_SECRET = "cron-secret";
+
+/** A GET as Vercel Cron sends it, carrying `Authorization: Bearer $CRON_SECRET`. */
+export function cronReq(): VercelRequest {
+  return makeReq({ method: "GET", authToken: CRON_SECRET });
+}
+
 export function makeReq({
   method = "POST",
   authToken,

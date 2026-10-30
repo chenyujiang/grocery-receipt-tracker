@@ -6,7 +6,7 @@ vi.mock("../_lib/cronAuth.js", () => ({ isCronAuthorized: vi.fn() }));
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { isCronAuthorized } from "../_lib/cronAuth.js";
 import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
-import { makeReq, makeRes } from "../_lib/testHandler.js";
+import { CRON_SECRET, cronReq, makeReq, makeRes } from "../_lib/testHandler.js";
 import { POSTGREST_PAGE_SIZE } from "../../src/lib/postgrestPaging.js";
 import handler from "./expire-receipt-images.js";
 
@@ -36,16 +36,11 @@ function installSupabase({ receipts = [{ data: [], error: null }], remove }: Wir
   return db;
 }
 
-const CRON_SECRET = "cron-secret";
-
-/** A GET carrying the secret, which isCronAuthorized accepts unless a test says otherwise. */
-function cronReq() {
-  return makeReq({ method: "GET", authToken: CRON_SECRET });
-}
 
 describe("GET /api/cron/expire-receipt-images", () => {
   beforeEach(() => {
-    vi.mocked(isCronAuthorized).mockReset().mockReturnValue(true);
+    vi.clearAllMocks();
+    vi.mocked(isCronAuthorized).mockReturnValue(true);
   });
 
   it.each(["POST", "DELETE", "PUT"])("rejects %s with 405", async (method) => {
@@ -178,6 +173,23 @@ describe("GET /api/cron/expire-receipt-images", () => {
       expect(db.queriesFor("receipts")).toHaveLength(1);
     });
 
+    it("still clears the names that match before failing on one that doesn't", async () => {
+      const db = installSupabase({
+        receipts: [
+          { data: EXPIRED, error: null },
+          { data: null, error: null },
+        ],
+        remove: { data: [{ name: "circle-1/a.jpg" }, { name: "b.jpg" }], error: null },
+      });
+      const res = makeRes();
+
+      await handler(cronReq(), res.res);
+
+      const update = db.queriesFor("receipts")[1];
+      expect(update).toContainEqual(["in", "id", ["receipt-1"]]);
+      expect(res.statusCode).toBe(500);
+    });
+
     it("skips the update when Storage reports nothing deleted", async () => {
       const db = installSupabase({
         receipts: [{ data: EXPIRED, error: null }],
@@ -212,6 +224,8 @@ describe("GET /api/cron/expire-receipt-images", () => {
 
       const secondRead = db.queriesFor("receipts")[2];
       expect(secondRead).toContainEqual(["gt", "id", fullPage.at(-1)?.id]);
+      expect(secondRead).toContainEqual(["not", "original_image_url", "is", null]);
+      expect(secondRead).toContainEqual(["lt", "uploaded_at", "2025-10-30T12:00:00.000Z"]);
       expect(db.storage.remove).toHaveBeenLastCalledWith(["circle-2/last.jpg"]);
       expect(res.body).toEqual({ expiredImages: POSTGREST_PAGE_SIZE + 1 });
     });

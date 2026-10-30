@@ -8,7 +8,7 @@ import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { installFakeSupabase, type RecordedCall } from "../../src/test/fakeSupabase.js";
 import { detectLowStock } from "../../src/lib/lowStockAlerts.js";
 import { isCronAuthorized } from "../_lib/cronAuth.js";
-import { makeReq, makeRes } from "../_lib/testHandler.js";
+import { CRON_SECRET, cronReq, makeReq, makeRes } from "../_lib/testHandler.js";
 import handler from "./low-stock-check.js";
 
 const PRODUCTS = [
@@ -109,12 +109,6 @@ function historyQueries(queries: RecordedCall[][]) {
   return queries.map((query) => query.find(([method]) => method === "in")?.[2]);
 }
 
-const CRON_SECRET = "cron-secret";
-
-/** A GET carrying the secret, which isCronAuthorized accepts unless a test says otherwise. */
-function cronReq() {
-  return makeReq({ method: "GET", authToken: CRON_SECRET });
-}
 
 describe("GET /api/cron/low-stock-check", () => {
   beforeEach(() => {
