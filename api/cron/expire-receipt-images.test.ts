@@ -269,7 +269,8 @@ describe("GET /api/cron/expire-receipt-images", () => {
 
     // The column must stay set while the image may still be in the bucket, or
     // nothing would ever point the next run at it again.
-    // Full pages, so only the 500 stops each run from reading another one.
+    // A full page, so a run that went on would read another one, and the
+    // query count would show it.
     it("leaves the column set and stops with 500 when the Storage remove fails", async () => {
       const db = installSupabase({
         receipts: [
@@ -286,6 +287,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
       expect(db.queriesFor("receipts")).toHaveLength(1);
     });
 
+    // A full page, as above, so the query count shows the run stopped.
     it("stops with 500 when clearing the column fails", async () => {
       const db = installSupabase({
         receipts: [
@@ -302,10 +304,11 @@ describe("GET /api/cron/expire-receipt-images", () => {
       expect(db.queriesFor("receipts")).toHaveLength(2);
     });
 
-    it("keeps the pages already cleared when a later page fails", async () => {
+    it("clears a full page before failing with 500 on the next page's read", async () => {
+      const fullPage = expiredPage();
       const db = installSupabase({
         receipts: [
-          { data: expiredPage(), error: null },
+          { data: fullPage, error: null },
           { data: null, error: null },
           { data: null, error: { message: "db down" } },
         ],
@@ -314,8 +317,11 @@ describe("GET /api/cron/expire-receipt-images", () => {
 
       await handler(cronReq(), res.res);
 
-      const firstUpdate = db.queriesFor("receipts")[1];
+      const [, firstUpdate, secondRead] = db.queriesFor("receipts");
       expect(firstUpdate).toContainEqual(["update", { original_image_url: null }]);
+      expect(secondRead).toContainEqual(["gt", "id", fullPage.at(-1)?.id]);
+      expect(db.queriesFor("receipts")).toHaveLength(3);
+      expect(db.storage.remove).toHaveBeenCalledTimes(1);
       expect(res.statusCode).toBe(500);
     });
   });

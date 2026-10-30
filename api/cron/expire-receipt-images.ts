@@ -8,7 +8,8 @@ import { POSTGREST_PAGE_SIZE } from "../../src/lib/postgrestPaging.js";
 // Wired up via vercel.json's cron config to run once a day.
 
 // The spec's default. The clock is uploaded_at, when the image was stored,
-// not purchase_date; a Draft that was never confirmed expires the same way.
+// not purchase_date. Status doesn't matter: a Draft that was never confirmed
+// has held its image just as long, so it expires the same way.
 const IMAGE_RETENTION_MONTHS = 12;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -23,17 +24,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const cutoff = new Date();
-  const day = cutoff.getUTCDate();
+  const dayOfMonth = cutoff.getUTCDate();
   cutoff.setUTCMonth(cutoff.getUTCMonth() - IMAGE_RETENTION_MONTHS);
   // A day the target month lacks (Feb 29 a year back) rolls into the next
   // month; step back to the target month's last day instead.
-  if (cutoff.getUTCDate() !== day) {
+  if (cutoff.getUTCDate() !== dayOfMonth) {
     cutoff.setUTCDate(0);
   }
 
-  // Keyset paging over id, as in low-stock-check.ts (ticket 36): one read is
-  // capped by PostgREST's max-rows, and a page's worth of paths is also
-  // within Storage's limit for a single remove() (see postgrestPaging.ts).
+  // Keyset paging over id, as in low-stock-check.ts (ticket 36). Each page's
+  // paths go to one remove(); postgrestPaging.ts says why that fits.
   let totalExpired = 0;
   let lastId: string | null = null;
   for (;;) {
@@ -68,7 +68,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // stays set for good, assuming Storage reports nothing for an object
       // already gone (unverified, see ticket 39). Every run then sends its path
       // to remove() again. That's harmless provided remove() succeeds for a
-      // missing path (also unverified): the UI never renders the image.
+      // missing path (also unverified): the UI never renders the image. If it
+      // errors instead, that row fails its page on every run, and since any
+      // failure stops the run, every page after it is never reached either.
       //
       // Any failure stops the run. Pages already done stay done, and the next
       // day's run picks up the rest.
@@ -100,8 +102,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // objects some other way. Its image is already gone, but its row can't be
       // matched, so it's never cleared and is never reported again. This 500
       // can't save the image; it's an alarm, so the run doesn't report success
-      // while rows go stale. The rows that did match are cleared above first,
-      // or they'd be stuck the same way.
+      // while rows go stale. If Storage always names objects that way, every
+      // run that deletes an image fails here, and the stuck rows pile up. The
+      // rows that did match are cleared above first, or they'd be stuck the
+      // same way.
       const sentPaths = new Set(paths);
       if (removed.some((object) => !sentPaths.has(object.name))) {
         res.status(500).json({ error: "Storage reported deleting unexpected paths" });

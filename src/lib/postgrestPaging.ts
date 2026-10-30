@@ -4,10 +4,11 @@
 //
 // This must not exceed max-rows: the server would cut a full page short, the
 // short page would look like the last one, and the read would stop early
-// without an error. Raise it only together with the project's max-rows.
+// without an error.
 //
-// It also must not exceed 1000, Storage's limit for one remove():
-// expire-receipt-images.ts sends a page of paths in a single call.
+// Nor may it exceed 1000, Storage's limit for one remove(), since a page of
+// paths may go to a single call. So it can't go past 1000 even with a higher
+// max-rows.
 //
 // The /api functions load this too, so it stays free of `import.meta.env`
 // and the `@/` alias (see purchaseHistory.ts).
