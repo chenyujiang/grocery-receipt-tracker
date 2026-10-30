@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router";
 import BottomNav from "@/components/BottomNav";
 import RequireAuth from "@/components/RequireAuth";
 import Auth from "@/pages/Auth";

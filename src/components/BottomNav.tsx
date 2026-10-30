@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import { useLanguage } from "@/lib/LanguageProvider";
 
 // Minimal 22px line icons, hand-authored to avoid pulling in an icon library

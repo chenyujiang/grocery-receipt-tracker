@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 
 // @/lib/receiptList, @/lib/circleMembers, and @/lib/receipts are the
 // boundary — their own Supabase behavior is already covered by their own

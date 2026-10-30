@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import SignInForm from "@/components/SignInForm";
 import SignUpForm from "@/components/SignUpForm";
 import { useLanguage } from "@/lib/LanguageProvider";

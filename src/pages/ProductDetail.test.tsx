@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { Link, MemoryRouter, Routes, Route } from "react-router-dom";
+import { Link, MemoryRouter, Routes, Route } from "react-router";
 
 // @/lib/productDetail is the boundary — its own Supabase behavior and the
 // underlying math are already covered by productDetail.test.ts and the pure

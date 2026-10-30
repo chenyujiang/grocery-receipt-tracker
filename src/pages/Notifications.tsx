@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { fetchAlerts, type AlertListItem } from "@/lib/alerts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { pickText } from "@/lib/bilingual";

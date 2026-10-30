@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router";
 
 // @/lib/auth and @/lib/adminApi are the boundaries — their own Supabase
 // behavior is covered by their own tests; this only checks issue 15

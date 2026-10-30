@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { MemoryRouter, Routes, Route } from "react-router";
 
 // Issue 15 decision 2: a non-admin (or logged-out visitor) hitting this
 // route sees a plain 404, not a login redirect — the route's existence

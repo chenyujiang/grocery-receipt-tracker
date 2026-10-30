@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { render } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { LanguageProvider, LANGUAGE_STORAGE_KEY } from "@/lib/LanguageProvider";
 
 // Renders a page with the display language toggled to Chinese, the way

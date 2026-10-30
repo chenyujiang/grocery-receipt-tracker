@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { fetchReceipts, type ReceiptListItem, type ReceiptFilters } from "@/lib/receiptList";
 import { fetchCircleMembers, type CircleMember } from "@/lib/circleMembers";
 import { deleteReceipt } from "@/lib/receipts";

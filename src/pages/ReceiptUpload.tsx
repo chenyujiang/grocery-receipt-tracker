@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { uploadReceipt } from "@/lib/receipts";
 import { useLanguage } from "@/lib/LanguageProvider";
 import { useAuth, type AuthSession } from "@/lib/AuthProvider";

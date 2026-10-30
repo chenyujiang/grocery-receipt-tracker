@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 
 // @/lib/adminApi is the boundary — its own Supabase/fetch behavior is
 // already covered by adminApi.test.ts; this only checks the page's UI

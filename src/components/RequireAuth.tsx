@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate } from "react-router";
 import { useAuth } from "@/lib/AuthProvider";
 
 // Wraps a page that requires a signed-in user; redirects to /auth otherwise.

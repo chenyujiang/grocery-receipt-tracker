@@ -28,7 +28,7 @@ async function renderAppAt(path: string, fake: FakeSupabaseOptions) {
     return importOriginal();
   });
 
-  const { MemoryRouter } = await import("react-router-dom");
+  const { MemoryRouter } = await import("react-router");
   const { supabase } = await import("@/lib/supabaseClient");
   const { installFakeSupabase } = await import("@/test/fakeSupabase");
   installFakeSupabase(supabase, fake);

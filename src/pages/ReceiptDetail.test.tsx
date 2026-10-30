@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { MemoryRouter, Routes, Route } from "react-router";
 
 // @/lib/receipts is the boundary — its own Supabase behavior is already
 // covered by receipts.test.ts; this only checks the page's rendering and
