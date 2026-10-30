@@ -1,6 +1,7 @@
 {
   "crons": [
-    { "path": "/api/cron/low-stock-check", "schedule": "0 0 * * *" }
+    { "path": "/api/cron/low-stock-check", "schedule": "0 0 * * *" },
+    { "path": "/api/cron/expire-receipt-images", "schedule": "0 3 * * *" }
   ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }

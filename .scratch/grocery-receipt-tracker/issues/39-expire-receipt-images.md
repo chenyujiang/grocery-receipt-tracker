@@ -1,0 +1,73 @@
+Type: task
+Status: resolved
+GitHub: #47
+
+## Problem
+
+spec.md Section 5.1 says original receipt images are "stored in Supabase Storage and auto-deleted after 12 months by default (only the images are cleared; structured data is kept forever)", and lists `original_image_url` as "cleared after retention period". Nothing does this. `vercel.json` schedules only `/api/cron/low-stock-check`, so every photo stays in the private `receipts` bucket forever.
+
+Images are only deleted today when a receipt is deleted (`deleteReceipt` in `src/lib/receipts.ts`) or when recognition fails after the upload (ticket 38).
+
+## Plan: a second daily cron
+
+New route `api/cron/expire-receipt-images.ts`, scheduled in `vercel.json` once a day, at a different hour from the low-stock check.
+
+1. **Auth**: same as `low-stock-check.ts`. `GET` only. `Authorization: Bearer $CRON_SECRET` must match, and an unset `CRON_SECRET` fails closed (401). The route uses the service-role client across every Circle, so the secret is its only access control.
+2. **What expires**: receipts with `original_image_url is not null` and `uploaded_at` more than 12 months before now. The clock is `uploaded_at`, because that is when the image was stored; `purchase_date` is when the shopping happened. Status doesn't matter: a draft that was never confirmed loses its image too. The 12 months is a named constant in the route, since the spec calls it a default.
+3. **Paging**: keyset over `id`, `POSTGREST_PAGE_SIZE` rows a page, as in ticket 36. One page of paths is also within Storage's limit for one `remove()` call (1000).
+4. **Order, per page**: first `storage.from("receipts").remove(paths)`, then `update receipts set original_image_url = null where id in (page ids)`. If the update fails after the remove, the next run removes the same paths again. Storage treats a missing object as already removed, so the re-run is safe and nulls the column. The reverse order would leave images in the bucket that no row points to.
+5. **Failure**: stop at the first failed remove or update and return 500 with a generic message. Pages already done stay done, and the next day's run picks up the rest.
+6. **Response**: `200 { expiredImages: N }`.
+
+Structured data is untouched: only the object in the bucket and the one column change. The UI never shows the stored image (`originalImageUrl` is read but not rendered), so nothing on screen changes.
+
+Out of scope: objects in the bucket that no receipt points to (from before ticket 38). They would need a bucket listing, not a receipts query.
+
+## Seams under test
+
+- The route handler, `api/cron/expire-receipt-images.ts`, with `supabaseAdmin` faked by `installFakeSupabase` as in `low-stock-check.test.ts`, and the clock fixed with fake timers.
+
+## Answer
+
+Done as planned. `api/cron/expire-receipt-images.ts` runs daily at 03:00 UTC (`vercel.json`; the low-stock check stays at 00:00). The cutoff is `IMAGE_RETENTION_MONTHS` (12) calendar months before now, in UTC. Each page removes its paths from the `receipts` bucket, then sets `original_image_url` to null for its ids; a failed read, remove, or update returns 500 and stops, and a failed remove leaves the column set so the next run retries it. Success returns `200 { expiredImages: N }`.
+
+Tests in `api/cron/expire-receipt-images.test.ts`: 405 for non-GET; 401 with no secret, a wrong one, or `CRON_SECRET` unset; the read's filters (image present, `uploaded_at` before the cutoff); remove then clear, in that order; paging past a full page; and the three failures.
+
+Not checked by the tests: that live PostgREST applies the filters as written, and that Storage's `remove()` succeeds for a path already gone. Check both on the first live run that has something to expire (the oldest receipts date from August 2026, so not before August 2027).
+
+---
+
+> **中文版**（上方为英文原文；两者不一致时以英文为准）
+
+## 问题
+
+spec.md 第 5.1 节规定，小票原图"存在 Supabase Storage 里，默认 12 个月后自动删除（只清图片，结构化数据永久保留）"，并把 `original_image_url` 写作"保留期过后清空"。目前没有任何代码做这件事。`vercel.json` 里只排了 `/api/cron/low-stock-check`，所以每张照片都会永远留在私有的 `receipts` bucket 里。
+
+现在只有两种情况会删图片：删除小票时（`src/lib/receipts.ts` 里的 `deleteReceipt`），以及上传之后识别失败时（ticket 38）。
+
+## 方案：再加一个每天跑的 cron
+
+新建路由 `api/cron/expire-receipt-images.ts`，在 `vercel.json` 里排成每天一次，时间和库存检查错开。
+
+1. **鉴权**：和 `low-stock-check.ts` 一样。只接受 `GET`。`Authorization: Bearer $CRON_SECRET` 必须匹配；`CRON_SECRET` 没设置时直接拒绝（401）。这个路由用 service-role client 处理所有 Circle，所以这个密钥就是它全部的访问控制。
+2. **哪些过期**：`original_image_url is not null`，并且 `uploaded_at` 早于当前时间 12 个月以上的小票。按 `uploaded_at` 算，因为那是图片存进来的时间；`purchase_date` 只是购物的日期。不看状态：一直没确认的草稿也会被清掉图片。12 个月写成路由里的一个具名常量，因为 spec 说的是"默认"。
+3. **分页**：按 `id` 做 keyset 分页，每页 `POSTGREST_PAGE_SIZE` 行，和 ticket 36 一样。一页的路径数量也在 Storage 单次 `remove()` 的上限（1000）以内。
+4. **每页的顺序**：先 `storage.from("receipts").remove(paths)`，再 `update receipts set original_image_url = null where id in (本页 id)`。如果 remove 成功后 update 失败，下次运行会再 remove 一遍同样的路径。Storage 把不存在的对象当作已删除，所以重跑是安全的，并且会把这一列清空。反过来的顺序会在 bucket 里留下没有任何行指向的图片。
+5. **失败**：遇到第一次 remove 或 update 失败就停下，返回 500 和一条通用错误信息。已经处理完的页保持不变，剩下的第二天再跑。
+6. **响应**：`200 { expiredImages: N }`。
+
+结构化数据不动：只删 bucket 里的对象，并清空这一列。UI 从来不显示存下的图片（`originalImageUrl` 读出来了但没有渲染），所以页面上看不出变化。
+
+不在范围内：bucket 里没有任何小票指向的对象（ticket 38 之前留下的）。处理它们需要列出 bucket 内容，而不是查 receipts 表。
+
+## 测试的 seam
+
+- 路由 handler `api/cron/expire-receipt-images.ts`。和 `low-stock-check.test.ts` 一样，用 `installFakeSupabase` 伪造 `supabaseAdmin`，并用 fake timers 固定时间。
+
+## 结论
+
+按方案完成。`api/cron/expire-receipt-images.ts` 每天 UTC 03:00 运行（`vercel.json`；库存检查仍在 00:00）。截止时间是当前时间往前 `IMAGE_RETENTION_MONTHS`（12）个自然月，按 UTC 算。每一页先从 `receipts` bucket 删掉这些路径，再把这些 id 的 `original_image_url` 置空；读取、remove 或 update 任何一步失败都返回 500 并停止，remove 失败时这一列保持原值，下次运行会重试。成功时返回 `200 { expiredImages: N }`。
+
+测试在 `api/cron/expire-receipt-images.test.ts`：非 GET 返回 405；没带密钥、密钥错误、或 `CRON_SECRET` 未设置都返回 401；读取的过滤条件（有图片、`uploaded_at` 早于截止时间）；先 remove 再置空，顺序不能反；超过一整页时继续翻页；以及三种失败情况。
+
+测试覆盖不到的：线上 PostgREST 是否按写的那样执行过滤，以及 Storage 的 `remove()` 对已经不存在的路径是否返回成功。等第一次真正有东西过期的线上运行时核实（最早的小票是 2026 年 8 月的，所以不会早于 2027 年 8 月）。

@@ -6,6 +6,6 @@
 // short page would look like the last one, and the read would stop early
 // without an error. Raise it only together with the project's max-rows.
 //
-// Shared by src/lib/purchaseHistory.ts and api/cron/low-stock-check.ts, so it
+// Shared by src/lib/purchaseHistory.ts and both api/cron/ routes, so it
 // stays free of `import.meta.env` and the `@/` alias (see purchaseHistory.ts).
 export const POSTGREST_PAGE_SIZE = 1000;

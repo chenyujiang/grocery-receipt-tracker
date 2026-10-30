@@ -47,6 +47,7 @@ Once the document is complete, it will be handed off to the development phase fo
 - [Validate matched product id (34-validate-matched-product-id)](issues/34-validate-matched-product-id.md) — `recognizeReceipt` keeps Claude's `matched_product_id` only if it's one of the ids the prompt offered; anything else becomes `null` (a new product) instead of a foreign-key failure after the call was charged.
 - [Long receipts hit max_tokens (35-long-receipts-hit-max-tokens)](issues/35-long-receipts-hit-max-tokens.md) — `max_tokens` raised from 4096 to 16000 (model still Haiku 4.5); a response that still stops at `max_tokens` throws a user-facing "too long, photograph it in two halves" message instead of a JSON parse error, and the trial reservation is handed back.
 - [Recognize route housekeeping (38-recognize-route-housekeeping)](issues/38-recognize-route-housekeeping.md) — Any failure after the image upload deletes the stored image (best effort, before responding); the route returns a generic message for database errors instead of their raw text, keeping user-facing `Error` messages; the frontend's `errorMessage()` deliberately still shows them. Prompt size left as is.
+- [Expire receipt images (39-expire-receipt-images)](issues/39-expire-receipt-images.md) — A second daily cron, `api/cron/expire-receipt-images.ts`, deletes images uploaded more than 12 months ago from the `receipts` bucket, then clears `original_image_url`; Storage first, so a failed update is safe to re-run. Same `CRON_SECRET` access control and keyset paging as the low-stock cron.
 
 ## Not yet specified
 
@@ -111,6 +112,7 @@ Once the document is complete, it will be handed off to the development phase fo
 - [校验匹配到的商品 id（34-validate-matched-product-id）](issues/34-validate-matched-product-id.md) — `recognizeReceipt` 只保留提示词里给出过的 `matched_product_id`；其他值变成 `null`（按新商品处理），不会在已经扣费之后才因外键失败。
 - [长小票超出 max_tokens（35-long-receipts-hit-max-tokens）](issues/35-long-receipts-hit-max-tokens.md) — `max_tokens` 从 4096 调到 16000（模型仍是 Haiku 4.5）；仍停在 `max_tokens` 的响应会抛出给用户看的"太长了，分成上下两半拍"提示，而不是 JSON 解析错误，试用预占也会归还。
 - [识别路由收尾整理（38-recognize-route-housekeeping）](issues/38-recognize-route-housekeeping.md) — 图片上传之后任何一步失败，都会删掉已存的图片（尽力而为，在响应之前）；数据库错误返回通用提示而不是原始文字，写给用户看的 `Error` 信息保留；前端的 `errorMessage()` 有意仍然显示它们。提示词大小暂不处理。
+- [小票图片过期删除（39-expire-receipt-images）](issues/39-expire-receipt-images.md) — 第二个每天跑的 cron `api/cron/expire-receipt-images.ts`，把上传超过 12 个月的图片从 `receipts` bucket 删掉，再清空 `original_image_url`；先删 Storage，所以 update 失败后重跑是安全的。鉴权（`CRON_SECRET`）和 keyset 分页都和库存 cron 一样。
 
 ## Not yet specified
 

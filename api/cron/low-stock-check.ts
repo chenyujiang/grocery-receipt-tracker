@@ -90,7 +90,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // Issue 19: this is the only route in api/ with no user session to check --
+  // Issue 19: this is one of the two cron routes in api/ with no user session
+  // to check (the other is expire-receipt-images.ts) --
   // it reads and writes with the service-role client across every Circle, so
   // RLS doesn't contain it. Vercel Cron sends `Authorization: Bearer
   // $CRON_SECRET` when CRON_SECRET is set on the project, and that shared

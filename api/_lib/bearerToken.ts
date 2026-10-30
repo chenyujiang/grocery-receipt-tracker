@@ -1,9 +1,9 @@
 const BEARER_PREFIX = "Bearer ";
 
 // The one place that knows how to read an `Authorization: Bearer <token>`
-// header. Three routes parse one: receipts/recognize.ts and
+// header. Four routes parse one: receipts/recognize.ts and
 // requireGlobalAdmin.ts both pull a Supabase access token out of it, and
-// cron/low-stock-check.ts pulls Vercel Cron's shared secret. What the token
+// the two cron routes pull Vercel Cron's shared secret. What the token
 // *means* differs; getting it out of the header does not.
 //
 // An empty token ("Bearer " with nothing after it) is null, not "". Every

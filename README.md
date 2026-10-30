@@ -22,7 +22,7 @@ Other commands: `npm run build`, `npm run typecheck`, `npm test`.
 
 - `SUPABASE_SERVICE_ROLE_KEY` — used only inside `/api`, never sent to the client. Supabase dashboard → Settings → API.
 - `CLAUDE_API_KEY` — from the Anthropic console.
-- `CRON_SECRET` — any long random string of your own choosing. Add the same value to the Vercel project's env vars, where Vercel Cron reads it and sends it as `Authorization: Bearer $CRON_SECRET` to `api/cron/low-stock-check.ts`. That route sweeps every Circle with the service-role client, so the secret is its only access control — leaving it unset doesn't disable the check, it makes the route refuse every caller.
+- `CRON_SECRET` — any long random string of your own choosing. Add the same value to the Vercel project's env vars, where Vercel Cron reads it and sends it as `Authorization: Bearer $CRON_SECRET` to the two cron routes: `api/cron/low-stock-check.ts` and `api/cron/expire-receipt-images.ts`, which deletes receipt images more than 12 months old (spec.md Section 5.1). Both sweep every Circle with the service-role client, so the secret is their only access control — leaving it unset doesn't disable them, it makes them refuse every caller.
 
 ## Supabase
 
@@ -76,7 +76,7 @@ npm run dev
 
 - `SUPABASE_SERVICE_ROLE_KEY` —— 只在 `/api` 内部使用，绝不发给客户端。在 Supabase 控制台 → Settings → API 获取。
 - `CLAUDE_API_KEY` —— 从 Anthropic 控制台获取。
-- `CRON_SECRET` —— 自己随便取一个足够长的随机字符串。同一个值也要加到 Vercel 项目的环境变量里，Vercel Cron 会从那里读取，并以 `Authorization: Bearer $CRON_SECRET` 的形式发给 `api/cron/low-stock-check.ts`。该路由用 service-role client 扫描所有 Circle，因此这个密钥就是它全部的访问控制——不设置它并不会关掉检查，而是会让该路由拒绝所有调用方。
+- `CRON_SECRET` —— 自己随便取一个足够长的随机字符串。同一个值也要加到 Vercel 项目的环境变量里，Vercel Cron 会从那里读取，并以 `Authorization: Bearer $CRON_SECRET` 的形式发给两个 cron 路由：`api/cron/low-stock-check.ts`，以及删除 12 个月以前小票图片的 `api/cron/expire-receipt-images.ts`（spec.md 第 5.1 节）。两者都用 service-role client 扫描所有 Circle，因此这个密钥就是它们全部的访问控制——不设置它并不会关掉它们，而是会让它们拒绝所有调用方。
 
 ## Supabase
 
