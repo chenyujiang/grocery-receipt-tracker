@@ -36,6 +36,14 @@ function installSupabase({ receipts = [{ data: [], error: null }], remove }: Wir
   return db;
 }
 
+/** A full page of expired receipts, ids sorting in page order. */
+function expiredPage() {
+  return Array.from({ length: POSTGREST_PAGE_SIZE }, (_, index) => ({
+    id: `receipt-${String(index).padStart(6, "0")}`,
+    original_image_url: `circle-1/${index}.jpg`,
+  }));
+}
+
 describe("GET /api/cron/expire-receipt-images", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -174,10 +182,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
 
     it("still clears the names that match, then stops with 500 on one that doesn't", async () => {
       // A full page, so only the 500 stops the run from reading a second one.
-      const fullPage = Array.from({ length: POSTGREST_PAGE_SIZE }, (_, index) => ({
-        id: `receipt-${String(index).padStart(6, "0")}`,
-        original_image_url: `circle-1/${index}.jpg`,
-      }));
+      const fullPage = expiredPage();
       const db = installSupabase({
         receipts: [
           { data: fullPage, error: null },
@@ -212,10 +217,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
     // PostgREST caps a read at max-rows and drops the rest without an error
     // (ticket 36), so a full page means "read on", keyed after its last id.
     it("reads on past a full page, starting after its last id", async () => {
-      const fullPage = Array.from({ length: POSTGREST_PAGE_SIZE }, (_, index) => ({
-        id: `receipt-${String(index).padStart(6, "0")}`,
-        original_image_url: `circle-1/${index}.jpg`,
-      }));
+      const fullPage = expiredPage();
       const db = installSupabase({
         receipts: [
           { data: fullPage, error: null },

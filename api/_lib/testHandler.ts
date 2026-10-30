@@ -21,7 +21,10 @@ export interface RequestParts {
 /** The value doesn't matter: callers mock isCronAuthorized. */
 export const CRON_SECRET = "cron-secret";
 
-/** A request as Vercel Cron sends it (a GET), carrying `Authorization: Bearer $CRON_SECRET`. */
+/**
+ * A request carrying `Authorization: Bearer $CRON_SECRET`, as Vercel Cron sends
+ * it. Cron only sends GET; pass another method to test a route rejecting it.
+ */
 export function cronReq(method = "GET"): VercelRequest {
   return makeReq({ method, authToken: CRON_SECRET });
 }
