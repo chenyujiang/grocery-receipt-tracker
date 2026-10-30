@@ -201,7 +201,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
     });
 
     it("still clears the names that match, then stops with 500 on one that doesn't", async () => {
-      // A full page, so only the 500 stops the run from reading a second one.
+      // A full page; why is beside the Storage remove failure test.
       const fullPage = expiredPage();
       const db = installSupabase({
         receipts: [
@@ -269,8 +269,8 @@ describe("GET /api/cron/expire-receipt-images", () => {
 
     // The column must stay set while the image may still be in the bucket, or
     // nothing would ever point the next run at it again.
-    // A full page, so a run that went on would read another one, and the
-    // query count would show it.
+    // A full page, so a run that went on would query again, and the query
+    // count would show it.
     it("leaves the column set and stops with 500 when the Storage remove fails", async () => {
       const db = installSupabase({
         receipts: [
@@ -287,7 +287,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
       expect(db.queriesFor("receipts")).toHaveLength(1);
     });
 
-    // A full page, as above, so the query count shows the run stopped.
+    // A full page, as for the Storage remove failure above.
     it("stops with 500 when clearing the column fails", async () => {
       const db = installSupabase({
         receipts: [
@@ -319,6 +319,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
 
       const [, firstUpdate, secondRead] = db.queriesFor("receipts");
       expect(firstUpdate).toContainEqual(["update", { original_image_url: null }]);
+      expect(firstUpdate).toContainEqual(["in", "id", fullPage.map((row) => row.id)]);
       expect(secondRead).toContainEqual(["gt", "id", fullPage.at(-1)?.id]);
       expect(db.queriesFor("receipts")).toHaveLength(3);
       expect(db.storage.remove).toHaveBeenCalledTimes(1);

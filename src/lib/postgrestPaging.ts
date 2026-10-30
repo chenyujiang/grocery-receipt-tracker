@@ -6,9 +6,9 @@
 // short page would look like the last one, and the read would stop early
 // without an error.
 //
-// Nor may it exceed 1000, Storage's limit for one remove(), since a page of
-// paths may go to a single call. So it can't go past 1000 even with a higher
-// max-rows.
+// Nor may it exceed 1000, Storage's limit for one remove(): a page of paths
+// goes to Storage in a single call. So it can't go past 1000 even with a
+// higher max-rows.
 //
 // The /api functions load this too, so it stays free of `import.meta.env`
 // and the `@/` alias (see purchaseHistory.ts).
