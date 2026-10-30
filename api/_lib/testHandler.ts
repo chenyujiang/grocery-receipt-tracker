@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-// Fakes for the two objects Vercel hands a route handler. A handler returns
-// nothing and reports everything through `res`, so a test needs to record the
-// status and body rather than read a return value.
+// Fakes for the two objects Vercel hands a route handler, plus the request
+// Vercel Cron sends. A handler returns nothing and reports everything through
+// `res`, so a test needs to record the status and body rather than read a
+// return value.
 //
 // Deliberately minimal: `status().json()` is the only response shape any of
 // the six handlers uses. Add to this only when a handler actually needs more.
@@ -17,12 +18,12 @@ export interface RequestParts {
   query?: Record<string, string | string[]>;
 }
 
-/** Any secret will do: the cron routes' tests mock isCronAuthorized. */
+/** The value doesn't matter: callers mock isCronAuthorized. */
 export const CRON_SECRET = "cron-secret";
 
-/** A GET as Vercel Cron sends it, carrying `Authorization: Bearer $CRON_SECRET`. */
-export function cronReq(): VercelRequest {
-  return makeReq({ method: "GET", authToken: CRON_SECRET });
+/** A request as Vercel Cron sends it (a GET), carrying `Authorization: Bearer $CRON_SECRET`. */
+export function cronReq(method = "GET"): VercelRequest {
+  return makeReq({ method, authToken: CRON_SECRET });
 }
 
 export function makeReq({

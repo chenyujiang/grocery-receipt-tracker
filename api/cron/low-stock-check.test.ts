@@ -8,7 +8,7 @@ import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { installFakeSupabase, type RecordedCall } from "../../src/test/fakeSupabase.js";
 import { detectLowStock } from "../../src/lib/lowStockAlerts.js";
 import { isCronAuthorized } from "../_lib/cronAuth.js";
-import { CRON_SECRET, cronReq, makeReq, makeRes } from "../_lib/testHandler.js";
+import { CRON_SECRET, cronReq, makeRes } from "../_lib/testHandler.js";
 import handler from "./low-stock-check.js";
 
 const PRODUCTS = [
@@ -109,7 +109,6 @@ function historyQueries(queries: RecordedCall[][]) {
   return queries.map((query) => query.find(([method]) => method === "in")?.[2]);
 }
 
-
 describe("GET /api/cron/low-stock-check", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -121,7 +120,7 @@ describe("GET /api/cron/low-stock-check", () => {
     const db = installSupabase();
     const res = makeRes();
 
-    await handler(makeReq({ method, authToken: CRON_SECRET }), res.res);
+    await handler(cronReq(method), res.res);
 
     expect(res.statusCode).toBe(405);
     expect(db.from).not.toHaveBeenCalled();

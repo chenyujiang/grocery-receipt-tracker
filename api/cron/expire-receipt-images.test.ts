@@ -6,7 +6,7 @@ vi.mock("../_lib/cronAuth.js", () => ({ isCronAuthorized: vi.fn() }));
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { isCronAuthorized } from "../_lib/cronAuth.js";
 import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
-import { CRON_SECRET, cronReq, makeReq, makeRes } from "../_lib/testHandler.js";
+import { CRON_SECRET, cronReq, makeRes } from "../_lib/testHandler.js";
 import { POSTGREST_PAGE_SIZE } from "../../src/lib/postgrestPaging.js";
 import handler from "./expire-receipt-images.js";
 
@@ -36,7 +36,6 @@ function installSupabase({ receipts = [{ data: [], error: null }], remove }: Wir
   return db;
 }
 
-
 describe("GET /api/cron/expire-receipt-images", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -47,7 +46,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
     const db = installSupabase();
     const res = makeRes();
 
-    await handler(makeReq({ method, authToken: CRON_SECRET }), res.res);
+    await handler(cronReq(method), res.res);
 
     expect(res.statusCode).toBe(405);
     expect(db.from).not.toHaveBeenCalled();
@@ -173,21 +172,28 @@ describe("GET /api/cron/expire-receipt-images", () => {
       expect(db.queriesFor("receipts")).toHaveLength(1);
     });
 
-    it("still clears the names that match before failing on one that doesn't", async () => {
+    it("still clears the names that match, then stops with 500 on one that doesn't", async () => {
+      // A full page, so only the 500 stops the run from reading a second one.
+      const fullPage = Array.from({ length: POSTGREST_PAGE_SIZE }, (_, index) => ({
+        id: `receipt-${String(index).padStart(6, "0")}`,
+        original_image_url: `circle-1/${index}.jpg`,
+      }));
       const db = installSupabase({
         receipts: [
-          { data: EXPIRED, error: null },
+          { data: fullPage, error: null },
           { data: null, error: null },
+          { data: [], error: null },
         ],
-        remove: { data: [{ name: "circle-1/a.jpg" }, { name: "b.jpg" }], error: null },
+        remove: { data: [{ name: "circle-1/0.jpg" }, { name: "1.jpg" }], error: null },
       });
       const res = makeRes();
 
       await handler(cronReq(), res.res);
 
       const update = db.queriesFor("receipts")[1];
-      expect(update).toContainEqual(["in", "id", ["receipt-1"]]);
+      expect(update).toContainEqual(["in", "id", ["receipt-000000"]]);
       expect(res.statusCode).toBe(500);
+      expect(db.queriesFor("receipts")).toHaveLength(2);
     });
 
     it("skips the update when Storage reports nothing deleted", async () => {
