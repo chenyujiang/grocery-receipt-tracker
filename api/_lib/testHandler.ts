@@ -5,8 +5,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 // `res`, so a test needs to record the status and body rather than read a
 // return value.
 //
-// Deliberately minimal: `status().json()` is the only response shape any of
-// the six handlers uses. Add to this only when a handler actually needs more.
+// Deliberately minimal: `status().json()` is the only response shape any
+// handler uses. Add to this only when a handler actually needs more.
 
 export interface RequestParts {
   method?: string;

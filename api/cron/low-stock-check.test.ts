@@ -5,7 +5,7 @@ vi.mock("../../src/lib/lowStockAlerts.js", () => ({ detectLowStock: vi.fn() }));
 vi.mock("../_lib/cronAuth.js", () => ({ isCronAuthorized: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { installFakeSupabase, type RecordedCall } from "../../src/test/fakeSupabase.js";
+import { installFakeSupabase, type PreparedResult, type RecordedCall } from "../../src/test/fakeSupabase.js";
 import { detectLowStock } from "../../src/lib/lowStockAlerts.js";
 import { isCronAuthorized } from "../_lib/cronAuth.js";
 import { CRON_SECRET, cronReq, makeRes } from "../_lib/testHandler.js";
@@ -56,19 +56,17 @@ function purchase(overrides: Record<string, unknown> = {}) {
   };
 }
 
-type Result = { data?: unknown; error: unknown; count?: number | null };
-
 const OK = { error: null };
 
 interface Wiring {
   /** The `products` sweep. */
-  products?: Result;
+  products?: PreparedResult;
   /** One flat row set for the batched history read, as PostgREST returns it. */
-  receiptItems?: Result;
+  receiptItems?: PreparedResult;
   /** Results for the write-backs to `products`, in the order they happen. */
-  productUpdates?: Result[];
+  productUpdates?: PreparedResult[];
   /** The `record_low_stock_alerts` RPC: insert Alerts + flag Products, atomically. */
-  recordAlerts?: Result;
+  recordAlerts?: PreparedResult;
 }
 
 function installSupabase({

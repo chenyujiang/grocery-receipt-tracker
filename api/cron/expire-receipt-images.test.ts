@@ -5,21 +5,19 @@ vi.mock("../_lib/cronAuth.js", () => ({ isCronAuthorized: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { isCronAuthorized } from "../_lib/cronAuth.js";
-import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
+import { installFakeSupabase, type PreparedResult } from "../../src/test/fakeSupabase.js";
 import { CRON_SECRET, cronReq, makeRes } from "../_lib/testHandler.js";
 import { POSTGREST_PAGE_SIZE } from "../../src/lib/postgrestPaging.js";
 import handler from "./expire-receipt-images.js";
 
-type Result = { data?: unknown; error: unknown };
-
 interface Wiring {
   /** Results for `from("receipts")`, in order: page reads and the updates after them. */
-  receipts?: Result[];
+  receipts?: PreparedResult[];
   /**
    * What `storage.from("receipts").remove()` resolves to, on every call.
    * Unset, Storage deletes every path it's asked to.
    */
-  remove?: Result;
+  remove?: PreparedResult;
 }
 
 function installSupabase({ receipts = [{ data: [], error: null }], remove }: Wiring = {}) {
@@ -105,7 +103,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
       { id: "receipt-2", original_image_url: "circle-2/b.jpg" },
     ];
 
-    it("reads only receipts still holding an image uploaded more than 12 months ago", async () => {
+    it("reads only receipts still holding an image uploaded before the retention cutoff", async () => {
       const db = installSupabase();
 
       await handler(cronReq(), makeRes().res);
@@ -113,6 +111,28 @@ describe("GET /api/cron/expire-receipt-images", () => {
       const read = db.queriesFor("receipts")[0];
       expect(read).toContainEqual(["not", "original_image_url", "is", null]);
       expect(read).toContainEqual(["lt", "uploaded_at", "2025-10-30T12:00:00.000Z"]);
+    });
+
+    // Keyset paging needs a stable order, and a page no bigger than one read.
+    it("reads in id order, a page at a time", async () => {
+      const db = installSupabase();
+
+      await handler(cronReq(), makeRes().res);
+
+      const read = db.queriesFor("receipts")[0];
+      expect(read).toContainEqual(["order", "id", { ascending: true }]);
+      expect(read).toContainEqual(["limit", POSTGREST_PAGE_SIZE]);
+    });
+
+    // A year back from Feb 29 has no Feb 29; it lands on Feb 28, not Mar 1.
+    it("puts the cutoff on the month's last day when that year has no such day", async () => {
+      vi.setSystemTime(new Date("2028-02-29T12:00:00.000Z"));
+      const db = installSupabase();
+
+      await handler(cronReq(), makeRes().res);
+
+      const read = db.queriesFor("receipts")[0];
+      expect(read).toContainEqual(["lt", "uploaded_at", "2027-02-28T12:00:00.000Z"]);
     });
 
     it("deletes each expired image from the receipts bucket, then clears its column", async () => {
@@ -249,9 +269,13 @@ describe("GET /api/cron/expire-receipt-images", () => {
 
     // The column must stay set while the image may still be in the bucket, or
     // nothing would ever point the next run at it again.
+    // Full pages, so only the 500 stops each run from reading another one.
     it("leaves the column set and stops with 500 when the Storage remove fails", async () => {
       const db = installSupabase({
-        receipts: [{ data: EXPIRED, error: null }],
+        receipts: [
+          { data: expiredPage(), error: null },
+          { data: [], error: null },
+        ],
         remove: { data: null, error: { message: "storage down" } },
       });
       const res = makeRes();
@@ -263,9 +287,26 @@ describe("GET /api/cron/expire-receipt-images", () => {
     });
 
     it("stops with 500 when clearing the column fails", async () => {
-      installSupabase({
+      const db = installSupabase({
         receipts: [
-          { data: EXPIRED, error: null },
+          { data: expiredPage(), error: null },
+          { data: null, error: { message: "db down" } },
+          { data: [], error: null },
+        ],
+      });
+      const res = makeRes();
+
+      await handler(cronReq(), res.res);
+
+      expect(res.statusCode).toBe(500);
+      expect(db.queriesFor("receipts")).toHaveLength(2);
+    });
+
+    it("keeps the pages already cleared when a later page fails", async () => {
+      const db = installSupabase({
+        receipts: [
+          { data: expiredPage(), error: null },
+          { data: null, error: null },
           { data: null, error: { message: "db down" } },
         ],
       });
@@ -273,6 +314,8 @@ describe("GET /api/cron/expire-receipt-images", () => {
 
       await handler(cronReq(), res.res);
 
+      const firstUpdate = db.queriesFor("receipts")[1];
+      expect(firstUpdate).toContainEqual(["update", { original_image_url: null }]);
       expect(res.statusCode).toBe(500);
     });
   });

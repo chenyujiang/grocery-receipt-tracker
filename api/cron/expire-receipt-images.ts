@@ -8,7 +8,7 @@ import { POSTGREST_PAGE_SIZE } from "../../src/lib/postgrestPaging.js";
 // Wired up via vercel.json's cron config to run once a day.
 
 // The spec's default. The clock is uploaded_at, when the image was stored,
-// not purchase_date; a draft that was never confirmed expires the same way.
+// not purchase_date; a Draft that was never confirmed expires the same way.
 const IMAGE_RETENTION_MONTHS = 12;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -23,11 +23,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const cutoff = new Date();
+  const day = cutoff.getUTCDate();
   cutoff.setUTCMonth(cutoff.getUTCMonth() - IMAGE_RETENTION_MONTHS);
+  // A day the target month lacks (Feb 29 a year back) rolls into the next
+  // month; step back to the target month's last day instead.
+  if (cutoff.getUTCDate() !== day) {
+    cutoff.setUTCDate(0);
+  }
 
   // Keyset paging over id, as in low-stock-check.ts (ticket 36): one read is
   // capped by PostgREST's max-rows, and a page's worth of paths is also
-  // within Storage's limit for a single remove().
+  // within Storage's limit for a single remove() (see postgrestPaging.ts).
   let totalExpired = 0;
   let lastId: string | null = null;
   for (;;) {
@@ -57,10 +63,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // bucket, so every later run tries it again. The other way round could
       // leave an image in the bucket that no receipt points to.
       //
-      // The cost: Storage doesn't report an object that was already gone, so a
-      // row whose update failed after its image was removed is never cleared,
-      // and every run sends its path to remove() again. That's harmless (the UI
-      // never renders the image) and rare (it takes a failed update).
+      // The cost: a row whose image went but whose column wasn't cleared (a
+      // failed update, or a remove() that deleted and still returned an error)
+      // stays set for good, assuming Storage reports nothing for an object
+      // already gone (unverified, see ticket 39). Every run then sends its path
+      // to remove() again. That's harmless provided remove() succeeds for a
+      // missing path (also unverified): the UI never renders the image.
       //
       // Any failure stops the run. Pages already done stay done, and the next
       // day's run picks up the rest.
