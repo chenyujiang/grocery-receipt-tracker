@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({ supabaseAdmin: {} }));
+vi.mock("../_lib/cronAuth.js", () => ({ isCronAuthorized: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { isCronAuthorized } from "../_lib/cronAuth.js";
 import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
 import { makeReq, makeRes } from "../_lib/testHandler.js";
 import { POSTGREST_PAGE_SIZE } from "../../src/lib/postgrestPaging.js";
@@ -23,7 +25,7 @@ interface Wiring {
 function installSupabase({ receipts = [{ data: [], error: null }], remove }: Wiring = {}) {
   const db = installFakeSupabase(supabaseAdmin, {
     tables: { receipts },
-    storage: { remove: remove ?? { data: [], error: null } },
+    storage: remove ? { remove } : {},
   });
   if (!remove) {
     db.storage.remove.mockImplementation(async (paths: string[]) => ({
@@ -34,23 +36,18 @@ function installSupabase({ receipts = [{ data: [], error: null }], remove }: Wir
   return db;
 }
 
-// What Vercel Cron sends as `Authorization: Bearer $CRON_SECRET`.
-const CRON_SECRET = "cron-secret-from-env";
+const CRON_SECRET = "cron-secret";
 
+/** A GET carrying the secret, which isCronAuthorized accepts unless a test says otherwise. */
 function cronReq() {
   return makeReq({ method: "GET", authToken: CRON_SECRET });
 }
 
 describe("GET /api/cron/expire-receipt-images", () => {
   beforeEach(() => {
-    process.env.CRON_SECRET = CRON_SECRET;
+    vi.mocked(isCronAuthorized).mockReset().mockReturnValue(true);
   });
 
-  afterEach(() => {
-    delete process.env.CRON_SECRET;
-  });
-
-  // Access control is isCronAuthorized's (api/_lib/cronAuth.ts).
   it.each(["POST", "DELETE", "PUT"])("rejects %s with 405", async (method) => {
     const db = installSupabase();
     const res = makeRes();
@@ -61,28 +58,17 @@ describe("GET /api/cron/expire-receipt-images", () => {
     expect(db.from).not.toHaveBeenCalled();
   });
 
-  it("rejects a GET with no Authorization header with 401", async () => {
-    const db = installSupabase();
-    const res = makeRes();
+  // Which callers get through is isCronAuthorized's, tested in cronAuth.test.ts.
+  it("checks the request's Authorization header", async () => {
+    installSupabase();
 
-    await handler(makeReq({ method: "GET" }), res.res);
+    await handler(cronReq(), makeRes().res);
 
-    expect(res.statusCode).toBe(401);
-    expect(db.from).not.toHaveBeenCalled();
+    expect(isCronAuthorized).toHaveBeenCalledWith(`Bearer ${CRON_SECRET}`);
   });
 
-  it("rejects a GET carrying the wrong secret with 401", async () => {
-    const db = installSupabase();
-    const res = makeRes();
-
-    await handler(makeReq({ method: "GET", authToken: "not-the-secret" }), res.res);
-
-    expect(res.statusCode).toBe(401);
-    expect(db.from).not.toHaveBeenCalled();
-  });
-
-  it("refuses every caller when CRON_SECRET is unset, rather than skipping the check", async () => {
-    delete process.env.CRON_SECRET;
+  it("rejects a GET isCronAuthorized refuses with 401, before reading anything", async () => {
+    vi.mocked(isCronAuthorized).mockReturnValue(false);
     const db = installSupabase();
     const res = makeRes();
 
@@ -147,9 +133,7 @@ describe("GET /api/cron/expire-receipt-images", () => {
       expect(res.body).toEqual({ expiredImages: 2 });
     });
 
-    // A failed update after a successful remove leaves a row pointing at an
-    // image that's gone, which is harmless. The other order could leave an
-    // image in the bucket that no row points to.
+    // Why this order: see the handler's comment on the remove.
     it("removes from Storage before clearing the column", async () => {
       const db = installSupabase({
         receipts: [
@@ -164,8 +148,6 @@ describe("GET /api/cron/expire-receipt-images", () => {
       expect(db.storage.remove.mock.invocationCallOrder[0]).toBeLessThan(updateOrder);
     });
 
-    // A path Storage didn't report as deleted may still be in the bucket, so
-    // its row keeps pointing at it for the next run to try again.
     it("clears only the images Storage reports it deleted", async () => {
       const db = installSupabase({
         receipts: [
@@ -181,6 +163,19 @@ describe("GET /api/cron/expire-receipt-images", () => {
       const update = db.queriesFor("receipts")[1];
       expect(update).toContainEqual(["in", "id", ["receipt-1"]]);
       expect(res.body).toEqual({ expiredImages: 1 });
+    });
+
+    it("fails with 500 when Storage reports a name that's none of the paths sent", async () => {
+      const db = installSupabase({
+        receipts: [{ data: EXPIRED, error: null }],
+        remove: { data: [{ name: "a.jpg" }], error: null },
+      });
+      const res = makeRes();
+
+      await handler(cronReq(), res.res);
+
+      expect(res.statusCode).toBe(500);
+      expect(db.queriesFor("receipts")).toHaveLength(1);
     });
 
     it("skips the update when Storage reports nothing deleted", async () => {
@@ -200,14 +195,14 @@ describe("GET /api/cron/expire-receipt-images", () => {
     // (ticket 36), so a full page means "read on", keyed after its last id.
     it("reads on past a full page, starting after its last id", async () => {
       const fullPage = Array.from({ length: POSTGREST_PAGE_SIZE }, (_, index) => ({
-        id: `receipt-${index}`,
+        id: `receipt-${String(index).padStart(6, "0")}`,
         original_image_url: `circle-1/${index}.jpg`,
       }));
       const db = installSupabase({
         receipts: [
           { data: fullPage, error: null },
           { data: null, error: null },
-          { data: [{ id: "receipt-last", original_image_url: "circle-2/last.jpg" }], error: null },
+          { data: [{ id: "receipt-999999", original_image_url: "circle-2/last.jpg" }], error: null },
           { data: null, error: null },
         ],
       });

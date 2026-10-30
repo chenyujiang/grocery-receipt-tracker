@@ -54,19 +54,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (expired.length > 0) {
       // Storage first, then the column, and only for the paths Storage reports
       // it deleted: a row keeps pointing at any image that may still be in the
-      // bucket, so a later run tries it again. The cost is that a row whose
-      // update failed after its image went keeps pointing at nothing (Storage
-      // doesn't report an object that's already gone), which is harmless. The
-      // other way round could leave an image in the bucket that no receipt
-      // points to.
+      // bucket, so every later run tries it again. The other way round could
+      // leave an image in the bucket that no receipt points to.
       //
-      // Either failure stops the run. Pages already done stay done, and the
-      // next day's run picks up the rest.
+      // The cost: Storage doesn't report an object that was already gone, so a
+      // row whose update failed after its image was removed is never cleared,
+      // and every run sends its path to remove() again. That's harmless (the UI
+      // never renders the image) and rare (it takes a failed update).
+      //
+      // Any failure stops the run. Pages already done stay done, and the next
+      // day's run picks up the rest.
       const { data: removed, error: removeError } = await supabaseAdmin.storage
         .from("receipts")
         .remove(expired.map((image) => image.path));
       if (removeError) {
         res.status(500).json({ error: "Failed to delete expired images" });
+        return;
+      }
+      // A reported name that's none of the paths sent means Storage names
+      // objects some other way, and nothing would ever be cleared; fail loudly
+      // rather than report 0 while the images go.
+      const sentPaths = new Set(expired.map((image) => image.path));
+      if (removed.some((object) => !sentPaths.has(object.name))) {
+        res.status(500).json({ error: "Storage reported deleting unexpected paths" });
         return;
       }
       const removedPaths = new Set(removed.map((object) => object.name));

@@ -1,11 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({ supabaseAdmin: {} }));
 vi.mock("../../src/lib/lowStockAlerts.js", () => ({ detectLowStock: vi.fn() }));
+vi.mock("../_lib/cronAuth.js", () => ({ isCronAuthorized: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { installFakeSupabase, type RecordedCall } from "../../src/test/fakeSupabase.js";
 import { detectLowStock } from "../../src/lib/lowStockAlerts.js";
+import { isCronAuthorized } from "../_lib/cronAuth.js";
 import { makeReq, makeRes } from "../_lib/testHandler.js";
 import handler from "./low-stock-check.js";
 
@@ -107,10 +109,9 @@ function historyQueries(queries: RecordedCall[][]) {
   return queries.map((query) => query.find(([method]) => method === "in")?.[2]);
 }
 
-// What Vercel Cron sends as `Authorization: Bearer $CRON_SECRET`.
-const CRON_SECRET = "cron-secret-from-env";
+const CRON_SECRET = "cron-secret";
 
-/** The one request shape that should get through: a GET carrying the secret. */
+/** A GET carrying the secret, which isCronAuthorized accepts unless a test says otherwise. */
 function cronReq() {
   return makeReq({ method: "GET", authToken: CRON_SECRET });
 }
@@ -119,17 +120,9 @@ describe("GET /api/cron/low-stock-check", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(detectLowStock).mockReturnValue({ newAlerts: [], recoveries: [] } as never);
-    process.env.CRON_SECRET = CRON_SECRET;
+    vi.mocked(isCronAuthorized).mockReturnValue(true);
   });
 
-  afterEach(() => {
-    delete process.env.CRON_SECRET;
-  });
-
-  // Issue 19: this route reads and writes with the service-role client, so it
-  // sweeps every Circle regardless of RLS. It is the one route in api/ that
-  // has no user session to check, so the shared secret is the whole of its
-  // access control.
   it.each(["POST", "DELETE", "PUT"])("rejects %s with 405", async (method) => {
     const db = installSupabase();
     const res = makeRes();
@@ -140,35 +133,21 @@ describe("GET /api/cron/low-stock-check", () => {
     expect(db.from).not.toHaveBeenCalled();
   });
 
-  it("rejects a GET with no Authorization header with 401", async () => {
-    const db = installSupabase();
-    const res = makeRes();
+  // Which callers get through is isCronAuthorized's, tested in cronAuth.test.ts.
+  it("checks the request's Authorization header", async () => {
+    installSupabase();
 
-    await handler(makeReq({ method: "GET" }), res.res);
+    await handler(cronReq(), makeRes().res);
 
-    expect(res.statusCode).toBe(401);
-    expect(db.from).not.toHaveBeenCalled();
+    expect(isCronAuthorized).toHaveBeenCalledWith(`Bearer ${CRON_SECRET}`);
   });
 
-  it("rejects a GET carrying the wrong secret with 401", async () => {
+  it("rejects a GET isCronAuthorized refuses with 401, before reading anything", async () => {
+    vi.mocked(isCronAuthorized).mockReturnValue(false);
     const db = installSupabase();
     const res = makeRes();
 
-    await handler(makeReq({ method: "GET", authToken: "not-the-secret" }), res.res);
-
-    expect(res.statusCode).toBe(401);
-    expect(db.from).not.toHaveBeenCalled();
-  });
-
-  // Fails closed: an unset CRON_SECRET in production is the exact case this
-  // check exists to protect against, so it must not degrade into "skip the
-  // check" -- that would leave the route open precisely when it is misconfigured.
-  it("refuses every caller when CRON_SECRET is unset, rather than skipping the check", async () => {
-    delete process.env.CRON_SECRET;
-    const db = installSupabase();
-    const res = makeRes();
-
-    await handler(makeReq({ method: "GET", authToken: CRON_SECRET }), res.res);
+    await handler(cronReq(), res.res);
 
     expect(res.statusCode).toBe(401);
     expect(db.from).not.toHaveBeenCalled();
