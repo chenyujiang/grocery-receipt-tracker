@@ -20,7 +20,10 @@ import type { Database } from "@/types/database.types";
 /** One recorded chain call: the method name followed by its arguments. */
 export type RecordedCall = [string, ...unknown[]];
 
-/** Whatever awaiting a query resolves to — `data`/`error`, or `count` for a head request. */
+/**
+ * Whatever awaiting a query, an `rpc()`, or a Storage operation such as
+ * `remove()` resolves to — `data`/`error`, or `count` for a head request.
+ */
 export type PreparedResult = {
   data?: unknown;
   error?: unknown;
