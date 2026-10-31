@@ -21,8 +21,10 @@ import type { Database } from "@/types/database.types";
 export type RecordedCall = [string, ...unknown[]];
 
 /**
- * Whatever awaiting a query, an `rpc()`, or a Storage operation such as
- * `remove()` resolves to — `data`/`error`, or `count` for a head request.
+ * The shape awaiting a query or an `rpc()` resolves to — `data`/`error`, or
+ * `count` for a query's head request. Storage operations such as `remove()`
+ * resolve to the same `data`/`error` shape, so tests type theirs with it too,
+ * though the `storage` option doesn't require it.
  */
 export type PreparedResult = {
   data?: unknown;
