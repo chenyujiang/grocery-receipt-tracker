@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { createFakeSupabase } from "@/test/fakeSupabase";
+import { createFakeSupabase, type PreparedResult } from "@/test/fakeSupabase";
 import { fetchPurchaseHistories } from "@/lib/purchaseHistory";
 
 // This module takes its Supabase client as a parameter (the browser's
 // RLS-scoped one, or the cron's service-role one), so there's nothing to
 // vi.mock — the fake client is passed straight in.
-function fakeClient(result: { data: unknown; error: unknown }) {
+function fakeClient(result: PreparedResult) {
   return createFakeSupabase({ tables: { receipt_items: result } });
 }
 
