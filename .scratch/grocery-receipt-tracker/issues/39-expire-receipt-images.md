@@ -34,7 +34,15 @@ Done as planned, with Plan 4 and 5 amended in review. `api/cron/expire-receipt-i
 
 Tests in `api/_lib/cronAuth.test.ts`: the right secret passes; no secret, a wrong one, or `CRON_SECRET` unset fails. Tests in `api/cron/expire-receipt-images.test.ts` (with `isCronAuthorized` mocked): 405 for non-GET; that it checks the request's Authorization header, and 401 when it refuses; 200 with nothing expired when no image is past retention; the read's filters (image present, `uploaded_at` before the cutoff), id order, and page size; the cutoff from Feb 29; remove then clear, in that order; clearing only what Storage reports deleted; skipping the update when Storage reports nothing deleted; paging past a full page, with the second read keeping the filters; and the four failures (a failed read, remove, or update, and an unmatched name). Each of the last three has a full-page test, to show the run stops rather than queries again. An unmatched name still clears the rows that did match, and a failed read on the second page comes after the first page is cleared.
 
-Not checked by the tests: that live PostgREST applies the filters as written; that each object `remove()` returns has the full path (`circle/file.jpg`) as its `name`; and that `remove()` succeeds, reporting nothing, for a path already gone. What goes wrong if either of the last two doesn't hold is in the handler's comments on the remove and on the unmatched-name check. Check all three on the first live run that has something to expire (the oldest receipts date from August 2026, so not before August 2027).
+Not checked by the tests: that live PostgREST applies the filters as written; that each object `remove()` returns has the full path (`circle/file.jpg`) as its `name`; and that `remove()` succeeds, reporting nothing, for a path already gone.
+
+Checked live on 2026-11-01, with a test image uploaded to the `receipts` bucket at `zz-verify-ticket39/<uuid>.jpeg`, the same `folder/file` shape as a real path:
+
+- `remove()` returned one object, its `name` equal to the full path sent.
+- A second `remove()` of that path, now gone, returned `data: []` and `error: null`.
+- The handler's read, run read-only at four cutoffs, returned exactly as many rows as SQL counted with `uploaded_at` before each cutoff (0, 6, 12, 19). Paging two rows at a time gave the same ids in the same order. So the `uploaded_at` filter and the keyset paging hold.
+
+Still unchecked: the `original_image_url` not-null filter. Every live receipt still has its image, so no row could show the filter excluding one. Check it on the first live run that has something to expire (the oldest receipts date from August 2026, so not before August 2027).
 
 ---
 
@@ -72,4 +80,12 @@ spec.md 第 5.1 节规定，小票原图"存在 Supabase Storage 里，默认 12
 
 测试在 `api/_lib/cronAuth.test.ts`：正确的密钥通过；没带密钥、密钥错误、或 `CRON_SECRET` 未设置都不通过。测试在 `api/cron/expire-receipt-images.test.ts`（mock 掉 `isCronAuthorized`）：非 GET 返回 405；检查的是请求的 Authorization header，它拒绝时返回 401；没有图片过期时返回 200，过期数为 0；读取的过滤条件（有图片、`uploaded_at` 早于截止时间）、按 id 排序和页大小；从 2 月 29 日算出的截止时间；先 remove 再置空，顺序不能反；只置空 Storage 报告已删除的；Storage 什么也没报告删除时跳过 update；超过一整页时继续翻页，并且第二次读取仍带着过滤条件；以及四种失败情况（读取、remove 或 update 失败，以及对不上的名字）。后三种各有一个用整页数据的测试，以证明运行会停下，而不是继续查询。遇到对不上的名字时，仍会先置空能对上的行；第二页读取失败时，第一页已经置空。
 
-测试覆盖不到的：线上 PostgREST 是否按写的那样执行过滤；`remove()` 返回的每个对象的 `name` 是否是完整路径（`circle/file.jpg`）；以及 `remove()` 对已经不存在的路径是否成功并且什么也不报告。后两条不成立时会出什么问题，写在 handler 里 remove 那段注释和对不上名字的检查那段注释中。三条都等第一次真正有东西过期的线上运行时核实（最早的小票是 2026 年 8 月的，所以不会早于 2027 年 8 月）。
+测试覆盖不到的：线上 PostgREST 是否按写的那样执行过滤；`remove()` 返回的每个对象的 `name` 是否是完整路径（`circle/file.jpg`）；以及 `remove()` 对已经不存在的路径是否成功并且什么也不报告。
+
+2026-11-01 在线上核实过：往 `receipts` bucket 上传了一张测试图，路径 `zz-verify-ticket39/<uuid>.jpeg`，和真实路径一样是 `目录/文件` 的形式。
+
+- `remove()` 返回一个对象，它的 `name` 和送去的完整路径相同。
+- 对同一个路径（此时已经不存在）再 `remove()` 一次，返回 `data: []` 和 `error: null`。
+- 用四个截止时间只读地跑 handler 的读取，返回的行数和 SQL 统计的 `uploaded_at` 早于各截止时间的行数完全一致（0、6、12、19）。每页两行翻页，拿到的 id 和顺序都相同。所以 `uploaded_at` 过滤和 keyset 分页都成立。
+
+仍未核实：`original_image_url` 非空过滤。线上每张小票都还有图片，没有哪一行能显示这个过滤把它排除掉。等第一次真正有东西过期的线上运行时核实（最早的小票是 2026 年 8 月的，所以不会早于 2027 年 8 月）。

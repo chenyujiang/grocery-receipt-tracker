@@ -65,12 +65,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       //
       // The cost: a row whose image went but whose column wasn't cleared (a
       // failed update, or a remove() that deleted and still returned an error)
-      // stays set for good, assuming Storage reports nothing for an object
-      // already gone (unverified, see ticket 39). Every run then sends its path
-      // to remove() again. That's harmless provided remove() succeeds for a
-      // missing path (also unverified): the UI never renders the image. If it
-      // errors instead, that row fails its page on every run, and since any
-      // failure stops the run, every page after it is never reached either.
+      // stays set for good, since remove() reports nothing for an object
+      // already gone. Every run then sends its path to remove() again. That's
+      // harmless: remove() succeeds for a missing path, and the UI never
+      // renders the image. Both checked live on 2026-11-01 (ticket 39).
       //
       // Any failure stops the run. Pages already done stay done, and the next
       // day's run picks up the rest.
@@ -98,14 +96,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       totalExpired += clearedIds.length;
 
-      // A reported name that's none of the paths sent means Storage names
-      // objects some other way. Its image is already gone, but its row can't be
-      // matched, so it's never cleared and is never reported again. This 500
-      // can't save the image; it's an alarm, so the run doesn't report success
-      // while rows go stale. If Storage always names objects that way, every
-      // run that deletes an image fails here, and the stuck rows pile up. The
-      // rows that did match are cleared above first, or they'd be stuck the
-      // same way.
+      // Storage names each removed object by the full path it was sent
+      // (checked live on 2026-11-01, ticket 39), so a reported name that's none
+      // of the paths sent means that has changed. Its image is already gone,
+      // but its row can't be matched, so it's never cleared and is never
+      // reported again. This 500 can't save the image; it's an alarm, so the
+      // run doesn't report success while rows go stale. The rows that did
+      // match are cleared above first, or they'd be stuck the same way.
       const sentPaths = new Set(paths);
       if (removed.some((object) => !sentPaths.has(object.name))) {
         res.status(500).json({ error: "Storage reported deleting unexpected paths" });
