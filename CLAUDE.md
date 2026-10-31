@@ -22,6 +22,8 @@ Commands: `npm run dev`, `npm run build`, `npm run typecheck`, `npm run lint`, `
 
 ### Code `/api` loads at runtime
 
+Every file under `api/` whose path has no `_`-prefixed segment is deployed as its own function, and the Hobby plan caps a deployment at **12**. `.vercelignore` drops the `*.test.ts` files from the count, so the cap is on real handlers; shared code goes in `api/_lib/`.
+
 Vercel runs the functions in `api/` under Node's own ESM loader (`package.json` is `"type": "module"`), not Vite — and that includes every `src` file they import, transitively (about a dozen `src` files today, e.g. `src/lib/purchaseHistory.ts`, `lowStockAlerts.ts`, `recognitionFailure.ts`). Each such file must:
 
 - **End every relative import in `.js`** (`"./units.js"`, `"../_lib/userAiAccess.js"`; a directory is `"./dir/index.js"`). Node won't guess an extension, and `moduleResolution: "bundler"` means tsc won't complain — a missing one only shows up on Vercel as `ERR_MODULE_NOT_FOUND` (commit `bb55a2c`). Enforced by lint.

@@ -1,0 +1,3 @@
+# Vercel deploys every file under api/ not prefixed with "_" as its own
+# Serverless Function, tests included, and the Hobby plan allows only 12.
+api/**/*.test.ts
