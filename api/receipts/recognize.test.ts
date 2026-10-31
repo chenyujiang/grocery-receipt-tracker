@@ -14,7 +14,7 @@ vi.mock("../_lib/recognizeReceipt.js", () => ({ recognizeReceipt: vi.fn() }));
 vi.mock("../_lib/saveDraftReceipt.js", () => ({ saveDraftReceipt: vi.fn() }));
 
 import { supabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { installFakeSupabase } from "../../src/test/fakeSupabase.js";
+import { installFakeSupabase, type PreparedResult } from "../../src/test/fakeSupabase.js";
 import { FREE_TRIAL_LIMIT } from "../../src/lib/aiAccessPolicy.js";
 import { reserveCall, type AccessMode, type AccessStatus } from "../_lib/userAiAccess.js";
 import { aiAccessRefusal } from "../_lib/aiAccessRefusal.js";
@@ -29,13 +29,11 @@ const CIRCLE_ID = "circle-1";
 const USER = { id: "user-1" };
 const RECOGNIZED = { receipt: { storeName: "PAK'nSAVE" }, usage: { inputTokens: 900, outputTokens: 300 } };
 
-type Result = { data: unknown; error: unknown };
-
 interface Wiring {
-  profiles?: Result;
-  products?: Result;
+  profiles?: PreparedResult;
+  products?: PreparedResult;
   uploadError?: unknown;
-  removeResult?: Result;
+  removeResult?: PreparedResult;
 }
 
 function installSupabase({
