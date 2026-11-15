@@ -26,8 +26,6 @@ Other commands: `npm run build`, `npm run typecheck`, `npm test`.
 
 ## Supabase
 
-Project: **Eason's Project** (`xflabzrcowhqjvvwjrbt`, `ap-southeast-2`).
-
 Schema (`supabase/migrations/`) mirrors spec.md Section 5: `circles`, `profiles`, `categories`, `products`, `receipts`, `receipt_items`, `edit_logs`, `alerts` (shared by price-spike and low-stock alerts), `global_admins`, and `user_ai_access` (Section 16). RLS is enabled on every table — members can see everything in their circle, but can only edit/delete rows they uploaded themselves (Sections 2, 4). The `receipts` storage bucket is private, path-scoped by `circle_id`.
 
 ## AI access control
@@ -79,8 +77,6 @@ npm run dev
 - `CRON_SECRET` —— 自己随便取一个足够长的随机字符串。同一个值也要加到 Vercel 项目的环境变量里，Vercel Cron 会从那里读取，并以 `Authorization: Bearer $CRON_SECRET` 的形式发给两个 cron 路由：`api/cron/low-stock-check.ts`，以及删除 12 个月以前小票图片的 `api/cron/expire-receipt-images.ts`（spec.md 第 5.1 节）。两者都用 service-role client 扫描所有 Circle，因此这个密钥就是它们全部的访问控制——不设置它并不会关掉它们，而是会让它们拒绝所有调用方。
 
 ## Supabase
-
-项目：**Eason's Project**（`xflabzrcowhqjvvwjrbt`，`ap-southeast-2`）。
 
 数据库结构（`supabase/migrations/`）对应 spec.md 第 5 节：`circles`、`profiles`、`categories`、`products`、`receipts`、`receipt_items`、`edit_logs`、`alerts`（价格异常和库存提醒共用一张表）、`global_admins`、以及 `user_ai_access`（第 16 节）。每张表都开启了 RLS——圈子成员可以看到圈内的所有数据，但只能修改/删除自己上传的记录（对应第 2、4 节）。`receipts` 存储 bucket 是私有的，按 `circle_id` 分路径隔离。
 
